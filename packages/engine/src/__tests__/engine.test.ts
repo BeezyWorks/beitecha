@@ -319,10 +319,10 @@ describe('local holidays', () => {
   })
 
   it('does UK substitute days and Easter-based ones', () => {
-    // Christmas 2027 is a Saturday, Boxing Day a Sunday.
-    expect(dates(UK_HOLIDAYS, 2027).filter((d) => d.includes('christmas') || d.includes('boxing'))).toEqual([
-      '2027-12-27 christmas',
-      '2027-12-28 boxing-day',
+    // Dec 25 2027 is a Saturday, Dec 26 a Sunday.
+    expect(dates(UK_HOLIDAYS, 2027).filter((d) => d.includes('dec-25') || d.includes('dec-26'))).toEqual([
+      '2027-12-27 dec-25',
+      '2027-12-28 dec-26',
     ])
     expect(dates(UK_HOLIDAYS, 2026)).toEqual(expect.arrayContaining(['2026-04-03 good-friday', '2026-04-06 easter-monday']))
     expect(dates(UK_HOLIDAYS, 2026)).toContain('2026-08-31 summer')
@@ -365,7 +365,7 @@ describe('built-in civil calendar', () => {
 
   it('follows the zone, and can be switched off or changed', () => {
     const london = { ...sampleSchedule.settings.location, timeZone: 'Europe/London' }
-    expect(timeOf(shul({ location: london, civilHolidays: undefined }), 'shacharis', '2026-12-28')).toBe('08:00') // Boxing Day, moved
+    expect(timeOf(shul({ location: london, civilHolidays: undefined }), 'shacharis', '2026-12-28')).toBe('08:00') // Dec 26, moved
     expect(timeOf(shul({ location: london, civilHolidays: undefined }), 'shacharis', '2026-11-26')).toBe('06:30')
     expect(timeOf(shul({ civilHolidays: 'none' }), 'shacharis', '2026-11-26')).toBe('06:30')
     expect(timeOf(shul({ civilHolidays: 'uk' }), 'shacharis', '2026-11-26')).toBe('06:30')
@@ -390,9 +390,9 @@ describe('Canada and France', () => {
     expect(dates(CA_HOLIDAYS, 2021)).toContain('2021-05-24 victoria-day') // 24 May is itself the Monday
   })
 
-  it('has Canadian Thanksgiving in October and Boxing Day moved off a weekend', () => {
+  it('has Canadian Thanksgiving in October and Dec 26 moved off a weekend', () => {
     expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-10-12 thanksgiving')
-    expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-12-28 boxing-day') // Boxing Day 2026 is a Saturday
+    expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-12-28 dec-26') // Dec 26 2026 is a Saturday
   })
 
   it('computes the French Easter-based days', () => {

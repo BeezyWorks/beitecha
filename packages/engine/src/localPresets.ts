@@ -15,7 +15,7 @@ export const US_HOLIDAYS: LocalHoliday[] = [
   { id: 'columbus-day', name: { en: 'Columbus Day' }, date: { month: 10, weekday: MON, nth: 2 } },
   { id: 'veterans-day', name: { en: 'Veterans Day' }, date: { month: 11, day: 11, observed: 'nearest' } },
   { id: 'thanksgiving', name: { en: 'Thanksgiving' }, date: { month: 11, weekday: THU, nth: 4 } },
-  { id: 'christmas', name: { en: 'Christmas' }, date: { month: 12, day: 25, observed: 'nearest' } },
+  { id: 'dec-25', name: { en: 'Public holiday (Dec 25)' }, date: { month: 12, day: 25, observed: 'nearest' } },
 ]
 
 /** UK (England and Wales) bank holidays; a weekend one moves to the next free weekday. */
@@ -26,8 +26,8 @@ export const UK_HOLIDAYS: LocalHoliday[] = [
   { id: 'early-may', name: { en: 'Early May bank holiday' }, date: { month: 5, weekday: MON, nth: 1 } },
   { id: 'spring', name: { en: 'Spring bank holiday' }, date: { month: 5, weekday: MON, nth: -1 } },
   { id: 'summer', name: { en: 'Summer bank holiday' }, date: { month: 8, weekday: MON, nth: -1 } },
-  { id: 'christmas', name: { en: 'Christmas Day' }, date: { month: 12, day: 25, observed: 'next' } },
-  { id: 'boxing-day', name: { en: 'Boxing Day' }, date: { month: 12, day: 26, observed: 'next' } },
+  { id: 'dec-25', name: { en: 'Public holiday (Dec 25)' }, date: { month: 12, day: 25, observed: 'next' } },
+  { id: 'dec-26', name: { en: 'Public holiday (Dec 26)' }, date: { month: 12, day: 26, observed: 'next' } },
 ]
 
 const day = (id: string, name: string, month: number, d: number, observed?: 'nearest' | 'next'): LocalHoliday => ({
@@ -58,8 +58,8 @@ export const CA_HOLIDAYS: LocalHoliday[] = [
   day('truth-and-reconciliation', 'National Day for Truth and Reconciliation', 9, 30),
   nth('thanksgiving', 'Thanksgiving', 10, MON, 2),
   day('remembrance-day', 'Remembrance Day', 11, 11),
-  day('christmas', 'Christmas Day', 12, 25, 'next'),
-  day('boxing-day', 'Boxing Day', 12, 26, 'next'),
+  day('dec-25', 'Public holiday (Dec 25)', 12, 25, 'next'),
+  day('dec-26', 'Public holiday (Dec 26)', 12, 26, 'next'),
 ]
 
 /** Quebec's public holidays. */
@@ -71,7 +71,7 @@ export const CA_QC_HOLIDAYS: LocalHoliday[] = [
   day('canada-day', 'Canada Day', 7, 1),
   nth('labour-day', 'Labour Day', 9, MON, 1),
   nth('thanksgiving', 'Thanksgiving', 10, MON, 2),
-  day('christmas', 'Christmas Day', 12, 25),
+  day('dec-25', 'Public holiday (Dec 25)', 12, 25),
 ]
 
 /** France's jours fériés. */
@@ -86,7 +86,7 @@ export const FR_HOLIDAYS: LocalHoliday[] = [
   day('assumption', 'Assomption', 8, 15),
   day('all-saints', 'Toussaint', 11, 1),
   day('armistice', 'Armistice 1918', 11, 11),
-  day('christmas', 'Noël', 12, 25),
+  day('dec-25', 'Public holiday (Dec 25)', 12, 25),
 ]
 
 export const CIVIL_CALENDARS: Record<Exclude<CivilCalendar, 'none'>, { label: string; holidays: LocalHoliday[] }> = {

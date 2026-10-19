@@ -28,7 +28,7 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
 - **App (`src/`).** Expo Router (web only), `src/app/` holds only route files re-exporting feature screens.
   Features: `luach` (shared feed/clock hooks and day components), `public`, `display`, `admin`, `home`, `account`.
   - **Design system = `@beezyworks/design`**, the `packages/design` submodule, same as the siblings. No raw colors or
-    style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1600×900 canvas
+    style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
     scaled to the screen; a DL candidate) and `components/Select.tsx` (styled like the DL's own web pickers).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
   - The admin edits a draft in a zustand store (`features/admin/store.ts`) and saves the whole document.

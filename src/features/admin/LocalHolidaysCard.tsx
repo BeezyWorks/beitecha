@@ -1,5 +1,6 @@
 import { Button, Card, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
+  CIVIL_CALENDARS,
   builtInHolidays,
   civilCalendarOf,
   type CivilCalendar,
@@ -25,6 +26,7 @@ export function describeLocalDate(d: LocalHolidayDate): string {
     return `${Math.abs(d.easter)} day${Math.abs(d.easter) === 1 ? '' : 's'} ${d.easter < 0 ? 'before' : 'after'} Easter`
   }
   if ('nth' in d) return `The ${NTH[String(d.nth) as keyof typeof NTH]} ${WEEKDAYS[d.weekday].en} of ${MONTHS[d.month - 1]}`
+  if ('weekdayBefore' in d) return `The ${WEEKDAYS[d.weekdayBefore].en} before ${MONTHS[d.month - 1]} ${d.day}`
   const observed = d.observed === 'nearest' ? ' (weekend → nearest weekday)' : d.observed === 'next' ? ' (weekend → next free weekday)' : ''
   return `${MONTHS[d.month - 1]} ${d.day}${observed}`
 }
@@ -85,11 +87,11 @@ export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettin
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         Rules can use these (“On… Federal holidays”, or a single one like Thanksgiving), and they show beside the Jewish holidays.
       </Text>
-      <SegmentedControl<CivilCalendar>
+      <Select<CivilCalendar>
+        accessibilityLabel="Holiday calendar"
         options={[
-          { key: 'us', label: 'US federal' },
-          { key: 'uk', label: 'UK bank holidays' },
-          { key: 'none', label: 'None' },
+          ...Object.entries(CIVIL_CALENDARS).map(([value, c]) => ({ value: value as CivilCalendar, label: c.label })),
+          { value: 'none', label: settings.location.israel ? 'None (Israel: the Jewish calendar is the legal one)' : 'None' },
         ]}
         value={civilCalendarOf(settings)}
         onChange={(civilHolidays) => onChange({ ...settings, civilHolidays, ignoredHolidays: undefined })}

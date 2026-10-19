@@ -3,7 +3,19 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { dayInfo } from '../day'
 import { addDays, hostDate } from '../dates'
-import { Calendar, computeDay, formatClock, localHolidayDates, sampleSchedule, UK_HOLIDAYS, US_HOLIDAYS, validate } from '../index'
+import {
+  CA_HOLIDAYS,
+  Calendar,
+  FR_HOLIDAYS,
+  UK_HOLIDAYS,
+  US_HOLIDAYS,
+  computeDay,
+  formatClock,
+  inferCivilCalendar,
+  localHolidayDates,
+  sampleSchedule,
+  validate,
+} from '../index'
 import type { EventDef, LocalHoliday, Schedule, ShulSettings } from '../types'
 
 const settings = sampleSchedule.settings
@@ -364,5 +376,32 @@ describe('built-in civil calendar', () => {
     const moved = shul({ localHolidays: [{ id: 'thanksgiving', name: { en: 'Thanksgiving' }, date: { on: ['2026-11-27'] } }] })
     expect(timeOf(moved, 'shacharis', '2026-11-26')).toBe('06:30')
     expect(timeOf(moved, 'shacharis', '2026-11-27')).toBe('08:00')
+  })
+})
+
+describe('Canada and France', () => {
+  const dates = (holidays: LocalHoliday[], year: number) =>
+    [...localHolidayDates(holidays, year)].map(([d, hs]) => `${d} ${hs.map((h) => h.id).join('+')}`)
+
+  it("finds Victoria Day, the Monday before 25 May, even when 25 May is a Monday", () => {
+    expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-05-18 victoria-day')
+    expect(dates(CA_HOLIDAYS, 2027)).toContain('2027-05-24 victoria-day')
+    expect(dates(CA_HOLIDAYS, 2022)).toContain('2022-05-23 victoria-day') // 25 May 2022 was a Wednesday
+    expect(dates(CA_HOLIDAYS, 2021)).toContain('2021-05-24 victoria-day') // 24 May is itself the Monday
+  })
+
+  it('has Canadian Thanksgiving in October and Boxing Day moved off a weekend', () => {
+    expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-10-12 thanksgiving')
+    expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-12-28 boxing-day') // Boxing Day 2026 is a Saturday
+  })
+
+  it('computes the French Easter-based days', () => {
+    expect(dates(FR_HOLIDAYS, 2026)).toEqual(
+      expect.arrayContaining(['2026-04-06 easter-monday', '2026-05-14 ascension', '2026-05-25 whit-monday']),
+    )
+  })
+
+  it('chooses a calendar by time zone', () => {
+    expect([ 'America/Toronto', 'Europe/Paris', 'Europe/London', 'America/Chicago', 'Asia/Jerusalem' ].map(inferCivilCalendar)).toEqual(['ca', 'fr', 'uk', 'us', 'none'])
   })
 })

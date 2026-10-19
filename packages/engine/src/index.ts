@@ -4,7 +4,10 @@ export { sampleSchedule } from './sample'
 export { starterSchedule } from './starter'
 export { easterSunday, localHolidayDates } from './local'
 export {
-  LOCAL_HOLIDAY_PRESETS,
+  CA_HOLIDAYS,
+  CA_QC_HOLIDAYS,
+  CIVIL_CALENDARS,
+  FR_HOLIDAYS,
   UK_HOLIDAYS,
   US_HOLIDAYS,
   builtInHolidays,

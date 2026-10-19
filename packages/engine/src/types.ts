@@ -49,12 +49,15 @@ export type LocalHolidayDate =
   | { month: number; day: number; observed?: 'nearest' | 'next' }
   /** The `nth` (1–4, or -1 for the last) `weekday` of `month`, e.g. Thanksgiving. */
   | { month: number; weekday: Weekday; nth: 1 | 2 | 3 | 4 | -1 }
+  /** The last `weekdayBefore` strictly before a date, e.g. Victoria Day (the Monday before 25 May). */
+  | { month: number; day: number; weekdayBefore: Weekday }
   /** Days after (negative: before) Western Easter, e.g. Good Friday is -2. */
   | { easter: number }
   /** Exact dates, for anything that follows no rule (a one-off royal occasion). */
   | { on: DateString[] }
 
-export type CivilCalendar = 'us' | 'uk' | 'none'
+/** Israel has none: its legal holidays are the Jewish ones Hebcal already knows. */
+export type CivilCalendar = 'us' | 'uk' | 'ca' | 'ca-qc' | 'fr' | 'none'
 
 export interface LocalHoliday {
   /** Referenced by `{ localHoliday: id }` conditions. */

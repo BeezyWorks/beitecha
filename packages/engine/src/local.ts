@@ -46,7 +46,9 @@ function nominal(date: LocalHolidayDate, year: number): DateString | null {
   if ('on' in date) return null
   if ('easter' in date) return Number.isInteger(date.easter) ? addDays(easterSunday(year), date.easter) : null
   if ('nth' in date) return nthWeekday(year, date.month, date.weekday, date.nth)
-  return validCivil(year, date.month, date.day)
+  const civil = validCivil(year, date.month, date.day)
+  if (civil && 'weekdayBefore' in date) return addDays(civil, -(((weekdayOf(civil) - date.weekdayBefore + 7) % 7) || 7))
+  return civil
 }
 
 /** Every date `holidays` land on in `year`, in list order (so `observed: 'next'` skips earlier ones). */
@@ -60,7 +62,7 @@ export function localHolidayDates(holidays: LocalHoliday[], year: number): Map<D
     }
     let date = nominal(h.date, year)
     if (!date) continue
-    const observed = 'day' in h.date ? h.date.observed : undefined
+    const observed = 'observed' in h.date ? h.date.observed : undefined
     if (observed === 'nearest' && isWeekend(date)) date = addDays(date, weekdayOf(date) === 6 ? -1 : 1)
     if (observed === 'next') while (isWeekend(date) || out.has(date)) date = addDays(date, 1)
     put(date, h)

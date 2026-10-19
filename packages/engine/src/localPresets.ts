@@ -1,4 +1,4 @@
-import type { CivilCalendar, LocalHoliday, ShulSettings } from './types'
+import type { CivilCalendar, LocalHoliday, ShulSettings, Weekday } from './types'
 
 const MON = 1
 const THU = 4
@@ -30,17 +30,83 @@ export const UK_HOLIDAYS: LocalHoliday[] = [
   { id: 'boxing-day', name: { en: 'Boxing Day' }, date: { month: 12, day: 26, observed: 'next' } },
 ]
 
-export const LOCAL_HOLIDAY_PRESETS = {
-  us: { label: 'US federal holidays', holidays: US_HOLIDAYS },
+const day = (id: string, name: string, month: number, d: number, observed?: 'nearest' | 'next'): LocalHoliday => ({
+  id,
+  name: { en: name },
+  date: { month, day: d, ...(observed ? { observed } : {}) },
+})
+const nth = (id: string, name: string, month: number, weekday: Weekday, n: 1 | 2 | 3 | 4 | -1): LocalHoliday => ({
+  id,
+  name: { en: name },
+  date: { month, weekday, nth: n },
+})
+const easter = (id: string, name: string, days: number): LocalHoliday => ({ id, name: { en: name }, date: { easter: days } })
+
+const patriotsDay = (id: string, name: string): LocalHoliday => ({
+  id,
+  name: { en: name },
+  date: { month: 5, day: 25, weekdayBefore: MON },
+})
+
+/** Canada's federal statutory holidays; a weekend one moves to the next free weekday. */
+export const CA_HOLIDAYS: LocalHoliday[] = [
+  day('new-years-day', "New Year's Day", 1, 1, 'next'),
+  easter('good-friday', 'Good Friday', -2),
+  patriotsDay('victoria-day', 'Victoria Day'),
+  day('canada-day', 'Canada Day', 7, 1, 'next'),
+  nth('labour-day', 'Labour Day', 9, MON, 1),
+  day('truth-and-reconciliation', 'National Day for Truth and Reconciliation', 9, 30),
+  nth('thanksgiving', 'Thanksgiving', 10, MON, 2),
+  day('remembrance-day', 'Remembrance Day', 11, 11),
+  day('christmas', 'Christmas Day', 12, 25, 'next'),
+  day('boxing-day', 'Boxing Day', 12, 26, 'next'),
+]
+
+/** Quebec's public holidays. */
+export const CA_QC_HOLIDAYS: LocalHoliday[] = [
+  day('new-years-day', "New Year's Day", 1, 1),
+  easter('good-friday', 'Good Friday', -2),
+  patriotsDay('patriotes-day', 'National Patriots’ Day'),
+  day('fete-nationale', 'Fête nationale', 6, 24),
+  day('canada-day', 'Canada Day', 7, 1),
+  nth('labour-day', 'Labour Day', 9, MON, 1),
+  nth('thanksgiving', 'Thanksgiving', 10, MON, 2),
+  day('christmas', 'Christmas Day', 12, 25),
+]
+
+/** France's jours fériés. */
+export const FR_HOLIDAYS: LocalHoliday[] = [
+  day('new-years-day', "Jour de l'An", 1, 1),
+  easter('easter-monday', 'Lundi de Pâques', 1),
+  day('labour-day', 'Fête du Travail', 5, 1),
+  day('victory-1945', 'Victoire 1945', 5, 8),
+  easter('ascension', 'Ascension', 39),
+  easter('whit-monday', 'Lundi de Pentecôte', 50),
+  day('bastille-day', 'Fête nationale', 7, 14),
+  day('assumption', 'Assomption', 8, 15),
+  day('all-saints', 'Toussaint', 11, 1),
+  day('armistice', 'Armistice 1918', 11, 11),
+  day('christmas', 'Noël', 12, 25),
+]
+
+export const CIVIL_CALENDARS: Record<Exclude<CivilCalendar, 'none'>, { label: string; holidays: LocalHoliday[] }> = {
+  us: { label: 'US federal', holidays: US_HOLIDAYS },
   uk: { label: 'UK bank holidays (England & Wales)', holidays: UK_HOLIDAYS },
-} as const
+  ca: { label: 'Canada (federal)', holidays: CA_HOLIDAYS },
+  'ca-qc': { label: 'Quebec', holidays: CA_QC_HOLIDAYS },
+  fr: { label: 'France (jours fériés)', holidays: FR_HOLIDAYS },
+}
 
 const US_ZONES = /^(America\/(New_York|Chicago|Denver|Boise|Phoenix|Los_Angeles|Anchorage|Juneau|Detroit|Adak|Indiana\/|Kentucky\/|North_Dakota\/)|Pacific\/Honolulu|US\/)/
+
+const CA_ZONES = /^America\/(Toronto|Montreal|Vancouver|Edmonton|Winnipeg|Regina|Halifax|St_Johns|Moncton|Glace_Bay|Whitehorse|Yellowknife|Iqaluit)$/
 
 /** The built-in calendar a time zone implies. */
 export function inferCivilCalendar(timeZone: string): CivilCalendar {
   if (US_ZONES.test(timeZone)) return 'us'
   if (timeZone === 'Europe/London') return 'uk'
+  if (timeZone === 'Europe/Paris') return 'fr'
+  if (CA_ZONES.test(timeZone)) return 'ca' // Montreal shares Toronto's zone; Quebec is chosen by hand
   return 'none'
 }
 
@@ -50,7 +116,7 @@ export const civilCalendarOf = (settings: ShulSettings): CivilCalendar =>
 /** The built-in holidays of the shul's calendar, before it switches any off. */
 export const builtInHolidays = (settings: ShulSettings): LocalHoliday[] => {
   const cal = civilCalendarOf(settings)
-  return cal === 'us' ? US_HOLIDAYS : cal === 'uk' ? UK_HOLIDAYS : []
+  return cal === 'none' ? [] : CIVIL_CALENDARS[cal].holidays
 }
 
 /** Everything the shul counts: its built-in calendar minus the ignored, with its own on top. */

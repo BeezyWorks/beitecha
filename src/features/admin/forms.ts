@@ -32,6 +32,7 @@ export type Atom =
   | { kind: 'weekday'; day: Weekday }
   | { kind: 'tag'; tag: DayTag }
   | { kind: 'holiday'; name: string }
+  | { kind: 'localHoliday'; id: string }
   | { kind: 'dates'; from: string; to: string }
 
 export interface ConditionForm {
@@ -44,6 +45,7 @@ function atomsOf(c: Condition): Atom[] | null {
   if ('weekday' in c) return c.weekday.map((day) => ({ kind: 'weekday', day }))
   if ('tag' in c) return [{ kind: 'tag', tag: c.tag }]
   if ('holiday' in c) return [{ kind: 'holiday', name: c.holiday }]
+  if ('localHoliday' in c) return [{ kind: 'localHoliday', id: c.localHoliday }]
   if ('dates' in c) return [{ kind: 'dates', ...c.dates }]
   if ('any' in c) {
     const out: Atom[] = []
@@ -92,6 +94,7 @@ function atomsToCondition(atoms: Atom[]): Condition {
   for (const a of atoms) {
     if (a.kind === 'tag') parts.push({ tag: a.tag })
     if (a.kind === 'holiday') parts.push({ holiday: a.name })
+    if (a.kind === 'localHoliday') parts.push({ localHoliday: a.id })
     if (a.kind === 'dates') parts.push({ dates: { from: a.from, to: a.to } })
   }
   return parts.length === 1 ? parts[0] : { any: parts }

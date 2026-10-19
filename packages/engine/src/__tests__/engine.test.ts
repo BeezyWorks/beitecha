@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { dayInfo } from '../day'
 import { addDays, hostDate } from '../dates'
-import { Calendar, computeDay, formatClock, sampleSchedule, validate } from '../index'
-import type { EventDef, Schedule, ShulSettings } from '../types'
+import { Calendar, computeDay, formatClock, localHolidayDates, sampleSchedule, UK_HOLIDAYS, US_HOLIDAYS, validate } from '../index'
+import type { EventDef, LocalHoliday, Schedule, ShulSettings } from '../types'
 
 const settings = sampleSchedule.settings
 const tags = (date: string, s: ShulSettings = settings) => [...dayInfo(date, s).tags]
@@ -267,5 +267,69 @@ describe('time zones', () => {
     // Jerusalem's winter sunset is around 16:40 local.
     expect(z.sunset).toBeGreaterThan(16 * 60 + 30)
     expect(z.sunset).toBeLessThan(16 * 60 + 50)
+  })
+})
+
+describe('local holidays', () => {
+  const withLocal = (holidays: LocalHoliday[]): Schedule =>
+    withEvents(
+      [
+        {
+          id: 'shacharis',
+          name: { en: 'Shacharis' },
+          kind: 'tefila',
+          rules: [
+            { when: { localHoliday: 'thanksgiving' }, time: { clock: '08:00' } },
+            { when: { tag: 'legalHoliday' }, time: { clock: '07:30' } },
+            { time: { clock: '06:30' } },
+          ],
+        },
+      ],
+      { settings: { ...sampleSchedule.settings, localHolidays: holidays } },
+    )
+  const dates = (holidays: LocalHoliday[], year: number) =>
+    [...localHolidayDates(holidays, year)].map(([d, hs]) => `${d} ${hs.map((h) => h.id).join('+')}`)
+
+  it('finds Thanksgiving and keys rules, the tag and the heading off it', () => {
+    const s = withLocal(US_HOLIDAYS)
+    expect(timeOf(s, 'shacharis', '2026-11-26')).toBe('08:00')
+    expect(timeOf(s, 'shacharis', '2026-07-03')).toBe('07:30') // Fourth of July observed on Friday
+    expect(timeOf(s, 'shacharis', '2026-07-04')).toBe('06:30')
+    expect(computeDay(s, '2026-11-26').holidays.map((h) => h.en)).toContain('Thanksgiving')
+    expect(computeDay(s, '2026-11-26').tags).toContain('legalHoliday')
+    expect(computeDay(s, '2026-11-27').tags).not.toContain('legalHoliday')
+  })
+
+  it('applies US observed days across the new year', () => {
+    // 1 Jan 2028 is a Saturday, observed Friday 31 Dec 2027.
+    expect(timeOf(withLocal(US_HOLIDAYS), 'shacharis', '2027-12-31')).toBe('07:30')
+    expect(timeOf(withLocal(US_HOLIDAYS), 'shacharis', '2028-01-01')).toBe('06:30')
+  })
+
+  it('does UK substitute days and Easter-based ones', () => {
+    // Christmas 2027 is a Saturday, Boxing Day a Sunday.
+    expect(dates(UK_HOLIDAYS, 2027).filter((d) => d.includes('christmas') || d.includes('boxing'))).toEqual([
+      '2027-12-27 christmas',
+      '2027-12-28 boxing-day',
+    ])
+    expect(dates(UK_HOLIDAYS, 2026)).toEqual(expect.arrayContaining(['2026-04-03 good-friday', '2026-04-06 easter-monday']))
+    expect(dates(UK_HOLIDAYS, 2026)).toContain('2026-08-31 summer')
+  })
+
+  it('takes explicit dates and ignores impossible ones', () => {
+    const odd: LocalHoliday[] = [
+      { id: 'jubilee', name: { en: 'Jubilee' }, date: { on: ['2026-06-04'] } },
+      { id: 'feb30', name: { en: 'Nope' }, date: { month: 2, day: 30 } },
+    ]
+    expect(dates(odd, 2026)).toEqual(['2026-06-04 jubilee'])
+    const issues = validate(withLocal(odd), '2026-01-01', 7)
+    expect(issues.map((i) => i.message)).toEqual(
+      expect.arrayContaining(['Local holiday "Nope" never lands on a date']),
+    )
+  })
+
+  it('flags rules naming a local holiday the shul never defined', () => {
+    const issues = validate(withLocal([]), '2026-01-01', 7)
+    expect(issues.some((i) => i.level === 'error' && i.message.includes('unknown local holiday "thanksgiving"'))).toBe(true)
   })
 })

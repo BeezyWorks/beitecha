@@ -1,4 +1,5 @@
-import { addDays } from './dates'
+import { addDays, parseDate } from './dates'
+import { localHolidayDates } from './local'
 import { Calendar } from './schedule'
 import type { Condition, DateString, Schedule, TimeExpr } from './types'
 
@@ -21,6 +22,14 @@ function eventRefs(expr: TimeExpr, out: string[] = []): string[] {
   return out
 }
 
+function localHolidayRefs(c: Condition, out: string[] = []): string[] {
+  if ('localHoliday' in c) out.push(c.localHoliday)
+  else if ('all' in c) c.all.forEach((x) => localHolidayRefs(x, out))
+  else if ('any' in c) c.any.forEach((x) => localHolidayRefs(x, out))
+  else if ('not' in c) localHolidayRefs(c.not, out)
+  return out
+}
+
 function conditionIsEmpty(c: Condition): boolean {
   return ('weekday' in c && c.weekday.length === 0) || ('any' in c && c.any.length === 0)
 }
@@ -36,12 +45,25 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
     if (ids.has(e.id)) issues.push({ level: 'error', eventId: e.id, message: `Two events share the id "${e.id}"` })
     ids.add(e.id)
   }
+  const localIds = new Set<string>()
+  for (const h of schedule.settings.localHolidays ?? []) {
+    if (localIds.has(h.id)) issues.push({ level: 'error', message: `Two local holidays share the id "${h.id}"` })
+    localIds.add(h.id)
+    // A rule that lands nowhere in two years is a typo (month 13, February 30th, …).
+    const year = parseDate(from).year
+    if (!localHolidayDates([h], year).size && !localHolidayDates([h], year + 1).size) {
+      issues.push({ level: 'warning', message: `Local holiday "${h.name.en}" never lands on a date` })
+    }
+  }
   const known = new Set([...ids, ...schedule.exceptions.flatMap((x) => (x.type === 'add' ? [x.event.id] : []))])
 
   for (const e of schedule.events) {
     e.rules.forEach((rule, i) => {
       if (rule.when && conditionIsEmpty(rule.when)) {
         issues.push({ level: 'warning', eventId: e.id, message: `Rule ${i + 1} never applies` })
+      }
+      for (const ref of rule.when ? localHolidayRefs(rule.when) : []) {
+        if (!localIds.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown local holiday "${ref}"` })
       }
       for (const ref of rule.time ? eventRefs(rule.time) : []) {
         if (!known.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown event "${ref}"` })

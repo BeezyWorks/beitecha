@@ -11,13 +11,15 @@ import {
 } from '@hebcal/core'
 
 import { addDays, hostDate, isDst, minutesInZone, startOfWeek, weekdayOf } from './dates'
-import type { DateString, DayTag, Localized, Minutes, ShulSettings, Weekday, ZmanId } from './types'
+import type { DateString, DayTag, LocalHoliday, Localized, Minutes, ShulSettings, Weekday, ZmanId } from './types'
 
 export interface DayInfo {
   date: DateString
   weekday: Weekday
   hdate: HDate
   holidays: HolidayEvent[]
+  /** The shul's own civil holidays on this date. */
+  localHolidays: LocalHoliday[]
   tags: Set<DayTag>
 }
 
@@ -65,7 +67,7 @@ function isSelichos(date: DateString, hd: HDate, settings: ShulSettings, yomTov:
   return date >= startOfWeek(addDays(rhDate, -4))
 }
 
-export function dayInfo(date: DateString, settings: ShulSettings): DayInfo {
+export function dayInfo(date: DateString, settings: ShulSettings, localHolidays: LocalHoliday[] = []): DayInfo {
   const { israel, timeZone } = settings.location
   const hdate = new HDate(hostDate(date))
   const weekday = weekdayOf(date)
@@ -91,8 +93,9 @@ export function dayInfo(date: DateString, settings: ShulSettings): DayInfo {
   if (hdate.getMonth() === months.TISHREI && hdate.getDate() <= 10) tags.add('aseresYemeiTeshuva')
   if (inOmer(hdate)) tags.add('omer')
   if (isDst(date, timeZone)) tags.add('dst')
+  if (localHolidays.length) tags.add('legalHoliday')
 
-  return { date, weekday, hdate, holidays, tags }
+  return { date, weekday, hdate, holidays, localHolidays, tags }
 }
 
 export function holidayMatches(info: DayInfo, name: string): boolean {
@@ -105,9 +108,12 @@ export function holidayMatches(info: DayInfo, name: string): boolean {
 /** Holidays worth showing on a luach (no Shabbos Mevarchim/molad noise). */
 export function displayHolidays(info: DayInfo): Localized[] {
   const hidden = flags.SHABBAT_MEVARCHIM | flags.MOLAD | flags.USER_EVENT | flags.HEBREW_DATE
-  return info.holidays
-    .filter((e) => (e.getFlags() & hidden) === 0)
-    .map((e) => ({ en: e.render('en'), he: e.render('he-x-NoNikud') }))
+  return [
+    ...info.holidays
+      .filter((e) => (e.getFlags() & hidden) === 0)
+      .map((e) => ({ en: e.render('en'), he: e.render('he-x-NoNikud') })),
+    ...info.localHolidays.map((h) => h.name),
+  ]
 }
 
 export function parshaFor(date: DateString, settings: ShulSettings): Localized | undefined {

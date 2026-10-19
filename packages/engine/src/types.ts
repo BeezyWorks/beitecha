@@ -38,9 +38,34 @@ export interface ZmanimSettings {
 
 export type SelichosMinhag = 'ashkenaz' | 'sefard' | 'none'
 
+/**
+ * When a local (civil) holiday falls. Hebcal knows nothing of Thanksgiving or a UK
+ * bank holiday, so the shul lists the ones it cares about.
+ */
+export type LocalHolidayDate =
+  /** The same civil date every year. `observed` moves a weekend one to the nearest weekday
+   * (`nearest`: Saturday → Friday, Sunday → Monday, as in the US) or the next free one
+   * (`next`: as in the UK, where a holiday already taken by another is skipped). */
+  | { month: number; day: number; observed?: 'nearest' | 'next' }
+  /** The `nth` (1–4, or -1 for the last) `weekday` of `month`, e.g. Thanksgiving. */
+  | { month: number; weekday: Weekday; nth: 1 | 2 | 3 | 4 | -1 }
+  /** Days after (negative: before) Western Easter, e.g. Good Friday is -2. */
+  | { easter: number }
+  /** Exact dates, for anything that follows no rule (a one-off royal occasion). */
+  | { on: DateString[] }
+
+export interface LocalHoliday {
+  /** Referenced by `{ localHoliday: id }` conditions. */
+  id: string
+  name: Localized
+  date: LocalHolidayDate
+}
+
 export interface ShulSettings {
   location: ShulLocation
   zmanim?: ZmanimSettings
+  /** Civil holidays the shul's rules can refer to; also tagged `legalHoliday`. */
+  localHolidays?: LocalHoliday[]
   /** Which selichos period the `selichos` day tag follows. Default `ashkenaz`. */
   selichos?: SelichosMinhag
 }
@@ -92,6 +117,8 @@ export const DAY_TAGS = [
   'aseresYemeiTeshuva',
   'omer',
   'dst',
+  /** Any of the shul's local holidays. */
+  'legalHoliday',
 ] as const
 export type DayTag = (typeof DAY_TAGS)[number]
 
@@ -100,6 +127,8 @@ export type Condition =
   | { tag: DayTag }
   /** A holiday by its Hebcal name, e.g. `Purim`, `Tish'a B'Av`, `Erev Pesach`. */
   | { holiday: string }
+  /** One of the shul's `settings.localHolidays`, by id. */
+  | { localHoliday: string }
   /** A yearly civil range, `MM-DD` inclusive; wraps the new year if `from > to`. */
   | { civil: { from: string; to: string } }
   /** A one-time civil range, `YYYY-MM-DD` inclusive. */
@@ -215,6 +244,7 @@ export interface DaySchedule {
   date: DateString
   weekday: Weekday
   hebrew: { day: number; month: string; year: number; en: string; he: string }
+  /** Jewish holidays, then the shul's local ones. */
   holidays: Localized[]
   /** The coming (or current) Shabbos's parsha. */
   parsha?: Localized

@@ -61,3 +61,10 @@ describe('round trips', () => {
     expect(timeToForm({ earliest: [{ round: { zman: 'plag' }, to: 5, mode: 'down' }] })).toBeNull()
   })
 })
+
+describe('local holidays in conditions', () => {
+  it('round-trips a local holiday beside others', () => {
+    const c: Condition = { all: [{ any: [{ localHoliday: 'thanksgiving' }, { tag: 'legalHoliday' }] }, { not: { weekday: [6] } }] }
+    expect(formToCondition(conditionToForm(c)!)).toEqual(c)
+  })
+})

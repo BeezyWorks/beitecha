@@ -58,6 +58,10 @@ export function scheduleProblem(s: unknown): string | null {
   if (!isObject(s)) return 'schedule must be an object'
   if (!isObject(s.settings) || !isObject(s.settings.location)) return 'settings.location is required'
   const loc = s.settings.location
+  const local = s.settings.localHolidays
+  if (local !== undefined && (!Array.isArray(local) || local.some((h) => !isObject(h) || typeof h.id !== 'string' || !isObject(h.date)))) {
+    return 'localHolidays must be a list of holidays with an id and a date'
+  }
   if (typeof loc.latitude !== 'number' || Math.abs(loc.latitude) > 90) return 'bad latitude'
   if (typeof loc.longitude !== 'number' || Math.abs(loc.longitude) > 180) return 'bad longitude'
   if (!validTimeZone(loc.timeZone)) return 'bad time zone'

@@ -5,6 +5,7 @@ import React, { useState } from 'react'
 import { TAG_LABELS, WEEKDAY_SHORT } from '@/features/luach/labels'
 import { conditionToForm, formToCondition, sameAtom, type Atom, type ConditionForm } from './forms'
 import { JsonEditor } from './JsonEditor'
+import { useAdmin } from './store'
 
 /** The day kinds a gabbai reaches for, in the order they're offered. */
 const TAGS: DayTag[] = [
@@ -24,12 +25,17 @@ const TAGS: DayTag[] = [
   'noTachanun',
   'omer',
   'dst',
+  'legalHoliday',
 ]
 
 export function atomLabel(a: Atom): string {
   if (a.kind === 'weekday') return WEEKDAY_SHORT[a.day]
   if (a.kind === 'tag') return TAG_LABELS[a.tag].en
   if (a.kind === 'holiday') return a.name
+  if (a.kind === 'localHoliday') {
+    const known = useAdmin.getState().schedule?.settings.localHolidays?.find((h) => h.id === a.id)
+    return known?.name.en ?? a.id
+  }
   return `${a.from} – ${a.to}`
 }
 
@@ -44,7 +50,11 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
   const [holiday, setHoliday] = useState('')
   const has = (a: Atom) => atoms.some((x) => sameAtom(x, a))
   const toggle = (a: Atom) => onChange(has(a) ? atoms.filter((x) => !sameAtom(x, a)) : [...atoms, a])
-  const extras = atoms.filter((a) => a.kind === 'holiday' || a.kind === 'dates')
+  const local = useAdmin((s) => s.schedule?.settings.localHolidays) ?? []
+  // A local holiday that's since been deleted still shows, so it can be cleared.
+  const extras = atoms.filter(
+    (a) => a.kind === 'holiday' || a.kind === 'dates' || (a.kind === 'localHoliday' && !local.some((h) => h.id === a.id)),
+  )
   return (
     <Stack gap="sm">
       <Stack direction="row" wrap gap="xs">
@@ -55,6 +65,9 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
       <Stack direction="row" wrap gap="xs">
         {TAGS.map((tag) => (
           <Chip key={tag} label={TAG_LABELS[tag].en} selected={has({ kind: 'tag', tag })} onPress={() => toggle({ kind: 'tag', tag })} />
+        ))}
+        {local.map((h) => (
+          <Chip key={h.id} label={h.name.en} selected={has({ kind: 'localHoliday', id: h.id })} onPress={() => toggle({ kind: 'localHoliday', id: h.id })} />
         ))}
         {extras.map((a) => (
           <Chip key={atomLabel(a)} label={`${atomLabel(a)} ✕`} selected onPress={() => toggle(a)} />

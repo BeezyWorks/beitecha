@@ -4,6 +4,7 @@ import React from 'react'
 
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
+import { LocalHolidaysCard } from './LocalHolidaysCard'
 import { useAdmin } from './store'
 
 /** The shul's name and look, where it is, and its zmanim opinions. */
@@ -114,6 +115,11 @@ export function ShulTab() {
           />
         </Stack>
       </Card>
+
+      <LocalHolidaysCard
+        holidays={schedule.settings.localHolidays ?? []}
+        onChange={(localHolidays) => setSettings({ ...schedule.settings, localHolidays: localHolidays.length ? localHolidays : undefined })}
+      />
     </Stack>
   )
 }

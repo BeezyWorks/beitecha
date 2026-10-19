@@ -1,5 +1,6 @@
 import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zmanimFor, type DayInfo } from './day'
 import { addDays, parseClock, startOfWeek } from './dates'
+import { LocalHolidays } from './local'
 import type {
   Condition,
   DateString,
@@ -33,12 +34,14 @@ interface Resolved {
 export class Calendar {
   private readonly events = new Map<string, EventDef>()
   private readonly exceptionsByDate = new Map<DateString, Exception[]>()
+  private readonly local: LocalHolidays
   private readonly infos = new Map<DateString, DayInfo>()
   private readonly zmanim = new Map<DateString, Partial<Record<ZmanId, Minutes>>>()
   private readonly resolved = new Map<string, Resolved>()
   private readonly inProgress = new Set<string>()
 
   constructor(readonly schedule: Schedule) {
+    this.local = new LocalHolidays(schedule.settings.localHolidays)
     for (const e of schedule.events) this.events.set(e.id, e)
     for (const x of schedule.exceptions) {
       const list = this.exceptionsByDate.get(x.date) ?? []
@@ -51,7 +54,7 @@ export class Calendar {
   info(date: DateString): DayInfo {
     let i = this.infos.get(date)
     if (!i) {
-      i = dayInfo(date, this.schedule.settings)
+      i = dayInfo(date, this.schedule.settings, this.local.on(date))
       this.infos.set(date, i)
     }
     return i
@@ -71,6 +74,7 @@ export class Calendar {
     if ('weekday' in cond) return cond.weekday.includes(info.weekday)
     if ('tag' in cond) return info.tags.has(cond.tag)
     if ('holiday' in cond) return holidayMatches(info, cond.holiday)
+    if ('localHoliday' in cond) return info.localHolidays.some((h) => h.id === cond.localHoliday)
     if ('civil' in cond) {
       const md = date.slice(5)
       const { from, to } = cond.civil

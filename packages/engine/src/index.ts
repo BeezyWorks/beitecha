@@ -8,6 +8,7 @@ export {
   CA_QC_HOLIDAYS,
   CIVIL_CALENDARS,
   FR_HOLIDAYS,
+  PUBLIC_HOLIDAY,
   UK_HOLIDAYS,
   US_HOLIDAYS,
   builtInHolidays,

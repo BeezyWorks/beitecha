@@ -1,5 +1,5 @@
 import { Button, Chip, SemanticColor, Stack, Text, TextField } from '@beezyworks/design'
-import { effectiveHolidays, type Condition, type DayTag, type Weekday } from '@beitecha/engine'
+import { PUBLIC_HOLIDAY, effectiveHolidays, type Condition, type DayTag, type Weekday } from '@beitecha/engine'
 import React, { useMemo, useState } from 'react'
 
 import { TAG_LABELS, WEEKDAY_SHORT } from '@/features/luach/labels'
@@ -68,7 +68,8 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
         {TAGS.map((tag) => (
           <Chip key={tag} label={TAG_LABELS[tag].en} selected={has({ kind: 'tag', tag })} onPress={() => toggle({ kind: 'tag', tag })} />
         ))}
-        {local.map((h) => (
+        {/* The plain “Public holiday” days are reached through the “Federal / bank holidays” chip. */}
+        {local.filter((h) => h.name.en !== PUBLIC_HOLIDAY).map((h) => (
           <Chip key={h.id} label={h.name.en} selected={has({ kind: 'localHoliday', id: h.id })} onPress={() => toggle({ kind: 'localHoliday', id: h.id })} />
         ))}
         {extras.map((a) => (

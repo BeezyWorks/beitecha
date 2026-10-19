@@ -21,10 +21,7 @@ const NTH = { '1': 'first', '2': 'second', '3': 'third', '4': 'fourth', '-1': 'l
 
 export function describeLocalDate(d: LocalHolidayDate): string {
   if ('on' in d) return d.on.join(', ') || 'No dates yet'
-  if ('easter' in d) {
-    if (d.easter === 0) return 'Easter Sunday'
-    return `${Math.abs(d.easter)} day${Math.abs(d.easter) === 1 ? '' : 's'} ${d.easter < 0 ? 'before' : 'after'} Easter`
-  }
+  if ('easter' in d) return 'Moves each year'
   if ('nth' in d) return `The ${NTH[String(d.nth) as keyof typeof NTH]} ${WEEKDAYS[d.weekday].en} of ${MONTHS[d.month - 1]}`
   if ('weekdayBefore' in d) return `The ${WEEKDAYS[d.weekdayBefore].en} before ${MONTHS[d.month - 1]} ${d.day}`
   const observed = d.observed === 'nearest' ? ' (weekend → nearest weekday)' : d.observed === 'next' ? ' (weekend → next free weekday)' : ''
@@ -186,7 +183,7 @@ export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettin
               label="Days after Easter Sunday"
               value={easter}
               onChange={setEaster}
-              help="Negative for before: Good Friday is -2, Easter Monday is 1."
+              help="Negative for before, e.g. -2 is two days before Easter Sunday."
             />
           )}
           <Stack direction="row" gap="sm">

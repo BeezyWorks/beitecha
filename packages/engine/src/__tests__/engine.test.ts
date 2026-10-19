@@ -5,6 +5,8 @@ import { dayInfo } from '../day'
 import { addDays, hostDate } from '../dates'
 import {
   CA_HOLIDAYS,
+  CIVIL_CALENDARS,
+  PUBLIC_HOLIDAY,
   Calendar,
   FR_HOLIDAYS,
   UK_HOLIDAYS,
@@ -320,9 +322,9 @@ describe('local holidays', () => {
 
   it('does UK substitute days and Easter-based ones', () => {
     // Dec 25 2027 is a Saturday, Dec 26 a Sunday.
-    expect(dates(UK_HOLIDAYS, 2027).filter((d) => d.includes('dec-25') || d.includes('dec-26'))).toEqual([
-      '2027-12-27 dec-25',
-      '2027-12-28 dec-26',
+    expect(dates(UK_HOLIDAYS, 2027).filter((d) => d.includes('christmas') || d.includes('boxing-day'))).toEqual([
+      '2027-12-27 christmas',
+      '2027-12-28 boxing-day',
     ])
     expect(dates(UK_HOLIDAYS, 2026)).toEqual(expect.arrayContaining(['2026-04-03 good-friday', '2026-04-06 easter-monday']))
     expect(dates(UK_HOLIDAYS, 2026)).toContain('2026-08-31 summer')
@@ -392,7 +394,7 @@ describe('Canada and France', () => {
 
   it('has Canadian Thanksgiving in October and Dec 26 moved off a weekend', () => {
     expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-10-12 thanksgiving')
-    expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-12-28 dec-26') // Dec 26 2026 is a Saturday
+    expect(dates(CA_HOLIDAYS, 2026)).toContain('2026-12-28 boxing-day') // Dec 26 2026 is a Saturday
   })
 
   it('computes the French Easter-based days', () => {
@@ -403,5 +405,13 @@ describe('Canada and France', () => {
 
   it('chooses a calendar by time zone', () => {
     expect([ 'America/Toronto', 'Europe/Paris', 'Europe/London', 'America/Chicago', 'Asia/Jerusalem' ].map(inferCivilCalendar)).toEqual(['ca', 'fr', 'uk', 'us', 'none'])
+  })
+})
+
+describe('religious public holidays', () => {
+  it("never name another faith's holy days", () => {
+    const names = Object.values(CIVIL_CALENDARS).flatMap((c) => c.holidays.map((h) => `${h.name.en} ${h.name.he ?? ''}`))
+    expect(names.filter((n) => /christ|easter|good friday|boxing|ascension|whit|assum|saints|noël|pâques|toussaint|pentec/i.test(n))).toEqual([])
+    expect(CIVIL_CALENDARS.us.holidays.find((h) => h.id === 'christmas')?.name.en).toBe(PUBLIC_HOLIDAY)
   })
 })

@@ -1,6 +1,6 @@
 import { Button, Chip, SemanticColor, Stack, Text, TextField } from '@beezyworks/design'
-import type { Condition, DayTag, Weekday } from '@beitecha/engine'
-import React, { useState } from 'react'
+import { effectiveHolidays, type Condition, type DayTag, type Weekday } from '@beitecha/engine'
+import React, { useMemo, useState } from 'react'
 
 import { TAG_LABELS, WEEKDAY_SHORT } from '@/features/luach/labels'
 import { conditionToForm, formToCondition, sameAtom, type Atom, type ConditionForm } from './forms'
@@ -33,7 +33,8 @@ export function atomLabel(a: Atom): string {
   if (a.kind === 'tag') return TAG_LABELS[a.tag].en
   if (a.kind === 'holiday') return a.name
   if (a.kind === 'localHoliday') {
-    const known = useAdmin.getState().schedule?.settings.localHolidays?.find((h) => h.id === a.id)
+    const settings = useAdmin.getState().schedule?.settings
+    const known = settings && effectiveHolidays(settings).find((h) => h.id === a.id)
     return known?.name.en ?? a.id
   }
   return `${a.from} – ${a.to}`
@@ -50,7 +51,8 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
   const [holiday, setHoliday] = useState('')
   const has = (a: Atom) => atoms.some((x) => sameAtom(x, a))
   const toggle = (a: Atom) => onChange(has(a) ? atoms.filter((x) => !sameAtom(x, a)) : [...atoms, a])
-  const local = useAdmin((s) => s.schedule?.settings.localHolidays) ?? []
+  const settings = useAdmin((s) => s.schedule?.settings)
+  const local = useMemo(() => (settings ? effectiveHolidays(settings) : []), [settings])
   // A local holiday that's since been deleted still shows, so it can be cleared.
   const extras = atoms.filter(
     (a) => a.kind === 'holiday' || a.kind === 'dates' || (a.kind === 'localHoliday' && !local.some((h) => h.id === a.id)),

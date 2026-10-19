@@ -31,7 +31,7 @@ export function ShulTab() {
           label="Color"
           value={profile.brandColor ?? ''}
           autoCapitalize="none"
-          placeholder="#2e5a4f"
+          placeholder="#3E7FD1"
           help="Tints the display and the shul’s page (#rrggbb)."
           error={profile.brandColor && !/^#[0-9a-f]{6}$/i.test(profile.brandColor) ? 'Use #rrggbb' : null}
           onChangeText={(c) => setProfile({ ...profile, brandColor: c || undefined })}
@@ -116,10 +116,7 @@ export function ShulTab() {
         </Stack>
       </Card>
 
-      <LocalHolidaysCard
-        holidays={schedule.settings.localHolidays ?? []}
-        onChange={(localHolidays) => setSettings({ ...schedule.settings, localHolidays: localHolidays.length ? localHolidays : undefined })}
-      />
+      <LocalHolidaysCard settings={schedule.settings} onChange={setSettings} />
     </Stack>
   )
 }

@@ -271,7 +271,7 @@ describe('time zones', () => {
 })
 
 describe('local holidays', () => {
-  const withLocal = (holidays: LocalHoliday[]): Schedule =>
+  const withLocal = (holidays: LocalHoliday[], civil: ShulSettings['civilHolidays'] = 'none'): Schedule =>
     withEvents(
       [
         {
@@ -285,13 +285,13 @@ describe('local holidays', () => {
           ],
         },
       ],
-      { settings: { ...sampleSchedule.settings, localHolidays: holidays } },
+      { settings: { ...sampleSchedule.settings, civilHolidays: civil, localHolidays: holidays } },
     )
   const dates = (holidays: LocalHoliday[], year: number) =>
     [...localHolidayDates(holidays, year)].map(([d, hs]) => `${d} ${hs.map((h) => h.id).join('+')}`)
 
   it('finds Thanksgiving and keys rules, the tag and the heading off it', () => {
-    const s = withLocal(US_HOLIDAYS)
+    const s = withLocal([], 'us')
     expect(timeOf(s, 'shacharis', '2026-11-26')).toBe('08:00')
     expect(timeOf(s, 'shacharis', '2026-07-03')).toBe('07:30') // Fourth of July observed on Friday
     expect(timeOf(s, 'shacharis', '2026-07-04')).toBe('06:30')
@@ -302,8 +302,8 @@ describe('local holidays', () => {
 
   it('applies US observed days across the new year', () => {
     // 1 Jan 2028 is a Saturday, observed Friday 31 Dec 2027.
-    expect(timeOf(withLocal(US_HOLIDAYS), 'shacharis', '2027-12-31')).toBe('07:30')
-    expect(timeOf(withLocal(US_HOLIDAYS), 'shacharis', '2028-01-01')).toBe('06:30')
+    expect(timeOf(withLocal([], 'us'), 'shacharis', '2027-12-31')).toBe('07:30')
+    expect(timeOf(withLocal([], 'us'), 'shacharis', '2028-01-01')).toBe('06:30')
   })
 
   it('does UK substitute days and Easter-based ones', () => {
@@ -331,5 +331,38 @@ describe('local holidays', () => {
   it('flags rules naming a local holiday the shul never defined', () => {
     const issues = validate(withLocal([]), '2026-01-01', 7)
     expect(issues.some((i) => i.level === 'error' && i.message.includes('unknown local holiday "thanksgiving"'))).toBe(true)
+  })
+})
+
+describe('built-in civil calendar', () => {
+  const rules: EventDef[] = [
+    {
+      id: 'shacharis',
+      name: { en: 'Shacharis' },
+      kind: 'tefila',
+      rules: [{ when: { tag: 'legalHoliday' }, time: { clock: '08:00' } }, { time: { clock: '06:30' } }],
+    },
+  ]
+  const shul = (settings: Partial<ShulSettings>) =>
+    withEvents(rules, { settings: { ...sampleSchedule.settings, ...settings } })
+
+  it('knows Thanksgiving without the shul defining anything', () => {
+    // sampleSchedule is in New York, so the US calendar applies by time zone.
+    expect(timeOf(shul({ civilHolidays: undefined }), 'shacharis', '2026-11-26')).toBe('08:00')
+  })
+
+  it('follows the zone, and can be switched off or changed', () => {
+    const london = { ...sampleSchedule.settings.location, timeZone: 'Europe/London' }
+    expect(timeOf(shul({ location: london, civilHolidays: undefined }), 'shacharis', '2026-12-28')).toBe('08:00') // Boxing Day, moved
+    expect(timeOf(shul({ location: london, civilHolidays: undefined }), 'shacharis', '2026-11-26')).toBe('06:30')
+    expect(timeOf(shul({ civilHolidays: 'none' }), 'shacharis', '2026-11-26')).toBe('06:30')
+    expect(timeOf(shul({ civilHolidays: 'uk' }), 'shacharis', '2026-11-26')).toBe('06:30')
+  })
+
+  it("lets a shul drop the ones it doesn't count and override others", () => {
+    expect(timeOf(shul({ ignoredHolidays: ['thanksgiving'] }), 'shacharis', '2026-11-26')).toBe('06:30')
+    const moved = shul({ localHolidays: [{ id: 'thanksgiving', name: { en: 'Thanksgiving' }, date: { on: ['2026-11-27'] } }] })
+    expect(timeOf(moved, 'shacharis', '2026-11-26')).toBe('06:30')
+    expect(timeOf(moved, 'shacharis', '2026-11-27')).toBe('08:00')
   })
 })

@@ -1,6 +1,7 @@
 import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zmanimFor, type DayInfo } from './day'
 import { addDays, parseClock, startOfWeek } from './dates'
 import { LocalHolidays } from './local'
+import { effectiveHolidays } from './localPresets'
 import type {
   Condition,
   DateString,
@@ -41,7 +42,7 @@ export class Calendar {
   private readonly inProgress = new Set<string>()
 
   constructor(readonly schedule: Schedule) {
-    this.local = new LocalHolidays(schedule.settings.localHolidays)
+    this.local = new LocalHolidays(effectiveHolidays(schedule.settings))
     for (const e of schedule.events) this.events.set(e.id, e)
     for (const x of schedule.exceptions) {
       const list = this.exceptionsByDate.get(x.date) ?? []

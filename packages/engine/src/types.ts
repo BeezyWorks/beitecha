@@ -54,6 +54,8 @@ export type LocalHolidayDate =
   /** Exact dates, for anything that follows no rule (a one-off royal occasion). */
   | { on: DateString[] }
 
+export type CivilCalendar = 'us' | 'uk' | 'none'
+
 export interface LocalHoliday {
   /** Referenced by `{ localHoliday: id }` conditions. */
   id: string
@@ -64,7 +66,14 @@ export interface LocalHoliday {
 export interface ShulSettings {
   location: ShulLocation
   zmanim?: ZmanimSettings
-  /** Civil holidays the shul's rules can refer to; also tagged `legalHoliday`. */
+  /**
+   * Built-in civil calendar. Absent = by time zone (US zones → `us`, Europe/London → `uk`).
+   * Its holidays, and `localHolidays`, are tagged `legalHoliday`.
+   */
+  civilHolidays?: CivilCalendar
+  /** Built-in holidays this shul doesn't count (by id), e.g. `columbus-day`. */
+  ignoredHolidays?: string[]
+  /** The shul's own extras (or replacements: the same id overrides a built-in one). */
   localHolidays?: LocalHoliday[]
   /** Which selichos period the `selichos` day tag follows. Default `ashkenaz`. */
   selichos?: SelichosMinhag

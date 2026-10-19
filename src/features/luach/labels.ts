@@ -57,7 +57,7 @@ export const TAG_LABELS: Record<DayTag, Localized> = {
   aseresYemeiTeshuva: { en: 'Aseres Yemei Teshuva', he: 'עשרת ימי תשובה' },
   omer: { en: 'Sefiras HaOmer', he: 'ספירת העומר' },
   dst: { en: 'Daylight saving time', he: 'שעון קיץ' },
-  legalHoliday: { en: 'Any local holiday', he: 'חג מקומי' },
+  legalHoliday: { en: 'Federal / bank holidays', he: 'חג מקומי' },
 }
 
 export const WEEKDAYS: Localized[] = [

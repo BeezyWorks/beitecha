@@ -1,4 +1,4 @@
-import type { LocalHoliday } from './types'
+import type { CivilCalendar, LocalHoliday, ShulSettings } from './types'
 
 const MON = 1
 const THU = 4
@@ -34,3 +34,28 @@ export const LOCAL_HOLIDAY_PRESETS = {
   us: { label: 'US federal holidays', holidays: US_HOLIDAYS },
   uk: { label: 'UK bank holidays (England & Wales)', holidays: UK_HOLIDAYS },
 } as const
+
+const US_ZONES = /^(America\/(New_York|Chicago|Denver|Boise|Phoenix|Los_Angeles|Anchorage|Juneau|Detroit|Adak|Indiana\/|Kentucky\/|North_Dakota\/)|Pacific\/Honolulu|US\/)/
+
+/** The built-in calendar a time zone implies. */
+export function inferCivilCalendar(timeZone: string): CivilCalendar {
+  if (US_ZONES.test(timeZone)) return 'us'
+  if (timeZone === 'Europe/London') return 'uk'
+  return 'none'
+}
+
+export const civilCalendarOf = (settings: ShulSettings): CivilCalendar =>
+  settings.civilHolidays ?? inferCivilCalendar(settings.location.timeZone)
+
+/** The built-in holidays of the shul's calendar, before it switches any off. */
+export const builtInHolidays = (settings: ShulSettings): LocalHoliday[] => {
+  const cal = civilCalendarOf(settings)
+  return cal === 'us' ? US_HOLIDAYS : cal === 'uk' ? UK_HOLIDAYS : []
+}
+
+/** Everything the shul counts: its built-in calendar minus the ignored, with its own on top. */
+export function effectiveHolidays(settings: ShulSettings): LocalHoliday[] {
+  const own = settings.localHolidays ?? []
+  const skip = new Set([...(settings.ignoredHolidays ?? []), ...own.map((h) => h.id)])
+  return [...builtInHolidays(settings).filter((h) => !skip.has(h.id)), ...own]
+}

@@ -1,5 +1,13 @@
-import { Button, Card, SegmentedControl, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { LOCAL_HOLIDAY_PRESETS, type LocalHoliday, type LocalHolidayDate, type Weekday } from '@beitecha/engine'
+import { Button, Card, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
+import {
+  builtInHolidays,
+  civilCalendarOf,
+  type CivilCalendar,
+  type LocalHoliday,
+  type LocalHolidayDate,
+  type ShulSettings,
+  type Weekday,
+} from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
@@ -29,8 +37,19 @@ const slug = (name: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
 
-/** The civil holidays the shul's rules can refer to ("Thanksgiving", a UK bank holiday). */
-export function LocalHolidaysCard({ holidays, onChange }: { holidays: LocalHoliday[]; onChange: (h: LocalHoliday[]) => void }) {
+/**
+ * The civil holidays rules can use ("federal holidays start late"). The app knows the US and UK
+ * calendars; the shul picks which days count and can add its own.
+ */
+export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettings; onChange: (s: ShulSettings) => void }) {
+  const holidays = settings.localHolidays ?? []
+  const builtIn = builtInHolidays(settings)
+  const ignored = settings.ignoredHolidays ?? []
+  const setHolidays = (localHolidays: LocalHoliday[]) => onChange({ ...settings, localHolidays: localHolidays.length ? localHolidays : undefined })
+  const toggleBuiltIn = (id: string, counts: boolean) => {
+    const next = counts ? ignored.filter((x) => x !== id) : [...ignored, id]
+    onChange({ ...settings, ignoredHolidays: next.length ? next : undefined })
+  }
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [shape, setShape] = useState<Shape>('date')
@@ -50,24 +69,47 @@ export function LocalHolidaysCard({ holidays, onChange }: { holidays: LocalHolid
   const built = date()
   const take = (id: string) => {
     let unique = id || 'holiday'
-    for (let n = 2; holidays.some((h) => h.id === unique); n++) unique = `${id || 'holiday'}-${n}`
+    for (let n = 2; [...holidays, ...builtIn].some((h) => h.id === unique); n++) unique = `${id || 'holiday'}-${n}`
     return unique
   }
   const add = () => {
     if (!name.trim() || !built) return
-    onChange([...holidays, { id: take(slug(name)), name: { en: name.trim() }, date: built }])
+    setHolidays([...holidays, { id: take(slug(name)), name: { en: name.trim() }, date: built }])
     setName('')
     setAdding(false)
   }
-  const addPreset = (preset: readonly LocalHoliday[]) =>
-    onChange([...holidays, ...preset.filter((p) => !holidays.some((h) => h.id === p.id))])
 
   return (
     <Card gap="md">
       <Text variant="sectionHeader">Local holidays</Text>
       <Text variant="caption" color={SemanticColor.TextSecondary}>
-        Days like Thanksgiving or a bank holiday. Once listed, rules can use them (“On… Thanksgiving”), and they show beside the Jewish holidays.
+        Rules can use these (“On… Federal holidays”, or a single one like Thanksgiving), and they show beside the Jewish holidays.
       </Text>
+      <SegmentedControl<CivilCalendar>
+        options={[
+          { key: 'us', label: 'US federal' },
+          { key: 'uk', label: 'UK bank holidays' },
+          { key: 'none', label: 'None' },
+        ]}
+        value={civilCalendarOf(settings)}
+        onChange={(civilHolidays) => onChange({ ...settings, civilHolidays, ignoredHolidays: undefined })}
+      />
+      {builtIn.map((h) => (
+        <Stack key={h.id} direction="row" align="center" gap="md">
+          <Stack grow>
+            <Text variant="body">{h.name.en}</Text>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              {describeLocalDate(h.date)}
+            </Text>
+          </Stack>
+          <ToggleSwitch value={!ignored.includes(h.id)} onValueChange={(on) => toggleBuiltIn(h.id, on)} accessibilityLabel={`Count ${h.name.en}`} />
+        </Stack>
+      ))}
+      {holidays.length > 0 && (
+        <Text variant="label" color={SemanticColor.TextSecondary}>
+          The shul’s own
+        </Text>
+      )}
       {holidays.map((h) => (
         <Stack key={h.id} direction="row" align="center" gap="md">
           <Stack grow>
@@ -76,14 +118,11 @@ export function LocalHolidaysCard({ holidays, onChange }: { holidays: LocalHolid
               {describeLocalDate(h.date)}
             </Text>
           </Stack>
-          <Button variant="ghost" size="sm" title="Remove" onPress={() => onChange(holidays.filter((x) => x.id !== h.id))} />
+          <Button variant="ghost" size="sm" title="Remove" onPress={() => setHolidays(holidays.filter((x) => x.id !== h.id))} />
         </Stack>
       ))}
       <Stack direction="row" wrap gap="sm">
-        {Object.entries(LOCAL_HOLIDAY_PRESETS).map(([key, p]) => (
-          <Button key={key} variant="secondary" size="sm" title={`Add ${p.label}`} onPress={() => addPreset(p.holidays)} />
-        ))}
-        {!adding && <Button variant="secondary" size="sm" title="Add another…" onPress={() => setAdding(true)} />}
+        {!adding && <Button variant="secondary" size="sm" title="Add a holiday of your own…" onPress={() => setAdding(true)} />}
       </Stack>
       {adding && (
         <Stack gap="md">

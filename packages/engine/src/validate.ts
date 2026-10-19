@@ -1,5 +1,6 @@
 import { addDays, parseDate } from './dates'
 import { localHolidayDates } from './local'
+import { effectiveHolidays } from './localPresets'
 import { Calendar } from './schedule'
 import type { Condition, DateString, Schedule, TimeExpr } from './types'
 
@@ -45,10 +46,11 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
     if (ids.has(e.id)) issues.push({ level: 'error', eventId: e.id, message: `Two events share the id "${e.id}"` })
     ids.add(e.id)
   }
-  const localIds = new Set<string>()
+  const localIds = new Set(effectiveHolidays(schedule.settings).map((h) => h.id))
+  const ownIds = new Set<string>()
   for (const h of schedule.settings.localHolidays ?? []) {
-    if (localIds.has(h.id)) issues.push({ level: 'error', message: `Two local holidays share the id "${h.id}"` })
-    localIds.add(h.id)
+    if (ownIds.has(h.id)) issues.push({ level: 'error', message: `Two local holidays share the id "${h.id}"` })
+    ownIds.add(h.id)
     // A rule that lands nowhere in two years is a typo (month 13, February 30th, …).
     const year = parseDate(from).year
     if (!localHolidayDates([h], year).size && !localHolidayDates([h], year + 1).size) {

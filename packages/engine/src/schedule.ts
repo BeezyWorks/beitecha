@@ -1,0 +1,249 @@
+import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zmanimFor, type DayInfo } from './day'
+import { addDays, parseClock, startOfWeek } from './dates'
+import type {
+  Condition,
+  DateString,
+  DaySchedule,
+  EventDef,
+  Exception,
+  Minutes,
+  Notice,
+  Occurrence,
+  Schedule,
+  TimeExpr,
+  ZmanId,
+} from './types'
+
+/** Thrown inside evaluation; caught per occurrence and reported as its `error`. */
+class EvalError extends Error {}
+
+interface Resolved {
+  minutes: Minutes | null
+  cancelled: boolean
+  note?: Occurrence['note']
+  source: Occurrence['source']
+  ruleIndex?: number
+  error?: string
+}
+
+/**
+ * Computes a shul's days. Results are memoized per date, so build one
+ * `Calendar` per render (or per range) rather than per day.
+ */
+export class Calendar {
+  private readonly events = new Map<string, EventDef>()
+  private readonly exceptionsByDate = new Map<DateString, Exception[]>()
+  private readonly infos = new Map<DateString, DayInfo>()
+  private readonly zmanim = new Map<DateString, Partial<Record<ZmanId, Minutes>>>()
+  private readonly resolved = new Map<string, Resolved>()
+  private readonly inProgress = new Set<string>()
+
+  constructor(readonly schedule: Schedule) {
+    for (const e of schedule.events) this.events.set(e.id, e)
+    for (const x of schedule.exceptions) {
+      const list = this.exceptionsByDate.get(x.date) ?? []
+      list.push(x)
+      this.exceptionsByDate.set(x.date, list)
+      if (x.type === 'add') this.events.set(x.event.id, { ...x.event, rules: [] })
+    }
+  }
+
+  info(date: DateString): DayInfo {
+    let i = this.infos.get(date)
+    if (!i) {
+      i = dayInfo(date, this.schedule.settings)
+      this.infos.set(date, i)
+    }
+    return i
+  }
+
+  zmanimOn(date: DateString): Partial<Record<ZmanId, Minutes>> {
+    let z = this.zmanim.get(date)
+    if (!z) {
+      z = zmanimFor(date, this.schedule.settings)
+      this.zmanim.set(date, z)
+    }
+    return z
+  }
+
+  matches(cond: Condition, date: DateString): boolean {
+    const info = this.info(date)
+    if ('weekday' in cond) return cond.weekday.includes(info.weekday)
+    if ('tag' in cond) return info.tags.has(cond.tag)
+    if ('holiday' in cond) return holidayMatches(info, cond.holiday)
+    if ('civil' in cond) {
+      const md = date.slice(5)
+      const { from, to } = cond.civil
+      return from <= to ? md >= from && md <= to : md >= from || md <= to
+    }
+    if ('dates' in cond) return date >= cond.dates.from && date <= cond.dates.to
+    if ('all' in cond) return cond.all.every((c) => this.matches(c, date))
+    if ('any' in cond) return cond.any.some((c) => this.matches(c, date))
+    if ('not' in cond) return !this.matches(cond.not, date)
+    throw new EvalError(`Unknown condition ${JSON.stringify(cond)}`)
+  }
+
+  /** Evaluates `expr` on `date`; `null` when it has no value that day (e.g. a cancelled anchor). */
+  evaluate(expr: TimeExpr, date: DateString): Minutes | null {
+    if ('clock' in expr) return parseClock(expr.clock)
+    if ('zman' in expr) {
+      const z = this.zmanimOn(date)[expr.zman]
+      if (z === undefined) throw new EvalError(`No ${expr.zman} on ${date}`)
+      return z
+    }
+    if ('event' in expr) {
+      if (!this.events.has(expr.event)) throw new EvalError(`Unknown event "${expr.event}"`)
+      const r = this.resolve(expr.event, date)
+      if (r.error) throw new EvalError(`"${expr.event}": ${r.error}`)
+      return r.cancelled ? null : r.minutes
+    }
+    if ('offset' in expr) {
+      const v = this.evaluate(expr.of, date)
+      return v === null ? null : v + expr.offset
+    }
+    if ('earliest' in expr || 'latest' in expr) {
+      const items = 'earliest' in expr ? expr.earliest : expr.latest
+      const values = items.map((e) => this.evaluate(e, date)).filter((v): v is Minutes => v !== null)
+      if (values.length === 0) return null
+      return 'earliest' in expr ? Math.min(...values) : Math.max(...values)
+    }
+    if ('clamp' in expr) {
+      let v = this.evaluate(expr.clamp, date)
+      if (v === null) return null
+      const min = expr.min ? this.evaluate(expr.min, date) : null
+      const max = expr.max ? this.evaluate(expr.max, date) : null
+      if (min !== null) v = Math.max(v, min)
+      if (max !== null) v = Math.min(v, max)
+      return v
+    }
+    if ('round' in expr) {
+      const v = this.evaluate(expr.round, date)
+      if (v === null) return null
+      if (!(expr.to > 0)) throw new EvalError(`Round to ${expr.to} minutes`)
+      const f = expr.mode === 'down' ? Math.floor : expr.mode === 'up' ? Math.ceil : Math.round
+      return f(v / expr.to) * expr.to
+    }
+    if ('weekly' in expr) {
+      const sunday = startOfWeek(date)
+      const days = expr.days ?? [0, 1, 2, 3, 4, 5]
+      const values = days
+        .map((d) => this.evaluate(expr.weekly, addDays(sunday, d)))
+        .filter((v): v is Minutes => v !== null)
+      if (values.length === 0) return null
+      return expr.pick === 'earliest' ? Math.min(...values) : Math.max(...values)
+    }
+    throw new EvalError(`Unknown time expression ${JSON.stringify(expr)}`)
+  }
+
+  /** Which rule of `event` applies on `date`, or -1. */
+  matchingRule(event: EventDef, date: DateString): number {
+    return event.rules.findIndex((r) => !r.when || this.matches(r.when, date))
+  }
+
+  /** An event on a date: its rule, then that day's exceptions on top. */
+  resolve(eventId: string, date: DateString): Resolved {
+    const key = `${eventId}@${date}`
+    const done = this.resolved.get(key)
+    if (done) return done
+    if (this.inProgress.has(key)) throw new EvalError(`"${eventId}" depends on itself`)
+    this.inProgress.add(key)
+    let result: Resolved
+    try {
+      result = this.compute(eventId, date)
+    } catch (e) {
+      if (!(e instanceof EvalError)) throw e
+      result = { minutes: null, cancelled: false, source: 'rule', error: e.message }
+    } finally {
+      this.inProgress.delete(key)
+    }
+    this.resolved.set(key, result)
+    return result
+  }
+
+  private compute(eventId: string, date: DateString): Resolved {
+    const exceptions = (this.exceptionsByDate.get(date) ?? []).filter((x) =>
+      x.type === 'add' ? x.event.id === eventId : x.eventId === eventId,
+    )
+    const added = exceptions.find((x) => x.type === 'add')
+    const cancel = exceptions.find((x) => x.type === 'cancel')
+    const retime = exceptions.find((x) => x.type === 'retime')
+    const noteOnly = exceptions.find((x) => x.type === 'note')
+    const exceptionNote = (cancel ?? retime ?? added ?? noteOnly)?.note
+
+    let base: Resolved
+    if (added && added.type === 'add') {
+      base = { minutes: this.evaluate(added.time, date), cancelled: false, source: 'added' }
+    } else {
+      const event = this.events.get(eventId)
+      if (!event) throw new EvalError(`Unknown event "${eventId}"`)
+      const i = this.matchingRule(event, date)
+      const rule = event.rules[i]
+      if (!rule || rule.time === null) {
+        base = { minutes: null, cancelled: false, source: 'rule', ruleIndex: i >= 0 ? i : undefined }
+      } else {
+        base = { minutes: this.evaluate(rule.time, date), cancelled: false, source: 'rule', ruleIndex: i, note: rule.note }
+      }
+    }
+
+    if (cancel) return { ...base, cancelled: true, source: 'exception', note: exceptionNote }
+    if (retime && retime.type === 'retime') {
+      return { ...base, minutes: this.evaluate(retime.time, date), source: 'exception', note: exceptionNote ?? base.note }
+    }
+    return exceptionNote ? { ...base, note: exceptionNote } : base
+  }
+
+  /** Every event that happens (or was cancelled) on `date`, sorted by time. Internal events are left out. */
+  occurrences(date: DateString, { includeInternal = false } = {}): Occurrence[] {
+    const out: Occurrence[] = []
+    for (const event of this.events.values()) {
+      if (!includeInternal && event.visibility === 'internal') continue
+      const r = this.resolve(event.id, date)
+      const happens = r.minutes !== null || r.cancelled || r.error
+      if (!happens) continue
+      out.push({
+        eventId: event.id,
+        name: event.name,
+        kind: event.kind,
+        room: event.room,
+        minutes: r.minutes,
+        cancelled: r.cancelled,
+        note: r.note,
+        source: r.source,
+        ruleIndex: r.ruleIndex,
+        error: r.error,
+      })
+    }
+    return out.sort((a, b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity))
+  }
+
+  notices(date: DateString): Notice[] {
+    return this.schedule.notices.filter((n) => date >= n.from && date <= (n.to ?? n.from))
+  }
+
+  day(date: DateString, opts?: { includeInternal?: boolean }): DaySchedule {
+    const info = this.info(date)
+    return {
+      date,
+      weekday: info.weekday,
+      hebrew: hebrewDateOf(info),
+      holidays: displayHolidays(info),
+      parsha: parshaFor(date, this.schedule.settings),
+      tags: [...info.tags],
+      zmanim: this.zmanimOn(date),
+      events: this.occurrences(date, opts),
+      notices: this.notices(date),
+    }
+  }
+
+  range(from: DateString, days: number, opts?: { includeInternal?: boolean }): DaySchedule[] {
+    return Array.from({ length: days }, (_, i) => this.day(addDays(from, i), opts))
+  }
+}
+
+export function computeDay(schedule: Schedule, date: DateString): DaySchedule {
+  return new Calendar(schedule).day(date)
+}
+
+export function computeRange(schedule: Schedule, from: DateString, days: number): DaySchedule[] {
+  return new Calendar(schedule).range(from, days)
+}

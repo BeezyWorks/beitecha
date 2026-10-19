@@ -1,0 +1,3 @@
+[submodule "packages/design"]
+	path = packages/design
+	url = https://github.com/BeezyWorks/design-system.git

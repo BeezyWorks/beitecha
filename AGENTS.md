@@ -1,0 +1,44 @@
+# Beitecha — project conventions
+
+Shul schedules from rules: a gabbai defines minyanim/shiurim as rules over zmanim and the Jewish calendar, plus
+one-time changes and sponsors; Beitecha computes the times and shows them on a lobby display, a public page (QR code),
+an ICS feed, and later inside the Siddur (SiddurOneRN). Web only. Served at `beitecha.baderech.app`. A sibling of the
+Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals on their way, this is for institutions.
+
+## Architecture
+
+- **Rules are data, computing happens on the client.** The server stores one JSON `Schedule` per shul
+  (`packages/engine/src/types.ts`) and never computes times except for the ICS feed. Every surface runs the same
+  engine, so the display, public page, ICS and the Siddur always agree, and displays keep working offline from a
+  cached copy.
+- **Engine (`packages/engine`).** `Calendar` (memoized per date) resolves an event on a date as: first matching
+  rule → its `TimeExpr` → that day's exceptions on top. Events can anchor on other events (cycle-detected, reported as
+  `error`, never thrown). `validate()` dry-runs a year for errors and exceptions that do nothing. Vitest; tests run
+  under several machine time zones to prove output only depends on the shul's zone.
+  - **Time is the shul's.** `Minutes` = minutes since local midnight in `settings.location.timeZone`. Today/now come
+    from `todayIn(tz)` / `nowMinutesIn(tz)` (`useShulClock` in the app), never the viewer's clock.
+  - **Day tags come from the morning's Hebrew date** (Friday is `erevShabbos`; Shabbos is also `motzeiShabbos` unless
+    Yom Tov follows). `fast` = public fasts only (not BeHaB, Bechoros, Erev Tish'a B'Av, Yom Kippur).
+  - **Zmanim round the safe way**: deadlines down, start times up (`ROUND_UP` in `day.ts`).
+- **Worker (`worker/`).** Plain router in `index.ts`; handlers in `shuls.ts`. D1 tables in `migrations/`. Writes use a
+  revision check in one SQL statement (409 with the current record, like the accounts service's `app_data`). Auth: the
+  app sends the Baderech bearer token, the worker checks it with `GET /api/auth/get-session` on the accounts Worker
+  over the `AUTH` service binding. Roles: `owner` (invites, removes) and `editor`. Vitest with
+  `@cloudflare/vitest-pool-workers`; the accounts service is faked in `vitest.config.mts` ("Bearer <id>" = user id).
+- **App (`src/`).** Expo Router (web only), `src/app/` holds only route files re-exporting feature screens.
+  Features: `luach` (shared feed/clock hooks and day components), `public`, `display`, `admin`, `home`, `account`.
+  - **Design system = `@beezyworks/design`**, the `packages/design` submodule, same as the siblings. No raw colors or
+    style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1600×900 canvas
+    scaled to the screen; a DL candidate) and `components/Select.tsx` (styled like the DL's own web pickers).
+  - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
+  - The admin edits a draft in a zustand store (`features/admin/store.ts`) and saves the whole document.
+    `features/admin/forms.ts` maps `Condition`/`TimeExpr` to editable forms and back; anything the forms can't say
+    round-trips through a JSON editor instead of being lost. Jest-tested.
+- **Display upkeep** (`useDisplayUpkeep`): heartbeat every 5 min (capped at 20 displays per shul), wake lock, hidden
+  cursor, reload when the shul's day rolls over, hourly 1px drift against burn-in.
+
+## Conventions
+
+- Prettier: no semicolons, single quotes, width 100 (the engine/worker files run a little wider; keep to the file).
+- Commit straight to `main`. Conventional commits.
+- Hebrew in chat output prints reversed for the user's terminal; never reverse it in files.

@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "beitecha",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-08-22",
+  "compatibility_flags": ["nodejs_compat"],
+  // Served at beitecha.baderech.app (the zone baderech.app is on Cloudflare).
+  "routes": [{ "pattern": "beitecha.baderech.app", "custom_domain": true }],
+  "build": { "command": "pnpm build:web" },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/health", "/*.ics"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "beitecha",
+      // Filled in by `wrangler d1 create beitecha` before the first deploy.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Sessions are checked against the accounts Worker over a service binding.
+  "services": [{ "binding": "AUTH", "service": "beezyworks-accounts" }],
+  "vars": {
+    "AUTH_URL": "https://auth.baderech.app",
+    "PUBLIC_URL": "https://beitecha.baderech.app"
+  }
+}

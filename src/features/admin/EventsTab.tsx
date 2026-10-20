@@ -3,6 +3,7 @@ import type { EventDef, EventKind, Rule } from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
+import { AiSetupCard } from './AiSetupCard'
 import { ConditionEditor, describeCondition } from './ConditionEditor'
 import { newId, useAdmin } from './store'
 import { describeTime, TimeEditor } from './TimeEditor'
@@ -35,19 +36,25 @@ function RuleCard({
   const [open, setOpen] = useState(false)
   return (
     <Stack gap="sm" padding="md" radius="md" background={SemanticColor.SurfaceBackground} borderWidth={1} borderColor={SemanticColor.BorderDefault}>
-      <Stack direction="row" align="center" gap="sm">
-        <Text variant="label" color={SemanticColor.TextSecondary}>
-          {index + 1}.
+      {/* Text in a column, not beside the buttons: a row child doesn't shrink, so a long description would push them off screen. */}
+      <Stack gap="none">
+        <Text variant="bodyStrong">
+          {index + 1}. {!rule.when && index > 0 ? 'Any other day' : describeCondition(rule.when)}
         </Text>
-        <Stack grow gap="none">
-          <Text variant="bodyStrong">{!rule.when && index > 0 ? 'Any other day' : describeCondition(rule.when)}</Text>
-          <Text variant="body" color={rule.time === null ? SemanticColor.TextSecondary : SemanticColor.TextAccent}>
-            {describeTime(rule.time, events)}
-          </Text>
-        </Stack>
-        <IconButton name="chevron-left" size={16} disabled={index === 0} onPress={() => onMove(-1)} accessibilityLabel="Check this rule earlier" />
-        <IconButton name="chevron-right" size={16} disabled={index === count - 1} onPress={() => onMove(1)} accessibilityLabel="Check this rule later" />
-        <Button variant="ghost" size="sm" title={open ? 'Done' : 'Edit'} onPress={() => setOpen((o) => !o)} />
+        <Text variant="body" color={rule.time === null ? SemanticColor.TextSecondary : SemanticColor.TextAccent}>
+          {describeTime(rule.time, events)}
+        </Text>
+      </Stack>
+      <Stack direction="row" align="center" gap="xs" wrap>
+        <Button variant={open ? 'secondary' : 'ghost'} size="sm" icon={open ? 'check' : 'edit'} title={open ? 'Done' : 'Edit'} onPress={() => setOpen((o) => !o)} />
+        <Button variant="ghost" size="sm" icon="delete" title="Remove" onPress={onRemove} />
+        <Stack grow />
+        {count > 1 && (
+          <>
+            <Button variant="ghost" size="sm" title="Move up" disabled={index === 0} onPress={() => onMove(-1)} />
+            <Button variant="ghost" size="sm" title="Move down" disabled={index === count - 1} onPress={() => onMove(1)} />
+          </>
+        )}
       </Stack>
       {open && (
         <Stack gap="md">
@@ -67,9 +74,6 @@ function RuleCard({
             value={rule.note?.en ?? ''}
             onChangeText={(en) => onChange({ ...rule, note: en ? { ...rule.note, en } : undefined })}
           />
-          <Stack direction="row">
-            <Button variant="ghost" size="sm" icon="delete" title="Delete rule" onPress={onRemove} />
-          </Stack>
         </Stack>
       )}
     </Stack>
@@ -108,7 +112,8 @@ function EventCard({ event, index, all }: { event: EventDef; index: number; all:
       <Stack gap="sm">
         {event.rules.map((rule, i) => (
           <RuleCard
-            key={i}
+            // Adding or removing a rule shifts indexes; remount so an open editor doesn't jump to a neighbour.
+            key={`${event.rules.length}:${i}`}
             rule={rule}
             index={i}
             count={event.rules.length}
@@ -180,6 +185,7 @@ export function EventsTab() {
   const addEvent = useAdmin((s) => s.addEvent)
   return (
     <Stack gap="md">
+      <AiSetupCard />
       {events.map((e, i) => (
         <EventCard key={e.id} event={e} index={i} all={events} />
       ))}

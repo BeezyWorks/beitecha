@@ -15,6 +15,7 @@ import {
   type Localized,
   type Minutes,
   type ZmanId,
+  weekdayOf,
 } from '@beitecha/engine'
 import { router } from 'expo-router'
 import React, { useState } from 'react'
@@ -36,7 +37,8 @@ import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
 import { SITE_URL } from '@/lib/config'
 
-const DAYS_SHOWN = 8
+/** Today through the coming Shabbos; on Shabbos itself, through the next one. */
+const daysThroughShabbos = (today: string) => (today ? ((6 - weekdayOf(today) + 6) % 7) + 2 : 1)
 /** The zmanim worth a glance, short enough for a phone tile; the rest are a tap away. */
 const KEY_ZMANIM: Partial<Record<ZmanId, Localized>> = {
   sunrise: { en: 'Netz', he: 'הנץ' },
@@ -52,7 +54,7 @@ export function PublicScreen({ slug }: { slug: string }) {
   const { feed, notFound, error } = useShulFeed(slug)
   const tz = feed?.schedule.settings.location.timeZone
   const { today, minutes } = useShulClock(tz)
-  const days = useDays(feed?.schedule, today, DAYS_SHOWN)
+  const days = useDays(feed?.schedule, today, daysThroughShabbos(today))
   const wide = useIsWideLayout()
   const t = makeT(
     feed?.schedule.settings.language,
@@ -71,7 +73,7 @@ export function PublicScreen({ slug }: { slug: string }) {
   const pageUrl = `${SITE_URL}/${slug}`
   const icsUrl = `${SITE_URL}/${slug}.ics`
   const notices = feed.schedule.notices
-    .filter((n) => (n.to ?? n.from) >= today && n.from <= addDays(today, 7))
+    .filter((n) => (n.to ?? n.from) >= today && n.from <= addDays(today, daysThroughShabbos(today) - 1))
     .sort((a, b) => a.from.localeCompare(b.from))
   const { profile } = feed
 

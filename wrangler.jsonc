@@ -23,6 +23,9 @@
   ],
   // Sessions are checked against the accounts Worker over a service binding.
   "services": [{ "binding": "AUTH", "service": "beezyworks-accounts" }],
+  // Per-IP limit on the public reads (feed, directory, ICS). Generous: a whole minyan may scan the QR code from the
+  // shul's wifi at once.
+  "ratelimits": [{ "name": "PUBLIC_LIMIT", "namespace_id": "1001", "simple": { "limit": 300, "period": 60 } }],
   "vars": {
     "AUTH_URL": "https://auth.baderech.app",
     "PUBLIC_URL": "https://beitecha.baderech.app"

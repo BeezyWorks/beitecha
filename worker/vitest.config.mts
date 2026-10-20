@@ -11,6 +11,7 @@ export default defineConfig(async () => {
           compatibilityDate: '2026-08-22',
           compatibilityFlags: ['nodejs_compat'],
           d1Databases: ['DB'],
+          ratelimits: { PUBLIC_LIMIT: { namespace_id: '1001', simple: { limit: 3, period: 60 } } },
           bindings: {
             TEST_MIGRATIONS: migrations,
             AUTH_URL: 'https://auth.test',

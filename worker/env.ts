@@ -8,6 +8,8 @@ export interface Env {
   AUTH_URL: string
   /** This site's origin, for invite links and ICS UIDs. */
   PUBLIC_URL: string
+  /** Per-IP limit on the public reads (feed, directory, ICS). Absent in plain local dev. */
+  PUBLIC_LIMIT?: RateLimit
   /** Local dev only (`.dev.vars`): "1" accepts `Bearer dev-<name>` as user `dev-<name>`
    * and allows the Expo dev server's origin. Never set in production. */
   DEV_AUTH?: string

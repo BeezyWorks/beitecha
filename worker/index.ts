@@ -49,16 +49,35 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
   return pathMatched ? fail(405, 'method not allowed') : fail(404, 'not found')
 }
 
-/** Public reads anyone may make: the Siddur's web build, on its own origins, reads a shul's feed. */
-const PUBLIC_READ = /^\/api\/(directory|shuls\/[^/]+)$/
+/** Reads that need no session: a shul's feed, the directory, the ICS feed. */
+const PUBLIC_READ = /^\/api\/(directory|shuls\/[^/]+(\/calendar\.ics)?)$/
 
-function publicCors(request: Request, url: URL, response: Response): Response {
-  if (!PUBLIC_READ.test(url.pathname) || (request.method !== 'GET' && request.method !== 'OPTIONS')) return response
+/** The Siddur's web build (its hosts in SiddurOneRN's app.config.ts) reads a shul's feed cross-origin. CORS only
+ * governs browsers; the native apps send no origin, and the rate limit is what guards the reads. */
+const SIDDUR_ORIGINS = new Set(['https://siddur.one', 'https://tefila.baderech.app', 'https://siddur.baderech.app'])
+
+function siddurCors(request: Request, url: URL, response: Response): Response {
+  const origin = request.headers.get('origin')
+  if (!origin || !SIDDUR_ORIGINS.has(origin) || !PUBLIC_READ.test(url.pathname)) return response
+  if (request.method !== 'GET' && request.method !== 'OPTIONS') return response
   const res = new Response(response.body, response)
-  res.headers.set('access-control-allow-origin', '*')
+  res.headers.set('access-control-allow-origin', origin)
+  res.headers.set('vary', 'origin')
   res.headers.set('access-control-allow-headers', 'if-none-match')
   res.headers.set('access-control-allow-methods', 'GET')
   res.headers.set('access-control-expose-headers', 'etag')
+  return res
+}
+
+/** A 429 once a visitor's IP has made too many public reads this minute (`PUBLIC_LIMIT` in wrangler.jsonc: room for a
+ * whole minyan scanning the QR code over the shul's wifi, not for a flood). */
+async function rateLimited(request: Request, env: Env, url: URL): Promise<Response | null> {
+  const ip = request.headers.get('cf-connecting-ip')
+  if (!env.PUBLIC_LIMIT || !ip || request.method !== 'GET' || !PUBLIC_READ.test(url.pathname)) return null
+  const { success } = await env.PUBLIC_LIMIT.limit({ key: ip })
+  if (success) return null
+  const res = fail(429, 'too many requests')
+  res.headers.set('retry-after', '60')
   return res
 }
 
@@ -80,12 +99,17 @@ export default {
     if (url.pathname === '/health') return Response.json({ ok: true })
     if (url.pathname.startsWith('/api/')) {
       const response =
-        request.method === 'OPTIONS' ? new Response(null, { status: 204 }) : await handleApi(request, env, url)
-      return devCors(request, env, publicCors(request, url, response))
+        request.method === 'OPTIONS'
+          ? new Response(null, { status: 204 })
+          : ((await rateLimited(request, env, url)) ?? (await handleApi(request, env, url)))
+      return devCors(request, env, siddurCors(request, url, response))
     }
     // `/<slug>.ics` is the short subscribe link printed under the QR code.
     const ics = /^\/([a-z0-9-]+)\.ics$/.exec(url.pathname)
-    if (ics && request.method === 'GET') return handleApi(request, env, new URL(`/api/shuls/${ics[1]}/calendar.ics`, url))
+    if (ics && request.method === 'GET') {
+      const api = new URL(`/api/shuls/${ics[1]}/calendar.ics`, url)
+      return (await rateLimited(request, env, api)) ?? handleApi(request, env, api)
+    }
     return env.ASSETS.fetch(request)
   },
 }

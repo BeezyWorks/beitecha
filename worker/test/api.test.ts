@@ -115,16 +115,29 @@ describe('the public feed', () => {
     expect(pub.data.schedule.notices).toEqual([])
   })
 
-  it('can be read from any origin, unlike the admin', async () => {
+  it('can be read by the Siddur’s web build, and only it', async () => {
     const slug = await newShul()
-    const res = await call('GET', `/api/shuls/${slug}`, undefined, { headers: { origin: 'https://siddur.one' } })
-    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+    const read = (origin: string, method = 'GET', path = `/api/shuls/${slug}`) =>
+      call(method, path, undefined, { token: method === 'GET' && path.endsWith('/admin') ? 'owner1' : undefined, headers: { origin } })
+    const res = await read('https://siddur.one')
+    expect(res.headers.get('access-control-allow-origin')).toBe('https://siddur.one')
     expect(res.headers.get('access-control-expose-headers')).toBe('etag')
-    const pre = await call('OPTIONS', `/api/shuls/${slug}`, undefined, { headers: { origin: 'https://siddur.one' } })
+    const pre = await read('https://tefila.baderech.app', 'OPTIONS')
     expect(pre.status).toBe(204)
     expect(pre.headers.get('access-control-allow-headers')).toBe('if-none-match')
-    const admin = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'owner1', headers: { origin: 'https://siddur.one' } })
-    expect(admin.headers.get('access-control-allow-origin')).toBeNull()
+    expect((await read('https://evil.example')).headers.get('access-control-allow-origin')).toBeNull()
+    expect((await read('https://siddur.one', 'GET', `/api/shuls/${slug}/admin`)).headers.get('access-control-allow-origin')).toBeNull()
+  })
+
+  it('limits each visitor’s reads', async () => {
+    const slug = await newShul()
+    const headers = { 'cf-connecting-ip': '203.0.113.7' }
+    const statuses = []
+    for (let i = 0; i < 4; i++) statuses.push((await call('GET', `/api/shuls/${slug}`, undefined, { headers })).status)
+    expect(statuses).toEqual([200, 200, 200, 429])
+    expect((await call('GET', `/${slug}.ics`, undefined, { headers })).status).toBe(429)
+    const other = { 'cf-connecting-ip': '203.0.113.8' }
+    expect((await call('GET', `/api/shuls/${slug}`, undefined, { headers: other })).status).toBe(200)
   })
 
   it('404s an unknown shul', async () => {

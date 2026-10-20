@@ -47,8 +47,8 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   minyanim and zmanim on the front, sponsorships and announcements on the back (or all on one side). Each side is
   shrunk to fit its sheet, never split.
 - **The Siddur link.** The display's and the printed sheet's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
-  the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (open to any
-  origin, like `/api/directory`) and computes with the same engine, so labels, dates and "next up" live in the engine
+  the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its
+  three web hosts only; the public reads are rate-limited per IP by `PUBLIC_LIMIT`, since CORS doesn't stop non-browsers) and computes with the same engine, so labels, dates and "next up" live in the engine
   (`makeT`, `labels.ts`, `nextUp.ts`), not here. A change to them is an engine commit both apps pick up.
 - **Display upkeep** (`useDisplayUpkeep`): heartbeat every 5 min (capped at 20 displays per shul), wake lock, hidden
   cursor, reload when the shul's day rolls over, hourly 1px drift against burn-in.

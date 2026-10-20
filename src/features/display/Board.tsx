@@ -421,7 +421,7 @@ function PanelHeading({ en, he }: { en: string; he: string }) {
       </Text>
       <Stack grow />
       {!hebrew && t.bothNames && (
-        <Text variant="pageHeader" rtl color={SemanticColor.TextAccent}>
+        <Text variant="itemHeader" rtl color={SemanticColor.TextAccent}>
           {he}
         </Text>
       )}

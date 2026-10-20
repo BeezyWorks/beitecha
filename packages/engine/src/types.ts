@@ -169,7 +169,12 @@ export type Condition =
 // ---------------------------------------------------------------------------
 // Time expressions
 
-export type RoundMode = 'down' | 'up' | 'nearest'
+/**
+ * `withTrend` rounds the way the time is moving: down while it gets earlier from week to week
+ * (autumn, for afternoon zmanim), up while it gets later; `againstTrend` the other way. A time
+ * that isn't moving rounds to the nearest.
+ */
+export type RoundMode = 'down' | 'up' | 'nearest' | 'withTrend' | 'againstTrend'
 
 export type TimeExpr =
   /** A fixed clock time, `HH:MM` 24-hour. */

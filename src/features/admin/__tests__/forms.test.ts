@@ -55,6 +55,11 @@ describe('round trips', () => {
     expect(formToTime(timeToForm(t)!)).toEqual(t)
   })
 
+  it('keeps rounding with the trend', () => {
+    const t: TimeExpr = { round: { weekly: { offset: -10, of: { zman: 'plag' } }, pick: 'earliest' }, to: 5, mode: 'withTrend' }
+    expect(formToTime(timeToForm(t)!)).toEqual(t)
+  })
+
   it('gives up (null) on what the form can’t say', () => {
     expect(conditionToForm({ all: [{ tag: 'fast' }, { weekday: [1] }] })).toBeNull() // AND of two positives
     expect(timeToForm({ offset: 5, of: { clock: '06:00' } })).toBeNull()

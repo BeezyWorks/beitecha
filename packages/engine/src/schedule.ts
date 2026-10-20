@@ -1,5 +1,5 @@
 import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zmanimFor, type DayInfo } from './day'
-import { addDays, parseClock, startOfWeek } from './dates'
+import { addDays, parseClock, startOfWeek, utcOffset } from './dates'
 import { LocalHolidays } from './local'
 import { effectiveHolidays } from './localPresets'
 import type {
@@ -125,7 +125,12 @@ export class Calendar {
       const v = this.evaluate(expr.round, date)
       if (v === null) return null
       if (!(expr.to > 0)) throw new EvalError(`Round to ${expr.to} minutes`)
-      const f = expr.mode === 'down' ? Math.floor : expr.mode === 'up' ? Math.ceil : Math.round
+      let mode = expr.mode
+      if (mode === 'withTrend' || mode === 'againstTrend') {
+        const t = this.trend(expr.round, date, v) * (mode === 'withTrend' ? 1 : -1)
+        mode = t < 0 ? 'down' : t > 0 ? 'up' : 'nearest'
+      }
+      const f = mode === 'down' ? Math.floor : mode === 'up' ? Math.ceil : Math.round
       return f(v / expr.to) * expr.to
     }
     if ('weekly' in expr) {
@@ -138,6 +143,21 @@ export class Calendar {
       return expr.pick === 'earliest' ? Math.min(...values) : Math.max(...values)
     }
     throw new EvalError(`Unknown time expression ${JSON.stringify(expr)}`)
+  }
+
+  /**
+   * Which way `expr` (worth `value` on `date`) is moving: -1 earlier, 1 later, 0 not at all. Compared
+   * with the same weekday a week on (or, when it has no value then, a week before), so a `weekly`
+   * time gets one direction for its whole week; clock changes don't count as movement.
+   */
+  private trend(expr: TimeExpr, date: DateString, value: Minutes): number {
+    const tz = this.schedule.settings.location.timeZone
+    const solar = (d: DateString, v: Minutes | null) => (v === null ? null : v - utcOffset(d, tz))
+    const here = value - utcOffset(date, tz)
+    const next = solar(addDays(date, 7), this.evaluate(expr, addDays(date, 7)))
+    if (next !== null) return Math.sign(next - here)
+    const prev = solar(addDays(date, -7), this.evaluate(expr, addDays(date, -7)))
+    return prev === null ? 0 : Math.sign(here - prev)
   }
 
   /** Which rule of `event` applies on `date`, or -1. */

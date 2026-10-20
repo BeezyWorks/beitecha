@@ -23,7 +23,7 @@ import {
   starterSchedule,
   validate,
 } from '../index'
-import type { EventDef, LocalHoliday, Schedule, ShulSettings } from '../types'
+import type { EventDef, LocalHoliday, Schedule, ShulSettings, TimeExpr } from '../types'
 
 const settings = sampleSchedule.settings
 const tags = (date: string, s: ShulSettings = settings) => [...dayInfo(date, s).tags]
@@ -162,6 +162,24 @@ describe('rules', () => {
     ])
     expect(timeOf(s, 'e', '2026-12-20')).toBe('18:30') // sunset 16:34
     expect(timeOf(s, 'e', '2027-06-25')).toBe('19:00') // sunset 20:29
+  })
+
+  it('rounds with or against the way a time is moving', () => {
+    const cal = new Calendar(sampleSchedule)
+    const plag = { weekly: { offset: -10, of: { zman: 'plag' } }, pick: 'earliest' } as const
+    const at = (date: string, mode: 'withTrend' | 'againstTrend', expr: TimeExpr = plag) =>
+      formatClock(cal.evaluate({ round: expr, to: 5, mode }, date)!)
+    // Autumn, getting earlier (16:48): down; spring, getting later (16:33): up.
+    expect(at('2026-10-18', 'withTrend')).toBe('16:45')
+    expect(at('2026-10-21', 'withTrend')).toBe('16:45')
+    expect(at('2027-03-07', 'withTrend')).toBe('16:35')
+    expect(at('2026-10-18', 'againstTrend')).toBe('16:50')
+    expect(at('2027-03-07', 'againstTrend')).toBe('16:30')
+    // Clocks going forward aren't "later": sunrise (07:11) is still getting earlier that week.
+    const sunrise = { weekly: { zman: 'sunrise' }, pick: 'latest' } as const
+    expect(at('2027-03-14', 'withTrend', sunrise)).toBe('07:10')
+    // A clock time doesn't move: nearest.
+    expect(at('2026-10-18', 'withTrend', { clock: '18:03' })).toBe('18:05')
   })
 
   it('anchors events on other events', () => {

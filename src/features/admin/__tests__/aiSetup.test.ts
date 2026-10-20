@@ -85,7 +85,7 @@ describe('parseAiImport', () => {
       '"Mincha" rule 1: clock "6:30pm" must be "HH:MM", 24-hour',
       '"Mincha" rule 2: "weekday" must be a list of 0–6',
       '"Mincha" rule 2 › round: unknown zman "shkia"',
-      '"Mincha" rule 2: "mode" must be "down", "up" or "nearest"',
+      '"Mincha" rule 2: "mode" must be "down", "up", "nearest", "withTrend" or "againstTrend"',
       '"Mincha" rule 3: a condition has exactly one key, found weekday, tag',
       '"Mincha" rule 3: needs "time" (or null for "not on these days")',
       '"Maariv": id "x" is used twice',

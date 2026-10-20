@@ -94,7 +94,7 @@ export function minutesInZone(instant: Date, date: DateString, timeZone: string)
 }
 
 /** The zone's UTC offset in minutes at local noon of `date`. */
-function offsetAt(date: DateString, timeZone: string): number {
+export function utcOffset(date: DateString, timeZone: string): number {
   const noonUtc = new Date(`${date}T12:00:00Z`)
   const p = zonedParts(noonUtc, timeZone)
   return (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - noonUtc.getTime()) / 60_000
@@ -103,10 +103,10 @@ function offsetAt(date: DateString, timeZone: string): number {
 export function isDst(date: DateString, timeZone: string): boolean {
   const { year } = parseDate(date)
   const standard = Math.min(
-    offsetAt(formatDate(year, 1, 1), timeZone),
-    offsetAt(formatDate(year, 7, 1), timeZone),
+    utcOffset(formatDate(year, 1, 1), timeZone),
+    utcOffset(formatDate(year, 7, 1), timeZone),
   )
-  return offsetAt(date, timeZone) > standard
+  return utcOffset(date, timeZone) > standard
 }
 
 /** Today's date in `timeZone`. */

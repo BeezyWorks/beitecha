@@ -122,7 +122,21 @@ const ROUND_MODES: { key: RoundMode; label: string }[] = [
   { key: 'down', label: 'down' },
   { key: 'nearest', label: 'nearest' },
   { key: 'up', label: 'up' },
+  { key: 'withTrend', label: 'with trend' },
+  { key: 'againstTrend', label: 'against trend' },
 ]
+
+const TREND_HINTS: Partial<Record<RoundMode, string>> = {
+  withTrend: 'Down while the time gets earlier week to week (e.g. plag in the autumn), up while it gets later.',
+  againstTrend: 'Up while the time gets earlier week to week, down while it gets later.',
+}
+
+const roundLabel = ({ mode, to }: { mode: RoundMode; to: number }) =>
+  mode === 'withTrend'
+    ? `rounded to ${to} with the trend (down while getting earlier, up while later)`
+    : mode === 'againstTrend'
+      ? `rounded to ${to} against the trend (up while getting earlier, down while later)`
+      : `rounded ${mode} to ${to}`
 
 /** One rule's time: a fixed time, a zman or another event (± minutes), or the earliest/latest of several, with options. */
 export function TimeEditor({
@@ -246,6 +260,11 @@ export function TimeEditor({
             </>
           )}
         </Stack>
+        {form.round && TREND_HINTS[form.round.mode] && (
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            {TREND_HINTS[form.round.mode]}
+          </Text>
+        )}
       </Stack>
     </Stack>
   )
@@ -266,6 +285,6 @@ export function describeTime(t: TimeExpr | null, events: EventDef[]): string {
   if (form.weekly) parts.push(`same all week (${form.weekly.pick})`)
   if (form.notBefore) parts.push(`not before ${clockLabel(form.notBefore)}`)
   if (form.notAfter) parts.push(`not after ${clockLabel(form.notAfter)}`)
-  if (form.round) parts.push(`rounded ${form.round.mode} to ${form.round.to}`)
+  if (form.round) parts.push(roundLabel(form.round))
   return parts.join(', ')
 }

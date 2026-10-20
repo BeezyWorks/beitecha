@@ -76,7 +76,10 @@ type TimeExpr =
   | { earliest: TimeExpr[] }
   | { latest: TimeExpr[] }
   | { clamp: TimeExpr; min?: TimeExpr; max?: TimeExpr } // keep between min and max
-  | { round: TimeExpr; to: number; mode: 'down' | 'up' | 'nearest' } // to a multiple of \`to\` minutes
+  | { round: TimeExpr; to: number; mode: 'down' | 'up' | 'nearest' | 'withTrend' | 'againstTrend' }
+    // to a multiple of \`to\` minutes. "withTrend" rounds the way the time is moving week to week:
+    // down while it's getting earlier (e.g. plag/sunset from late June to December), up while it's getting
+    // later; "againstTrend" the opposite. Daylight saving jumps don't count as moving.
   | { weekly: TimeExpr; pick: 'earliest' | 'latest'; days?: Weekday[] }
     // the same expression worked out on each of \`days\` (default all) of this week, Sunday–Shabbos,
     // taking the earliest/latest, so a zman-based time stays put all week`
@@ -110,7 +113,7 @@ const EXAMPLE = `{
       "rules": [
         { "when": { "any": [{ "tag": "erevShabbos" }, { "tag": "erevYomTov" }] }, "time": { "round": { "offset": 10, "of": { "zman": "candleLighting" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
         { "when": { "any": [{ "tag": "shabbos" }, { "tag": "yomTov" }] }, "time": { "round": { "offset": -40, "of": { "zman": "sunset" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
-        { "time": { "round": { "weekly": { "offset": -15, "of": { "zman": "sunset" } }, "pick": "earliest", "days": [0, 1, 2, 3, 4] }, "to": 5, "mode": "down" } }
+        { "time": { "round": { "weekly": { "offset": -10, "of": { "zman": "plag" } }, "pick": "earliest", "days": [0, 1, 2, 3, 4] }, "to": 5, "mode": "withTrend" } }
       ]
     },
     {
@@ -169,7 +172,9 @@ Rules of thumb:
 - A day's tags and holidays describe its daytime: a Friday is erevShabbos, Shabbos is shabbos. Evening events after Shabbos/Yom Tov ends go on the motzeiShabbos / motzeiYomTov day (which is the Shabbos/Yom Tov day itself).
 - "Kriah days" (Torah reading on weekdays) are usually Monday, Thursday, Rosh Chodesh, fasts, Chol HaMoed, Chanukah and Purim.
 - "Yamim Noraim" = { "any": [{ "holiday": "Rosh Hashana" }, { "holiday": "Yom Kippur" }] }.
-- Times tied to zmanim are often rounded (Mincha 15 minutes before sunset, rounded down to 5) and kept the same all week with "weekly".
+- Times tied to zmanim are often rounded to a round number and kept the same all week. Put "weekly" inside "round", so the week's earliest (or latest) zman is rounded once: "Mincha 10 minutes before the week's earliest plag, rounded to 5" is { "round": { "weekly": { "offset": -10, "of": { "zman": "plag" } }, "pick": "earliest" }, "to": 5, "mode": … }.
+- Pick the rounding the gabbai describes: "down" (never later than the zman-based time, e.g. before shkia or sof zman), "up" (never earlier, e.g. Maariv after tzeis), "nearest", or "withTrend" when it should follow the season (down while the zman is getting earlier, up while it's getting later). If they say "round to 5" with no direction for a time before a deadline, use "down".
+- For a different rounding (or anything else) in summer and winter on fixed dates, use two rules with "civil" date ranges or the "dst" tag instead.
 - Use "localHoliday" or the legalHoliday tag only for civil holidays; Jewish holidays use "tag" or "holiday".
 - Only use the keys shown above. Times are always "HH:MM" 24-hour strings.
 
@@ -267,8 +272,8 @@ function checkTime(t: unknown, at: string, errors: string[]) {
   } else if ('round' in t) {
     checkTime(t.round, `${at} › round`, errors)
     if (typeof t.to !== 'number' || t.to <= 0) bad('"to" must be a positive number of minutes')
-    if (!['down', 'up', 'nearest'].includes(t.mode as string))
-      bad('"mode" must be "down", "up" or "nearest"')
+    if (!['down', 'up', 'nearest', 'withTrend', 'againstTrend'].includes(t.mode as string))
+      bad('"mode" must be "down", "up", "nearest", "withTrend" or "againstTrend"')
   } else if ('weekly' in t) {
     checkTime(t.weekly, `${at} › weekly`, errors)
     if (t.pick !== 'earliest' && t.pick !== 'latest') bad('"pick" must be "earliest" or "latest"')

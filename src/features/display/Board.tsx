@@ -12,6 +12,8 @@ import React, { useEffect, useState } from 'react'
 
 import { ampm, civilDate, civilDateShort, clock, untilText } from '@/features/luach/format'
 import { WEEKDAYS, ZMAN_LABELS, zmanimForDay } from '@/features/luach/labels'
+import { nextUp, type NextUp } from '@/features/luach/nextUp'
+import { Pill } from '@/features/luach/Pill'
 import { SITE_URL } from '@/lib/config'
 
 /** The canvas `DisplayScreen` scales to the screen: small enough that the DL's type ramp reads across a lobby. */
@@ -57,27 +59,6 @@ export function Board({ name, slug, days, minutes, notices }: BoardProps) {
   )
 }
 
-interface Next {
-  event: Occurrence & { minutes: Minutes }
-  /** False when today is over and this is tomorrow's first. */
-  today: boolean
-}
-
-function nextUp(
-  day: DaySchedule,
-  tomorrow: DaySchedule | undefined,
-  now: Minutes,
-): Next | undefined {
-  const upcoming = (d: DaySchedule | undefined, from: Minutes) =>
-    d?.events.find(
-      (e): e is Next['event'] => !e.cancelled && e.minutes !== null && e.minutes >= from,
-    )
-  const today = upcoming(day, now)
-  if (today) return { event: today, today: true }
-  const first = upcoming(tomorrow, 0)
-  return first && { event: first, today: false }
-}
-
 // ---------------------------------------------------------------------------
 // Hero: the shul, the time, the day, what's next
 
@@ -92,7 +73,7 @@ function Hero({
   slug: string
   day: DaySchedule
   minutes: Minutes
-  next?: Next
+  next?: NextUp
 }) {
   const extras = [
     ...day.holidays.map((h) => h.en),
@@ -182,21 +163,6 @@ function Hero({
         </Stack>
       </Stack>
     </GradientCard>
-  )
-}
-
-function Pill({ label }: { label: string }) {
-  return (
-    <Stack
-      radius="full"
-      paddingHorizontal="sm"
-      paddingVertical="xs"
-      background={SemanticColor.SurfaceOnAccent}
-    >
-      <Text variant="headline" color={SemanticColor.TextOnAccent}>
-        {label}
-      </Text>
-    </Stack>
   )
 }
 

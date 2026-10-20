@@ -1,4 +1,4 @@
-import type { DaySchedule, Minutes, Occurrence } from '@beitecha/engine'
+import type { DaySchedule, Minutes, Occurrence } from './types'
 
 export interface NextUp {
   event: Occurrence & { minutes: Minutes }

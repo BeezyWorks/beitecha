@@ -1,10 +1,16 @@
 import { Card, Chip, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { Calendar, addDays, validate, type DateString, type Schedule } from '@beitecha/engine'
+import {
+  addDays,
+  Calendar,
+  civilDateShort,
+  type DateString,
+  type Schedule,
+  validate,
+  WEEKDAY_SHORT,
+} from '@beitecha/engine'
 import React, { useMemo, useState } from 'react'
 
-import { civilDateShort } from '@/features/luach/format'
 import { makeT } from '@/features/luach/language'
-import { WEEKDAY_SHORT } from '@/features/luach/labels'
 
 const RANGES = { week: 7, month: 31 } as const
 
@@ -41,10 +47,20 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
       <Stack direction="row" gap="xs" wrap>
         <Chip label="Next 7 days" selected={range === 'week'} onPress={() => setRange('week')} />
         <Chip label="Next month" selected={range === 'month'} onPress={() => setRange('month')} />
-        <Chip label="Tricky days" selected={range === 'tricky'} onPress={() => setRange('tricky')} />
+        <Chip
+          label="Tricky days"
+          selected={range === 'tricky'}
+          onPress={() => setRange('tricky')}
+        />
       </Stack>
       {days.map((d) => (
-        <Stack key={d.date} gap="xs" paddingVertical="xs" borderBottomWidth="hairline" borderColor={SemanticColor.BorderDefault}>
+        <Stack
+          key={d.date}
+          gap="xs"
+          paddingVertical="xs"
+          borderBottomWidth="hairline"
+          borderColor={SemanticColor.BorderDefault}
+        >
           <Stack direction="row" gap="sm" align="center" wrap>
             <Text variant="bodyStrong">
               {WEEKDAY_SHORT[d.weekday]} {civilDateShort(d.date)}
@@ -59,14 +75,22 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
           {d.events.map((o) => (
             <Stack key={o.eventId} direction="row" gap="sm">
               <Stack width={80}>
-                <Text variant="body" color={o.cancelled || o.error ? SemanticColor.TextDanger : undefined}>
+                <Text
+                  variant="body"
+                  color={o.cancelled || o.error ? SemanticColor.TextDanger : undefined}
+                >
                   {o.cancelled ? '—' : o.minutes === null ? '!' : clock(o.minutes)}
                 </Text>
               </Stack>
               <Text variant="body">{o.name.en}</Text>
               <Stack grow />
               <Text variant="caption" color={SemanticColor.TextSecondary}>
-                {o.error ?? (o.source === 'rule' ? ruleOf(o.eventId, o.ruleIndex) : o.source === 'added' ? 'one-time' : 'changed')}
+                {o.error ??
+                  (o.source === 'rule'
+                    ? ruleOf(o.eventId, o.ruleIndex)
+                    : o.source === 'added'
+                      ? 'one-time'
+                      : 'changed')}
               </Text>
             </Stack>
           ))}
@@ -90,7 +114,8 @@ function trickyDays(cal: Calendar, from: DateString): DateString[] {
     (d) => cal.info(d).tags.has('chanukah') && cal.info(d).weekday === 5,
     (d) => cal.info(d).tags.has('purim') && cal.info(d).weekday === 0,
     (d) => cal.info(d).tags.has('selichos') && cal.info(d).weekday === 0,
-    (d) => cal.info(d).holidays.some((h) => h.getDesc() === "Tish'a B'Av") && cal.info(d).weekday === 0,
+    (d) =>
+      cal.info(d).holidays.some((h) => h.getDesc() === "Tish'a B'Av") && cal.info(d).weekday === 0,
     (d) => cal.info(d).holidays.some((h) => h.getDesc() === 'Erev Pesach'),
     (d) => cal.info(d).tags.has('dst') !== cal.info(addDays(d, -1)).tags.has('dst'),
   ]

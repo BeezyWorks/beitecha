@@ -1,11 +1,16 @@
 import { SemanticColor, Stack, Text } from '@beezyworks/design'
-import type { DaySchedule } from '@beitecha/engine'
+import { type DaySchedule, zmanimForDay } from '@beitecha/engine'
 import React from 'react'
 
 import { useT } from './language'
-import { zmanimForDay } from './labels'
 
-export function ZmanimList({ day, size = 'page' }: { day: DaySchedule; size?: 'page' | 'display' }) {
+export function ZmanimList({
+  day,
+  size = 'page',
+}: {
+  day: DaySchedule
+  size?: 'page' | 'display'
+}) {
   const big = size === 'display'
   const t = useT()
   return (

@@ -1,0 +1,7 @@
+# Only used when this repo is installed on its own. Inside an app that mounts
+# it as a submodule, the app's workspace file governs the install.
+packages:
+  - '.'
+
+allowBuilds:
+  esbuild: true

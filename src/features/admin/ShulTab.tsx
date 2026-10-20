@@ -7,16 +7,16 @@ import {
   ToggleSwitch,
 } from '@beezyworks/design'
 import {
-  ZMAN_IDS,
-  nameStyle,
   type NameStyle,
+  nameStyle,
   type SelichosMinhag,
   type ShulSettings,
+  ZMAN_IDS,
+  ZMAN_LABELS,
   type ZmanId,
 } from '@beitecha/engine'
 import React from 'react'
 
-import { ZMAN_LABELS } from '@/features/luach/labels'
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
 import { LocalHolidaysCard } from './LocalHolidaysCard'

@@ -1,30 +1,58 @@
-import { Button, Card, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
-  CIVIL_CALENDARS,
+  Button,
+  Card,
+  SegmentedControl,
+  SemanticColor,
+  Stack,
+  Text,
+  ToggleSwitch,
+} from '@beezyworks/design'
+import {
   builtInHolidays,
-  civilCalendarOf,
+  CIVIL_CALENDARS,
   type CivilCalendar,
+  civilCalendarOf,
   type LocalHoliday,
   type LocalHolidayDate,
   type ShulSettings,
   type Weekday,
+  WEEKDAYS,
 } from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
 import { Select } from '@/components/Select'
-import { WEEKDAYS } from '@/features/luach/labels'
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
 const NTH = { '1': 'first', '2': 'second', '3': 'third', '4': 'fourth', '-1': 'last' } as const
 
 export function describeLocalDate(d: LocalHolidayDate): string {
   if ('on' in d) return d.on.join(', ') || 'No dates yet'
   if ('easter' in d) return 'Moves each year'
-  if ('nth' in d) return `The ${NTH[String(d.nth) as keyof typeof NTH]} ${WEEKDAYS[d.weekday].en} of ${MONTHS[d.month - 1]}`
-  if ('weekdayBefore' in d) return `The ${WEEKDAYS[d.weekdayBefore].en} before ${MONTHS[d.month - 1]} ${d.day}`
-  const observed = d.observed === 'nearest' ? ' (weekend → nearest weekday)' : d.observed === 'next' ? ' (weekend → next free weekday)' : ''
+  if ('nth' in d)
+    return `The ${NTH[String(d.nth) as keyof typeof NTH]} ${WEEKDAYS[d.weekday].en} of ${MONTHS[d.month - 1]}`
+  if ('weekdayBefore' in d)
+    return `The ${WEEKDAYS[d.weekdayBefore].en} before ${MONTHS[d.month - 1]} ${d.day}`
+  const observed =
+    d.observed === 'nearest'
+      ? ' (weekend → nearest weekday)'
+      : d.observed === 'next'
+        ? ' (weekend → next free weekday)'
+        : ''
   return `${MONTHS[d.month - 1]} ${d.day}${observed}`
 }
 
@@ -40,11 +68,18 @@ const slug = (name: string) =>
  * The civil holidays rules can use ("federal holidays start late"). The app knows the US and UK
  * calendars; the shul picks which days count and can add its own.
  */
-export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettings; onChange: (s: ShulSettings) => void }) {
+export function LocalHolidaysCard({
+  settings,
+  onChange,
+}: {
+  settings: ShulSettings
+  onChange: (s: ShulSettings) => void
+}) {
   const holidays = settings.localHolidays ?? []
   const builtIn = builtInHolidays(settings)
   const ignored = settings.ignoredHolidays ?? []
-  const setHolidays = (localHolidays: LocalHoliday[]) => onChange({ ...settings, localHolidays: localHolidays.length ? localHolidays : undefined })
+  const setHolidays = (localHolidays: LocalHoliday[]) =>
+    onChange({ ...settings, localHolidays: localHolidays.length ? localHolidays : undefined })
   const toggleBuiltIn = (id: string, counts: boolean) => {
     const next = counts ? ignored.filter((x) => x !== id) : [...ignored, id]
     onChange({ ...settings, ignoredHolidays: next.length ? next : undefined })
@@ -68,7 +103,8 @@ export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettin
   const built = date()
   const take = (id: string) => {
     let unique = id || 'holiday'
-    for (let n = 2; [...holidays, ...builtIn].some((h) => h.id === unique); n++) unique = `${id || 'holiday'}-${n}`
+    for (let n = 2; [...holidays, ...builtIn].some((h) => h.id === unique); n++)
+      unique = `${id || 'holiday'}-${n}`
     return unique
   }
   const add = () => {
@@ -82,16 +118,27 @@ export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettin
     <Card gap="md">
       <Text variant="sectionHeader">Local holidays</Text>
       <Text variant="caption" color={SemanticColor.TextSecondary}>
-        Rules can use these (“On… Federal holidays”, or a single one like Thanksgiving), and they show beside the Jewish holidays.
+        Rules can use these (“On… Federal holidays”, or a single one like Thanksgiving), and they
+        show beside the Jewish holidays.
       </Text>
       <Select<CivilCalendar>
         accessibilityLabel="Holiday calendar"
         options={[
-          ...Object.entries(CIVIL_CALENDARS).map(([value, c]) => ({ value: value as CivilCalendar, label: c.label })),
-          { value: 'none', label: settings.location.israel ? 'None (Israel: the Jewish calendar is the legal one)' : 'None' },
+          ...Object.entries(CIVIL_CALENDARS).map(([value, c]) => ({
+            value: value as CivilCalendar,
+            label: c.label,
+          })),
+          {
+            value: 'none',
+            label: settings.location.israel
+              ? 'None (Israel: the Jewish calendar is the legal one)'
+              : 'None',
+          },
         ]}
         value={civilCalendarOf(settings)}
-        onChange={(civilHolidays) => onChange({ ...settings, civilHolidays, ignoredHolidays: undefined })}
+        onChange={(civilHolidays) =>
+          onChange({ ...settings, civilHolidays, ignoredHolidays: undefined })
+        }
       />
       {builtIn.map((h) => (
         <Stack key={h.id} direction="row" align="center" gap="md">
@@ -101,7 +148,11 @@ export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettin
               {describeLocalDate(h.date)}
             </Text>
           </Stack>
-          <ToggleSwitch value={!ignored.includes(h.id)} onValueChange={(on) => toggleBuiltIn(h.id, on)} accessibilityLabel={`Count ${h.name.en}`} />
+          <ToggleSwitch
+            value={!ignored.includes(h.id)}
+            onValueChange={(on) => toggleBuiltIn(h.id, on)}
+            accessibilityLabel={`Count ${h.name.en}`}
+          />
         </Stack>
       ))}
       {holidays.length > 0 && (
@@ -117,11 +168,23 @@ export function LocalHolidaysCard({ settings, onChange }: { settings: ShulSettin
               {describeLocalDate(h.date)}
             </Text>
           </Stack>
-          <Button variant="ghost" size="sm" title="Remove" onPress={() => setHolidays(holidays.filter((x) => x.id !== h.id))} />
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Remove"
+            onPress={() => setHolidays(holidays.filter((x) => x.id !== h.id))}
+          />
         </Stack>
       ))}
       <Stack direction="row" wrap gap="sm">
-        {!adding && <Button variant="secondary" size="sm" title="Add a holiday of your own…" onPress={() => setAdding(true)} />}
+        {!adding && (
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Add a holiday of your own…"
+            onPress={() => setAdding(true)}
+          />
+        )}
       </Stack>
       {adding && (
         <Stack gap="md">

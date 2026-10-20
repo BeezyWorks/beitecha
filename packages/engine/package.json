@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "Shul schedule rules over zmanim and the Jewish calendar: rules + exceptions in, times out.",
+  "repository": "github:BeezyWorks/beitecha-engine",
+  "packageManager": "pnpm@12.3.4",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",

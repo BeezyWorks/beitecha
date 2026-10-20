@@ -1,14 +1,46 @@
-import { Button, Chip, IconButton, SegmentedControl, SemanticColor, Stack, Text, TextField } from '@beezyworks/design'
-import { ZMAN_IDS, type EventDef, type RoundMode, type TimeExpr, type Weekday, type ZmanId } from '@beitecha/engine'
+import {
+  Button,
+  Chip,
+  IconButton,
+  SegmentedControl,
+  SemanticColor,
+  Stack,
+  Text,
+  TextField,
+} from '@beezyworks/design'
+import {
+  type EventDef,
+  type RoundMode,
+  type TimeExpr,
+  type Weekday,
+  WEEKDAY_SHORT,
+  ZMAN_IDS,
+  ZMAN_LABELS,
+  type ZmanId,
+} from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
 import { Select } from '@/components/Select'
-import { WEEKDAY_SHORT, ZMAN_LABELS } from '@/features/luach/labels'
-import { clockLabel, formToTime, parseClockInput, timeToForm, type Source, type TimeForm } from './forms'
+import {
+  clockLabel,
+  formToTime,
+  parseClockInput,
+  timeToForm,
+  type Source,
+  type TimeForm,
+} from './forms'
 import { JsonEditor } from './JsonEditor'
 
 /** A clock time typed loosely ("6:30pm") and stored as `HH:MM`. */
-export function ClockField({ value, onChange, placeholder }: { value?: string; onChange: (hhmm: string | undefined) => void; placeholder?: string }) {
+export function ClockField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value?: string
+  onChange: (hhmm: string | undefined) => void
+  placeholder?: string
+}) {
   const [text, setText] = useState(value ? clockLabel(value) : '')
   const [bad, setBad] = useState(false)
   useEffect(() => {
@@ -25,7 +57,14 @@ export function ClockField({ value, onChange, placeholder }: { value?: string; o
   }
   return (
     <Stack width={120} gap="xs">
-      <TextField variant="boxed" value={text} placeholder={placeholder ?? '6:30 AM'} onChangeText={setText} onBlur={commit} onSubmitEditing={commit} />
+      <TextField
+        variant="boxed"
+        value={text}
+        placeholder={placeholder ?? '6:30 AM'}
+        onChangeText={setText}
+        onBlur={commit}
+        onSubmitEditing={commit}
+      />
       {bad && (
         <Text variant="caption" color={SemanticColor.TextDanger}>
           e.g. 6:30 PM
@@ -60,7 +99,9 @@ function OffsetField({ value, onChange }: { value: number; onChange: (n: number)
           { key: 'after', label: 'after' },
         ]}
         value={sign < 0 ? 'before' : 'after'}
-        onChange={(k) => onChange((k === 'before' ? -1 : 1) * Math.abs(value || parseInt(text || '0', 10)))}
+        onChange={(k) =>
+          onChange((k === 'before' ? -1 : 1) * Math.abs(value || parseInt(text || '0', 10)))
+        }
       />
     </Stack>
   )
@@ -86,7 +127,13 @@ function SourceRow({
     if (type === 'event') onChange({ type, event: events[0]?.id ?? '', offset: -30 })
   }
   return (
-    <Stack gap="sm" padding="sm" radius="md" borderWidth={1} borderColor={SemanticColor.BorderDefault}>
+    <Stack
+      gap="sm"
+      padding="sm"
+      radius="md"
+      borderWidth={1}
+      borderColor={SemanticColor.BorderDefault}
+    >
       <Stack direction="row" align="center" gap="sm" wrap>
         <SegmentedControl
           options={[
@@ -98,13 +145,29 @@ function SourceRow({
           onChange={setType}
         />
         <Stack grow />
-        {onRemove && <IconButton name="close" onPress={onRemove} accessibilityLabel="Remove this time" />}
+        {onRemove && (
+          <IconButton name="close" onPress={onRemove} accessibilityLabel="Remove this time" />
+        )}
       </Stack>
       <Stack direction="row" align="center" gap="sm" wrap>
-        {source.type === 'clock' && <ClockField value={source.clock} onChange={(clock) => clock && onChange({ ...source, clock })} />}
-        {source.type !== 'clock' && <OffsetField value={source.offset} onChange={(offset) => onChange({ ...source, offset })} />}
+        {source.type === 'clock' && (
+          <ClockField
+            value={source.clock}
+            onChange={(clock) => clock && onChange({ ...source, clock })}
+          />
+        )}
+        {source.type !== 'clock' && (
+          <OffsetField
+            value={source.offset}
+            onChange={(offset) => onChange({ ...source, offset })}
+          />
+        )}
         {source.type === 'zman' && (
-          <Select<ZmanId> value={source.zman} options={zmanOptions} onChange={(zman) => onChange({ ...source, zman })} />
+          <Select<ZmanId>
+            value={source.zman}
+            options={zmanOptions}
+            onChange={(zman) => onChange({ ...source, zman })}
+          />
         )}
         {source.type === 'event' && (
           <Select<string>
@@ -127,7 +190,8 @@ const ROUND_MODES: { key: RoundMode; label: string }[] = [
 ]
 
 const TREND_HINTS: Partial<Record<RoundMode, string>> = {
-  withTrend: 'Down while the time gets earlier week to week (e.g. plag in the autumn), up while it gets later.',
+  withTrend:
+    'Down while the time gets earlier week to week (e.g. plag in the autumn), up while it gets later.',
   againstTrend: 'Up while the time gets earlier week to week, down while it gets later.',
 }
 
@@ -161,7 +225,8 @@ export function TimeEditor({
     )
   }
   const update = (f: Partial<TimeForm>) => onChange(formToTime({ ...form, ...f }))
-  const setSource = (i: number, s: Source) => update({ sources: form.sources.map((x, j) => (j === i ? s : x)) })
+  const setSource = (i: number, s: Source) =>
+    update({ sources: form.sources.map((x, j) => (j === i ? s : x)) })
 
   return (
     <Stack gap="sm">
@@ -185,7 +250,11 @@ export function TimeEditor({
           source={s}
           events={events}
           onChange={(next) => setSource(i, next)}
-          onRemove={form.sources.length > 1 ? () => update({ sources: form.sources.filter((_, j) => j !== i) }) : undefined}
+          onRemove={
+            form.sources.length > 1
+              ? () => update({ sources: form.sources.filter((_, j) => j !== i) })
+              : undefined
+          }
         />
       ))}
       <Stack direction="row" wrap gap="xs">
@@ -203,7 +272,11 @@ export function TimeEditor({
           <Chip
             label="Same time all week"
             selected={!!form.weekly}
-            onPress={() => update({ weekly: form.weekly ? undefined : { pick: 'earliest', days: [0, 1, 2, 3, 4, 5] } })}
+            onPress={() =>
+              update({
+                weekly: form.weekly ? undefined : { pick: 'earliest', days: [0, 1, 2, 3, 4, 5] },
+              })
+            }
           />
           {form.weekly && (
             <>
@@ -223,8 +296,11 @@ export function TimeEditor({
                   label={WEEKDAY_SHORT[d]}
                   selected={form.weekly!.days.includes(d)}
                   onPress={() => {
-                    const days = form.weekly!.days.includes(d) ? form.weekly!.days.filter((x) => x !== d) : [...form.weekly!.days, d].sort()
-                    if (days.length) update({ weekly: { ...form.weekly!, days: days as Weekday[] } })
+                    const days = form.weekly!.days.includes(d)
+                      ? form.weekly!.days.filter((x) => x !== d)
+                      : [...form.weekly!.days, d].sort()
+                    if (days.length)
+                      update({ weekly: { ...form.weekly!, days: days as Weekday[] } })
                   }}
                 />
               ))}
@@ -237,15 +313,31 @@ export function TimeEditor({
             selected={!!form.notBefore}
             onPress={() => update({ notBefore: form.notBefore ? undefined : '06:00' })}
           />
-          {!!form.notBefore && <ClockField value={form.notBefore} onChange={(notBefore) => update({ notBefore })} />}
-          <Chip label="No later than" selected={!!form.notAfter} onPress={() => update({ notAfter: form.notAfter ? undefined : '19:15' })} />
-          {!!form.notAfter && <ClockField value={form.notAfter} onChange={(notAfter) => update({ notAfter })} />}
+          {!!form.notBefore && (
+            <ClockField value={form.notBefore} onChange={(notBefore) => update({ notBefore })} />
+          )}
+          <Chip
+            label="No later than"
+            selected={!!form.notAfter}
+            onPress={() => update({ notAfter: form.notAfter ? undefined : '19:15' })}
+          />
+          {!!form.notAfter && (
+            <ClockField value={form.notAfter} onChange={(notAfter) => update({ notAfter })} />
+          )}
         </Stack>
         <Stack direction="row" align="center" gap="sm" wrap>
-          <Chip label="Round" selected={!!form.round} onPress={() => update({ round: form.round ? undefined : { to: 5, mode: 'down' } })} />
+          <Chip
+            label="Round"
+            selected={!!form.round}
+            onPress={() => update({ round: form.round ? undefined : { to: 5, mode: 'down' } })}
+          />
           {form.round && (
             <>
-              <SegmentedControl options={ROUND_MODES} value={form.round.mode} onChange={(mode) => update({ round: { ...form.round!, mode } })} />
+              <SegmentedControl
+                options={ROUND_MODES}
+                value={form.round.mode}
+                onChange={(mode) => update({ round: { ...form.round!, mode } })}
+              />
               <Text variant="body">to</Text>
               <SegmentedControl
                 options={[
@@ -277,11 +369,18 @@ export function describeTime(t: TimeExpr | null, events: EventDef[]): string {
   if (!form) return 'Custom time'
   const src = (s: Source) => {
     if (s.type === 'clock') return clockLabel(s.clock)
-    const name = s.type === 'zman' ? ZMAN_LABELS[s.zman].en : (events.find((e) => e.id === s.event)?.name.en ?? s.event)
+    const name =
+      s.type === 'zman'
+        ? ZMAN_LABELS[s.zman].en
+        : (events.find((e) => e.id === s.event)?.name.en ?? s.event)
     if (!s.offset) return name
     return `${Math.abs(s.offset)} min ${s.offset < 0 ? 'before' : 'after'} ${name}`
   }
-  const parts = [form.sources.length > 1 ? `${form.combine} of ${form.sources.map(src).join(' / ')}` : src(form.sources[0])]
+  const parts = [
+    form.sources.length > 1
+      ? `${form.combine} of ${form.sources.map(src).join(' / ')}`
+      : src(form.sources[0]),
+  ]
   if (form.weekly) parts.push(`same all week (${form.weekly.pick})`)
   if (form.notBefore) parts.push(`not before ${clockLabel(form.notBefore)}`)
   if (form.notAfter) parts.push(`not after ${clockLabel(form.notAfter)}`)

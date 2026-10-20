@@ -1,4 +1,4 @@
-import type { DayTag, EventKind, Localized, Weekday, ZmanId } from '@beitecha/engine'
+import type { DayTag, EventKind, Localized, Weekday, ZmanId } from './types'
 
 export const ZMAN_LABELS: Record<ZmanId, Localized> = {
   alos: { en: 'Alos HaShachar', he: 'עלות השחר' },

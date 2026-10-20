@@ -14,8 +14,10 @@ import {
   type DaySchedule,
   type Localized,
   type Minutes,
-  type ZmanId,
+  nextUp,
   weekdayOf,
+  type ZmanId,
+  zmanimForDay,
 } from '@beitecha/engine'
 import { router } from 'expo-router'
 import React, { useState } from 'react'
@@ -29,9 +31,7 @@ import { NoticeCard } from '@/features/luach/NoticeCard'
 import { Pill } from '@/features/luach/Pill'
 import { TimesList } from '@/features/luach/TimesList'
 import { ZmanimList } from '@/features/luach/ZmanimList'
-import { zmanimForDay } from '@/features/luach/labels'
 import { LanguageProvider, makeT, useT } from '@/features/luach/language'
-import { nextUp } from '@/features/luach/nextUp'
 import { useDays } from '@/features/luach/useDays'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
@@ -73,7 +73,9 @@ export function PublicScreen({ slug }: { slug: string }) {
   const pageUrl = `${SITE_URL}/${slug}`
   const icsUrl = `${SITE_URL}/${slug}.ics`
   const notices = feed.schedule.notices
-    .filter((n) => (n.to ?? n.from) >= today && n.from <= addDays(today, daysThroughShabbos(today) - 1))
+    .filter(
+      (n) => (n.to ?? n.from) >= today && n.from <= addDays(today, daysThroughShabbos(today) - 1),
+    )
     .sort((a, b) => a.from.localeCompare(b.from))
   const { profile } = feed
 

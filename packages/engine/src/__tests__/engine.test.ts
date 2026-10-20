@@ -18,7 +18,9 @@ import {
   inferCivilCalendar,
   localHolidayDates,
   localize,
+  makeT,
   nameStyle,
+  nextUp,
   sampleSchedule,
   starterSchedule,
   validate,
@@ -519,5 +521,25 @@ describe('formatTime', () => {
     expect(timeFormatProblem('mm')).not.toBeNull()
     expect(timeFormatProblem('h')).not.toBeNull()
     expect(timeFormatProblem('[h]:[mm]')).not.toBeNull()
+  })
+})
+
+describe('wording', () => {
+  it('writes labels in the shul’s language and names in its names style', () => {
+    const t = makeT('en', undefined, 'he')
+    expect(t.s.today).toBe('Today')
+    expect(t.zman('sunset')).toBe('שקיעה')
+    expect(t.dayTitle({ weekday: 6, parsha: { en: 'Noach', he: 'נח' } })).toBe('שבת נח')
+    expect(makeT('he').date('2026-10-19')).toBe('19 באוקטובר')
+    expect(makeT('en').clock(15 * 60 + 5)).toBe('3:05')
+    expect(makeT('en', 'HH:mm').clock(15 * 60 + 5)).toBe('15:05')
+  })
+
+  it('finds what’s next, rolling over to tomorrow’s first', () => {
+    const day = computeDay(sampleSchedule, '2026-10-19')
+    const tomorrow = computeDay(sampleSchedule, '2026-10-20')
+    const first = day.events.find((e) => !e.cancelled && e.minutes !== null)!
+    expect(nextUp(day, tomorrow, 0)).toMatchObject({ event: { eventId: first.eventId }, today: true })
+    expect(nextUp(day, tomorrow, 24 * 60)).toMatchObject({ today: false })
   })
 })

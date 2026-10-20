@@ -1,18 +1,17 @@
 import {
   DAY_TAGS,
-  STANDARD_TEFILOS,
-  ZMAN_IDS,
-  effectiveHolidays,
   type DayTag,
+  effectiveHolidays,
   type EventDef,
   type EventKind,
   type Rule,
   type Schedule,
   type ShulProfile,
+  STANDARD_TEFILOS,
+  ZMAN_IDS,
+  ZMAN_LABELS,
   type ZmanId,
 } from '@beitecha/engine'
-
-import { ZMAN_LABELS } from '@/features/luach/labels'
 
 // ---------------------------------------------------------------------------
 // The prompt a gabbai copies into ChatGPT, Claude, Gemini… with their own description.

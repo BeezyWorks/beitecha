@@ -10,6 +10,7 @@ import {
 import type { DaySchedule, Minutes, Notice, Occurrence } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
+import { ShrinkToFit } from '@/components/ShrinkToFit'
 import { ampm } from '@/features/luach/format'
 import { zmanimForDay } from '@/features/luach/labels'
 import { useT } from '@/features/luach/language'
@@ -138,11 +139,11 @@ function Hero({
               )}
             </Stack>
             <Stack direction="row" align="end" gap="sm">
-              <Stack grow>
+              <ShrinkToFit>
                 <Text variant="displayMedium" numberOfLines={1} color={SemanticColor.TextOnAccent}>
                   {t.text(next.event.name)}
                 </Text>
-              </Stack>
+              </ShrinkToFit>
               <Text variant="displayMedium" color={SemanticColor.TextOnAccent}>
                 {t.clock(next.event.minutes)}
               </Text>
@@ -370,9 +371,7 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
   const n = notices[i % notices.length]
   const sponsor = n.kind === 'sponsor'
   const when =
-    n.to && n.to !== n.from
-      ? `${t.dateShort(n.from)} – ${t.dateShort(n.to)}`
-      : t.dateShort(n.from)
+    n.to && n.to !== n.from ? `${t.dateShort(n.from)} – ${t.dateShort(n.to)}` : t.dateShort(n.from)
   return (
     <Stack
       key={n.id}

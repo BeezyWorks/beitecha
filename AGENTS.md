@@ -29,7 +29,8 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   Features: `luach` (shared feed/clock hooks and day components), `public`, `display`, `admin`, `home`, `account`.
   - **Design system = `@beezyworks/design`**, the `packages/design` submodule, same as the siblings. No raw colors or
     style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
-    scaled to the screen; a DL candidate) and `components/Select.tsx` (styled like the DL's own web pickers).
+    scaled to the screen; a DL candidate), `components/ShrinkToFit.tsx` (one line shrunk to the room it
+    has; same) and `components/Select.tsx` (styled like the DL's own web pickers).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
   - Shul pages write themselves in `settings.language` (labels, weekdays, dates: `en` or `he`) and `settings.names` (minyan,
     zman, parsha, holiday and notice names: `en`, `he` or `both`; default follows `language`: `en` → `both`, `he` → `he`).

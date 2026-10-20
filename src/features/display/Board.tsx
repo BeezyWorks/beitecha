@@ -10,8 +10,9 @@ import {
 import type { DaySchedule, Minutes, Notice, Occurrence } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
-import { ampm, civilDate, civilDateShort, clock, untilText } from '@/features/luach/format'
-import { WEEKDAYS, ZMAN_LABELS, zmanimForDay } from '@/features/luach/labels'
+import { ampm, clock } from '@/features/luach/format'
+import { zmanimForDay } from '@/features/luach/labels'
+import { useT } from '@/features/luach/language'
 import { nextUp, type NextUp } from '@/features/luach/nextUp'
 import { Pill } from '@/features/luach/Pill'
 import { SITE_URL } from '@/lib/config'
@@ -75,18 +76,17 @@ function Hero({
   minutes: Minutes
   next?: NextUp
 }) {
-  const extras = [
-    ...day.holidays.map((h) => h.en),
-    ...(day.parsha ? [`Parshas ${day.parsha.en}`] : []),
-  ]
+  const t = useT()
+  const parsha = t.parsha(day)
+  const extras = [...day.holidays.map(t.text), ...(parsha ? [parsha] : [])]
   return (
     <GradientCard padding="lg">
       <Stack height={HERO_INNER_H} gap="md">
         <Stack gap="xs">
           <Text variant="pageHeader" color={SemanticColor.TextOnAccent}>
-            {name.en}
+            {t.text(name)}
           </Text>
-          {!!name.he && (
+          {t.lang === 'en' && !!name.he && (
             <Text variant="largeTitle" rtl align="left" color={SemanticColor.TextOnAccent}>
               {name.he}
             </Text>
@@ -106,7 +106,7 @@ function Hero({
             </Stack>
           </Stack>
           <Text variant="titleLarge" color={SemanticColor.TextOnAccent}>
-            {WEEKDAYS[day.weekday].en}, {civilDate(day.date)}
+            {t.weekday(day.weekday)}, {t.date(day.date)}
           </Text>
           <Text variant="displayMedium" rtl align="left" color={SemanticColor.TextOnAccent}>
             {day.hebrew.he}
@@ -126,19 +126,19 @@ function Hero({
           <Stack radius="xl" padding="md" gap="xs" background={SemanticColor.SurfaceOnAccent}>
             <Stack direction="row" align="center" gap="sm">
               <Text variant="title" color={SemanticColor.TextOnAccent}>
-                {next.today ? 'Next' : 'Tomorrow'}
+                {next.today ? t.s.next : t.s.tomorrow}
               </Text>
               <Stack grow />
               {next.today && (
                 <Text variant="title" color={SemanticColor.TextOnAccent}>
-                  {untilText(next.event.minutes - minutes)}
+                  {t.until(next.event.minutes - minutes)}
                 </Text>
               )}
             </Stack>
             <Stack direction="row" align="end" gap="sm">
               <Stack grow>
                 <Text variant="displayMedium" numberOfLines={1} color={SemanticColor.TextOnAccent}>
-                  {next.event.name.en}
+                  {t.text(next.event.name)}
                 </Text>
               </Stack>
               <Text variant="displayMedium" color={SemanticColor.TextOnAccent}>
@@ -154,10 +154,7 @@ function Hero({
           </Stack>
           <Stack grow gap="xs">
             <Text variant="title" color={SemanticColor.TextOnAccent}>
-              Times on your phone
-            </Text>
-            <Text variant="headline" color={SemanticColor.TextOnAccent}>
-              {SITE_URL.replace(/^https?:\/\//, '')}/{slug}
+              {t.s.timesOnPhone}
             </Text>
           </Stack>
         </Stack>
@@ -170,11 +167,12 @@ function Hero({
 // Today: the day's minyanim and shiurim, big
 
 function Today({ day, minutes, next }: { day: DaySchedule; minutes: Minutes; next?: Occurrence }) {
+  const t = useT()
   const compact = day.events.length > ROOMY_ROWS
   return (
     <Surface grow radius="xl" shadow="card">
       <Stack padding="lg" gap="sm">
-        <PanelHeading en="Today" he="סדר היום" />
+        <PanelHeading en={t.s.today} he={t.lang === 'en' ? 'סדר היום' : undefined} />
         {day.events.length ? (
           <Stack gap={compact ? 'xs' : 'sm'}>
             {day.events.map((e, i) => (
@@ -191,7 +189,7 @@ function Today({ day, minutes, next }: { day: DaySchedule; minutes: Minutes; nex
           </Stack>
         ) : (
           <Text variant="titleLarge" color={SemanticColor.TextSecondary}>
-            No minyanim listed today
+            {t.s.noMinyanim}
           </Text>
         )}
       </Stack>
@@ -210,10 +208,15 @@ function TodayRow({
   past: boolean
   compact: boolean
 }) {
+  const t = useT()
   const big = compact ? 'pageHeader' : 'displayMedium'
   const tone = isNext ? SemanticColor.TextOnAccent : undefined
   const quiet = isNext ? SemanticColor.TextOnAccent : SemanticColor.TextSecondary
-  const note = e.cancelled ? (e.note ? `Cancelled — ${e.note.en}` : 'Cancelled') : e.note?.en
+  const note = e.cancelled
+    ? e.note
+      ? `${t.s.cancelled} — ${t.text(e.note)}`
+      : t.s.cancelled
+    : e.note && t.text(e.note)
   return (
     <Stack
       direction="row"
@@ -253,10 +256,11 @@ function TodayRow({
 // Zmanim and the days ahead
 
 function Zmanim({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
+  const t = useT()
   return (
     <Surface radius="xl" shadow="card">
       <Stack padding="lg" gap="sm">
-        <PanelHeading en="Zmanim" he="זמני היום" />
+        <PanelHeading en={t.s.zmanim} he={t.lang === 'en' ? 'זמני היום' : undefined} />
         <Stack gap="none">
           {zmanimForDay(day.tags).map((id) => {
             const m = day.zmanim[id]
@@ -275,7 +279,7 @@ function Zmanim({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
                   variant="headline"
                   color={lit ? SemanticColor.TextAccent : SemanticColor.TextSecondary}
                 >
-                  {ZMAN_LABELS[id].en}
+                  {t.zman(id)}
                 </Text>
                 <Stack grow />
                 <Text variant="titleLarge" color={lit ? SemanticColor.TextAccent : undefined}>
@@ -292,11 +296,12 @@ function Zmanim({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
 
 /** Tomorrow, and this Shabbos when it's further off, taking turns. */
 function ComingUp({ days }: { days: DaySchedule[] }) {
+  const t = useT()
   const pages = upcomingDays(days)
   const i = useRotation(pages.length)
   const d = pages[i % pages.length]
   if (!d) return null
-  const title = d.weekday === 6 && d.parsha ? `Shabbos ${d.parsha.en}` : WEEKDAYS[d.weekday].en
+  const title = t.dayTitle(d)
   const events = d.events.filter((e) => e.minutes !== null || e.cancelled)
   return (
     <Surface grow radius="xl" shadow="card">
@@ -304,7 +309,7 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
         <Stack gap="none">
           <Stack direction="row" align="center" gap="sm">
             <Text variant="headline" color={SemanticColor.TextSecondary}>
-              {d === days[1] ? 'Tomorrow' : 'Coming up'} · {civilDateShort(d.date)}
+              {d === days[1] ? t.s.tomorrow : t.s.comingUp} · {t.dateShort(d.date)}
             </Text>
             <Stack grow />
             <Text variant="headline" rtl color={SemanticColor.TextAccent}>
@@ -316,7 +321,7 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
           </Text>
           {d.holidays.length > 0 && (
             <Text variant="headline" color={SemanticColor.TextAccent}>
-              {d.holidays.map((h) => h.en).join(' · ')}
+              {d.holidays.map(t.text).join(' · ')}
             </Text>
           )}
         </Stack>
@@ -333,7 +338,7 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
               </Text>
               <Stack grow />
               <Text variant="title" color={e.cancelled ? SemanticColor.TextDanger : undefined}>
-                {e.cancelled ? 'Cancelled' : clock(e.minutes!)}
+                {e.cancelled ? t.s.cancelled : clock(e.minutes!)}
               </Text>
             </Stack>
           ))}
@@ -357,14 +362,15 @@ function upcomingDays(days: DaySchedule[]): DaySchedule[] {
 // Sponsors and announcements
 
 function NoticeRotator({ notices }: { notices: Notice[] }) {
+  const t = useT()
   const i = useRotation(notices.length)
   if (!notices.length) return null
   const n = notices[i % notices.length]
   const sponsor = n.kind === 'sponsor'
   const when =
     n.to && n.to !== n.from
-      ? `${civilDateShort(n.from)} – ${civilDateShort(n.to)}`
-      : civilDateShort(n.from)
+      ? `${t.dateShort(n.from)} – ${t.dateShort(n.to)}`
+      : t.dateShort(n.from)
   return (
     <Stack
       key={n.id}
@@ -378,8 +384,8 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
     >
       <Stack direction="row" align="center" gap="sm">
         <Text variant="title" color={SemanticColor.TextAccent}>
-          {sponsor ? 'Sponsored' : 'Announcement'}
-          {n.title ? ` · ${n.title.en}` : ''}
+          {sponsor ? t.s.sponsored : t.s.announcement}
+          {n.title ? ` · ${t.text(n.title)}` : ''}
         </Text>
         <Stack grow />
         <Text variant="headline" color={SemanticColor.TextSecondary}>
@@ -387,9 +393,9 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
         </Text>
       </Stack>
       <Text variant="headerTitleWide" numberOfLines={3} color={SemanticColor.TextPrimary}>
-        {n.text.en}
+        {t.text(n.text)}
       </Text>
-      {!!n.text.he && (
+      {t.lang === 'en' && !!n.text.he && (
         <Text variant="titleLarge" rtl numberOfLines={2} color={SemanticColor.TextSecondary}>
           {n.text.he}
         </Text>
@@ -402,14 +408,16 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
 
 // ---------------------------------------------------------------------------
 
-function PanelHeading({ en, he }: { en: string; he: string }) {
+function PanelHeading({ en, he }: { en: string; he?: string }) {
   return (
     <Stack direction="row" align="center" gap="sm" paddingBottom="xs">
       <Text variant="pageHeader">{en}</Text>
       <Stack grow />
-      <Text variant="titleLarge" rtl color={SemanticColor.TextAccent}>
-        {he}
-      </Text>
+      {!!he && (
+        <Text variant="titleLarge" rtl color={SemanticColor.TextAccent}>
+          {he}
+        </Text>
+      )}
     </Stack>
   )
 }

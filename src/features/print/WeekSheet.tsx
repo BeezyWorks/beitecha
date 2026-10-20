@@ -11,14 +11,16 @@ import {
 } from '@beitecha/engine'
 import React from 'react'
 
-import { DAILY_ZMANIM, zmanimForDay } from '@/features/luach/labels'
-import { useT } from '@/features/luach/language'
+import { DAILY_ZMANIM, ZMAN_LABELS, zmanimForDay } from '@/features/luach/labels'
+import { makeT, useT } from '@/features/luach/language'
 import { SITE_URL } from '@/lib/config'
 
 /** Where the Shabbos panel takes over Friday's times from the weekday grid, without a chatzos. */
 const NOON = 12 * 60
 const NAME_W = 180
 const QR = 76
+/** Headings are in Hebrew whenever the page or its names are, whatever the labels' language. */
+const HE = makeT('he')
 
 export interface WeekProps {
   slug: string
@@ -73,9 +75,15 @@ function Masthead({ profile, days }: WeekProps) {
     <Stack gap="sm">
       <Stack direction="row" align="end" gap="lg">
         <Stack grow gap="none">
-          <Text variant="pageHeader">{t.text(profile.name)}</Text>
+          <Text
+            variant="pageHeader"
+            rtl={t.nameRtl && !!profile.name.he}
+            align={t.rtl ? undefined : 'left'}
+          >
+            {t.text(profile.name)}
+          </Text>
           {t.bothNames && !!profile.name.he && (
-            <Text variant="titleLarge" rtl align="left" color={SemanticColor.TextAccent}>
+            <Text variant="itemHeader" rtl align="left" color={SemanticColor.TextAccent}>
               {profile.name.he}
             </Text>
           )}
@@ -86,13 +94,17 @@ function Masthead({ profile, days }: WeekProps) {
           )}
         </Stack>
         <Stack align="end" gap="none">
-          <Text variant="pageHeader" color={SemanticColor.TextPrimary}>
+          <Text
+            variant="pageHeader"
+            rtl={shabbos.parsha ? t.nameRtl : t.rtl}
+            color={SemanticColor.TextPrimary}
+          >
             {t.dayTitle(shabbos)}
           </Text>
-          <Text variant="bodyStrong" color={SemanticColor.TextSecondary}>
+          <Text variant={strong(t)} color={SemanticColor.TextSecondary}>
             {civilRange(t, sunday.date, shabbos.date)}
           </Text>
-          <Text variant="bodyStrong" rtl color={SemanticColor.TextAccent}>
+          <Text variant="sectionHeader" rtl color={SemanticColor.TextAccent}>
             {hebrewRange(sunday, shabbos)}
           </Text>
         </Stack>
@@ -126,16 +138,17 @@ function ShabbosPanel({
       borderColor={SemanticColor.AccentTintSelected}
     >
       {holidays.length > 0 && (
-        <Text variant="bodyStrong" color={SemanticColor.TextAccent}>
+        <Text variant="sectionHeader" rtl={t.nameRtl} color={SemanticColor.TextAccent}>
           {[...new Set(holidays)].join(' · ')}
         </Text>
       )}
       <Stack direction="row" gap="lg">
         <Stack grow gap="xs">
           <ColumnHeading
-            title={t.s.erevShabbos}
+            en={t.s.erevShabbos}
+            he={HE.s.erevShabbos}
             date={t.dateShort(friday.date)}
-            he={friday.hebrew.he}
+            hebrewDate={friday.hebrew.he}
           />
           <Rows
             events={erevShabbos}
@@ -145,9 +158,10 @@ function ShabbosPanel({
         <Stack width={1} background={SemanticColor.AccentTintSelected} />
         <Stack grow gap="xs">
           <ColumnHeading
-            title={t.weekday(6)}
+            en={t.weekday(6)}
+            he={HE.weekday(6)}
             date={t.dateShort(shabbos.date)}
-            he={shabbos.hebrew.he}
+            hebrewDate={shabbos.hebrew.he}
           />
           <Rows
             events={shabbos.events}
@@ -159,19 +173,45 @@ function ShabbosPanel({
   )
 }
 
-function ColumnHeading({ title, date, he }: { title: string; date: string; he: string }) {
+function ColumnHeading({
+  en,
+  he,
+  date,
+  hebrewDate,
+}: {
+  en: string
+  he: string
+  date: string
+  hebrewDate: string
+}) {
   return (
     <Stack direction="row" align="center" gap="sm" paddingBottom="xs">
-      <Text variant="sectionHeader" color={SemanticColor.TextAccent}>
-        {title}
-      </Text>
+      <Heading en={en} he={he} />
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         {date}
       </Text>
       <Stack grow />
       <Text variant="caption" rtl color={SemanticColor.TextSecondary}>
-        {he}
+        {hebrewDate}
       </Text>
+    </Stack>
+  )
+}
+
+/** In Hebrew when the page or its names are; with the Hebrew beside it when names show in both. */
+function Heading({ en, he }: { en: string; he: string }) {
+  const t = useT()
+  const hebrew = t.rtl || t.nameRtl
+  return (
+    <Stack direction="row" align="center" gap="sm">
+      <Text variant="sectionHeader" rtl={hebrew} color={SemanticColor.TextAccent}>
+        {hebrew ? he : en}
+      </Text>
+      {!hebrew && t.bothNames && (
+        <Text variant="sectionHeader" rtl color={SemanticColor.TextSecondary}>
+          {he}
+        </Text>
+      )}
     </Stack>
   )
 }
@@ -202,7 +242,7 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
     const at = rows.findIndex((r) => r.minutes !== null && r.minutes > zman.minutes)
     const row: Row = {
       key: zman.id,
-      name: { en: t.zman(zman.id) },
+      name: ZMAN_LABELS[zman.id],
       minutes: zman.minutes,
       lit: true,
     }
@@ -223,12 +263,13 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
             <Stack direction="row" align="center" gap="sm">
               <Text
                 variant={r.lit ? 'itemHeader' : 'item'}
+                rtl={t.nameRtl && !!r.name.he}
                 color={r.lit ? SemanticColor.TextAccent : undefined}
               >
-                {r.lit ? r.name.en : t.text(r.name)}
+                {t.text(r.name)}
               </Text>
-              {!r.lit && t.bothNames && !!r.name.he && (
-                <Text variant="body" rtl color={SemanticColor.TextSecondary}>
+              {t.bothNames && !!r.name.he && (
+                <Text variant="item" rtl color={SemanticColor.TextSecondary}>
                   {r.name.he}
                 </Text>
               )}
@@ -268,9 +309,7 @@ function WeekdayGrid({ days }: { days: DaySchedule[] }) {
   ids.sort((a, b) => earliest(a) - earliest(b))
   return (
     <Stack gap="xs">
-      <Text variant="sectionHeader" color={SemanticColor.TextAccent}>
-        {t.s.weekdays}
-      </Text>
+      <Heading en={t.s.weekdays} he={HE.s.weekdays} />
       <Stack gap="none">
         <DayColumns days={days} />
         {ids.map((id) => {
@@ -324,9 +363,7 @@ function ZmanimGrid({ days }: { days: DaySchedule[] }) {
   ids.sort((a, b) => zmanOrder(a) - zmanOrder(b))
   return (
     <Stack gap="xs">
-      <Text variant="sectionHeader" color={SemanticColor.TextAccent}>
-        {t.s.zmanimThisWeek}
-      </Text>
+      <Heading en={t.s.zmanimThisWeek} he={HE.s.zmanimThisWeek} />
       <Stack gap="none">
         <DayColumns days={days} />
         {ids.map((id) => {
@@ -338,6 +375,7 @@ function ZmanimGrid({ days }: { days: DaySchedule[] }) {
               label={
                 <Text
                   variant="body"
+                  rtl={t.nameRtl}
                   color={lit ? SemanticColor.TextAccent : SemanticColor.TextSecondary}
                 >
                   {t.zman(id)}
@@ -379,14 +417,19 @@ function DayColumns({ days }: { days: DaySchedule[] }) {
     <TableRow label={null} header>
       {days.map((d) => (
         <Cell key={d.date} day={d} header>
-          <Text variant="bodyStrong" color={special(d) ? SemanticColor.TextAccent : undefined}>
+          <Text variant={strong(t)} color={special(d) ? SemanticColor.TextAccent : undefined}>
             {t.weekdayShort(d.weekday)} {parseDate(d.date).day}
           </Text>
           <Text variant="caption" numberOfLines={1} color={SemanticColor.TextSecondary}>
             {d.hebrew.he.split(' ').slice(0, 2).join(' ')}
           </Text>
           {d.holidays.length > 0 && (
-            <Text variant="caption" numberOfLines={1} color={SemanticColor.TextAccent}>
+            <Text
+              variant="caption"
+              numberOfLines={1}
+              rtl={t.nameRtl}
+              color={SemanticColor.TextAccent}
+            >
               {t.text(d.holidays[0])}
             </Text>
           )}
@@ -452,11 +495,11 @@ function RowName({ name }: { name: Localized }) {
   const t = useT()
   return (
     <Stack direction="row" align="center" gap="sm">
-      <Text variant="item" numberOfLines={1}>
+      <Text variant="item" numberOfLines={1} rtl={t.nameRtl && !!name.he}>
         {t.text(name)}
       </Text>
       {t.bothNames && !!name.he && (
-        <Text variant="body" rtl numberOfLines={1} color={SemanticColor.TextSecondary}>
+        <Text variant="item" rtl numberOfLines={1} color={SemanticColor.TextSecondary}>
           {name.he}
         </Text>
       )}
@@ -473,9 +516,7 @@ function Notices({ notices }: { notices: Notice[] }) {
     <Stack gap="lg">
       {sponsors.length > 0 && (
         <Stack gap="sm">
-          <Text variant="sectionHeader" color={SemanticColor.TextAccent}>
-            {t.s.sponsorships}
-          </Text>
+          <Heading en={t.s.sponsorships} he={HE.s.sponsorships} />
           {sponsors.map((n) => (
             <NoticeBlock key={n.id} notice={n} />
           ))}
@@ -483,9 +524,7 @@ function Notices({ notices }: { notices: Notice[] }) {
       )}
       {announcements.length > 0 && (
         <Stack gap="sm">
-          <Text variant="sectionHeader" color={SemanticColor.TextAccent}>
-            {t.s.announcements}
-          </Text>
+          <Heading en={t.s.announcements} he={HE.s.announcements} />
           {announcements.map((n) => (
             <NoticeBlock key={n.id} notice={n} />
           ))}
@@ -511,7 +550,11 @@ function NoticeBlock({ notice: n }: { notice: Notice }) {
     >
       <Stack direction="row" align="center" gap="sm">
         {!!n.title && (
-          <Text variant="itemHeader" color={SemanticColor.TextAccent}>
+          <Text
+            variant="itemHeader"
+            rtl={t.nameRtl && !!n.title.he}
+            color={SemanticColor.TextAccent}
+          >
             {t.text(n.title)}
           </Text>
         )}
@@ -520,7 +563,9 @@ function NoticeBlock({ notice: n }: { notice: Notice }) {
           {when}
         </Text>
       </Stack>
-      <Text variant="bodySerifLarge">{t.text(n.text)}</Text>
+      <Text variant="bodySerifLarge" rtl={t.nameRtl && !!n.text.he}>
+        {t.text(n.text)}
+      </Text>
       {t.bothNames && !!n.text.he && (
         <Text variant="bodySerif" rtl>
           {n.text.he}
@@ -544,7 +589,7 @@ function Footer({ slug }: { slug: string }) {
     >
       <QRCode value={url} size={QR} logo={false} />
       <Stack grow gap="none">
-        <Text variant="bodyStrong">{t.s.upToDate}</Text>
+        <Text variant={strong(t)}>{t.s.upToDate}</Text>
         <Text variant="body" color={SemanticColor.TextSecondary}>
           {url.replace(/^https?:\/\//, '')}
         </Text>
@@ -556,6 +601,9 @@ function Footer({ slug }: { slug: string }) {
 // ---------------------------------------------------------------------------
 
 type T = ReturnType<typeof useT>
+
+/** A bold label: Hebrew in Frank Ruhl Libre Bold, not a faux-bold system font. */
+const strong = (t: T) => (t.rtl ? 'sectionHeader' : 'bodyStrong')
 
 /** `October 18 – 24, 2026`, or across months `October 25 – November 1, 2026`. */
 function civilRange(t: T, from: string, to: string) {

@@ -31,6 +31,10 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
     scaled to the screen; a DL candidate) and `components/Select.tsx` (styled like the DL's own web pickers).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
+  - Shul pages write themselves in `settings.language` (labels, weekdays, dates: `en` or `he`) and `settings.names` (minyan,
+    zman, parsha, holiday and notice names: `en`, `he` or `both`; default follows `language`: `en` → `both`, `he` → `he`).
+    Viewer surfaces never read `.en` directly: use `useT()` (`features/luach/language.tsx`) for names, labels, dates and
+    chrome strings, and `localize()` in the engine/worker. Hebrew for Maariv is ערבית. The admin stays English.
   - The admin edits a draft in a zustand store (`features/admin/store.ts`) and saves the whole document.
     `features/admin/forms.ts` maps `Condition`/`TimeExpr` to editable forms and back; anything the forms can't say
     round-trips through a JSON editor instead of being lost. Jest-tested.

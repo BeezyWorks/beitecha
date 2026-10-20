@@ -57,7 +57,7 @@ export const sampleSchedule: Schedule = {
     },
     {
       id: 'maariv',
-      name: { en: 'Maariv', he: 'מעריב' },
+      name: { en: 'Maariv', he: 'ערבית' },
       kind: 'tefila',
       rules: [
         { when: { any: [{ tag: 'motzeiShabbos' }, { tag: 'motzeiYomTov' }] }, time: { zman: 'havdalah' } },

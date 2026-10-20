@@ -9,7 +9,13 @@ import {
   Text,
   useIsWideLayout,
 } from '@beezyworks/design'
-import { addDays, type DaySchedule, type Minutes, type ZmanId } from '@beitecha/engine'
+import {
+  addDays,
+  type DaySchedule,
+  type Localized,
+  type Minutes,
+  type ZmanId,
+} from '@beitecha/engine'
 import { router } from 'expo-router'
 import React, { useState } from 'react'
 import { Linking } from 'react-native'
@@ -22,8 +28,8 @@ import { NoticeCard } from '@/features/luach/NoticeCard'
 import { Pill } from '@/features/luach/Pill'
 import { TimesList } from '@/features/luach/TimesList'
 import { ZmanimList } from '@/features/luach/ZmanimList'
-import { civilDate, civilDateShort, clock, untilText } from '@/features/luach/format'
-import { WEEKDAYS, zmanimForDay } from '@/features/luach/labels'
+import { zmanimForDay } from '@/features/luach/labels'
+import { LanguageProvider, makeT, useT } from '@/features/luach/language'
 import { nextUp } from '@/features/luach/nextUp'
 import { useDays } from '@/features/luach/useDays'
 import { useShulClock } from '@/features/luach/useShulClock'
@@ -32,13 +38,13 @@ import { SITE_URL } from '@/lib/config'
 
 const DAYS_SHOWN = 8
 /** The zmanim worth a glance, short enough for a phone tile; the rest are a tap away. */
-const KEY_ZMANIM: Partial<Record<ZmanId, string>> = {
-  sunrise: 'Netz',
-  sofZmanShma: 'Shema',
-  candleLighting: 'Candles',
-  sunset: 'Shkia',
-  tzeis: 'Tzeis',
-  havdalah: 'Havdalah',
+const KEY_ZMANIM: Partial<Record<ZmanId, Localized>> = {
+  sunrise: { en: 'Netz', he: 'הנץ' },
+  sofZmanShma: { en: 'Shema', he: 'ק״ש' },
+  candleLighting: { en: 'Candles', he: 'נרות' },
+  sunset: { en: 'Shkia', he: 'שקיעה' },
+  tzeis: { en: 'Tzeis', he: 'צאת' },
+  havdalah: { en: 'Havdalah', he: 'הבדלה' },
 }
 
 /** What the QR code opens: the shul's times today and this week, and how to keep them. */
@@ -48,7 +54,12 @@ export function PublicScreen({ slug }: { slug: string }) {
   const { today, minutes } = useShulClock(tz)
   const days = useDays(feed?.schedule, today, DAYS_SHOWN)
   const wide = useIsWideLayout()
-  usePageTitle(feed ? `${feed.profile.name.en} · Beitecha` : undefined)
+  const t = makeT(
+    feed?.schedule.settings.language,
+    feed?.schedule.settings.timeFormat,
+    feed?.schedule.settings.names,
+  )
+  usePageTitle(feed ? `${t.text(feed.profile.name)} · Beitecha` : undefined)
 
   if (!feed) {
     if (notFound) return <Centered title="No such shul" body={`Nothing lives at /${slug} yet.`} />
@@ -66,76 +77,78 @@ export function PublicScreen({ slug }: { slug: string }) {
 
   return (
     <ThemeRoot brandColor={profile.brandColor}>
-      <Page>
-        <Stack paddingTop={wide ? 'lg' : 'none'}>
-          <GradientCard padding="lg">
-            <Stack gap="md">
-              <Stack gap="xs">
-                <Text variant="pageHeader" color={SemanticColor.TextOnAccent}>
-                  {profile.name.en}
-                </Text>
-                {!!profile.name.he && (
-                  <Text variant="titleLarge" rtl align="left" color={SemanticColor.TextOnAccent}>
-                    {profile.name.he}
+      <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
+        <Page>
+          <Stack paddingTop={wide ? 'lg' : 'none'}>
+            <GradientCard padding="lg">
+              <Stack gap="md">
+                <Stack gap="xs">
+                  <Text variant="pageHeader" color={SemanticColor.TextOnAccent}>
+                    {t.text(profile.name)}
                   </Text>
-                )}
-                {!!(profile.address || profile.city) && (
-                  <Text variant="body" color={SemanticColor.TextOnAccent}>
-                    {[profile.address, profile.city].filter(Boolean).join(', ')}
-                  </Text>
-                )}
+                  {t.bothNames && !!profile.name.he && (
+                    <Text variant="titleLarge" rtl align="left" color={SemanticColor.TextOnAccent}>
+                      {profile.name.he}
+                    </Text>
+                  )}
+                  {!!(profile.address || profile.city) && (
+                    <Text variant="body" color={SemanticColor.TextOnAccent}>
+                      {[profile.address, profile.city].filter(Boolean).join(', ')}
+                    </Text>
+                  )}
+                </Stack>
+                {day && <HeroToday day={day} tomorrow={rest[0]} minutes={minutes} />}
               </Stack>
-              {day && <HeroToday day={day} tomorrow={rest[0]} minutes={minutes} />}
+            </GradientCard>
+          </Stack>
+
+          {day && <TodayCard day={day} minutes={minutes} />}
+
+          {notices.length > 0 && (
+            <Stack gap="sm">
+              {notices.map((n) => (
+                <NoticeCard key={n.id} notice={n} />
+              ))}
             </Stack>
-          </GradientCard>
-        </Stack>
+          )}
 
-        {day && <TodayCard day={day} minutes={minutes} />}
-
-        {notices.length > 0 && (
           <Stack gap="sm">
-            {notices.map((n) => (
-              <NoticeCard key={n.id} notice={n} />
+            <SectionHeading en={t.s.thisWeek} he={t.lang === 'en' ? 'השבוע' : undefined} />
+            {rest.map((d) => (
+              <WeekDay key={d.date} day={d} columns={wide ? 4 : 3} />
             ))}
           </Stack>
-        )}
 
-        <Stack gap="sm">
-          <SectionHeading en="This week" he="השבוע" />
-          {rest.map((d) => (
-            <WeekDay key={d.date} day={d} columns={wide ? 4 : 3} />
-          ))}
-        </Stack>
+          <Card gap="md" align="center">
+            <Text variant="sectionHeader">{t.s.keepTimes}</Text>
+            {wide && <QRCode value={pageUrl} size={160} logo={false} />}
+            <Button
+              title={t.s.addToCalendar}
+              icon="calendar-today"
+              onPress={() => Linking.openURL(icsUrl.replace(/^https?:/, 'webcal:'))}
+            />
+            <Text variant="caption" color={SemanticColor.TextSecondary} align="center">
+              {wide ? t.s.scanToOpen : ''}
+              {t.s.calendarUpdates}
+            </Text>
+          </Card>
 
-        <Card gap="md" align="center">
-          <Text variant="sectionHeader">Keep these times with you</Text>
-          {wide && <QRCode value={pageUrl} size={160} logo={false} />}
-          <Button
-            title="Add to my calendar"
-            icon="calendar-today"
-            onPress={() => Linking.openURL(icsUrl.replace(/^https?:/, 'webcal:'))}
-          />
-          <Text variant="caption" color={SemanticColor.TextSecondary} align="center">
-            {wide ? 'Scan to open this page on your phone. ' : ''}Calendar times update by
-            themselves when the shul changes them.
-          </Text>
-        </Card>
-
-        <Stack direction="row" gap="sm" justify="center" paddingBottom="xl" wrap>
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Show on a monitor"
-            onPress={() => router.push(`/${slug}/display`)}
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Gabbai sign-in"
-            onPress={() => router.push(`/${slug}/admin`)}
-          />
-        </Stack>
-      </Page>
+          <Stack direction="row" gap="sm" justify="center" paddingBottom="xl" wrap>
+            <Button
+              variant="ghost"
+              size="sm"
+              title={t.s.showOnMonitor}
+              onPress={() => router.push(`/${slug}/display`)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              title={t.s.gabbaiSignIn}
+              onPress={() => router.push(`/${slug}/admin`)}
+            />
+          </Stack>
+        </Page>
+      </LanguageProvider>
     </ThemeRoot>
   )
 }
@@ -150,10 +163,11 @@ function HeroToday({
   tomorrow?: DaySchedule
   minutes: Minutes
 }) {
+  const t = useT()
   const next = nextUp(day, tomorrow, minutes)
   const extras = [
-    ...day.holidays.map((h) => h.en),
-    ...(day.weekday === 6 && day.parsha ? [`Parshas ${day.parsha.en}`] : []),
+    ...day.holidays.map(t.text),
+    ...(day.weekday === 6 && t.parsha(day) ? [t.parsha(day)!] : []),
   ]
   return (
     <Stack gap="md">
@@ -161,7 +175,7 @@ function HeroToday({
       <Stack gap="xs">
         <Stack direction="row" align="center" gap="sm" wrap>
           <Text variant="title" color={SemanticColor.TextOnAccent}>
-            {WEEKDAYS[day.weekday].en}, {civilDate(day.date)}
+            {t.weekday(day.weekday)}, {t.date(day.date)}
           </Text>
           <Stack grow />
           <Text variant="title" rtl color={SemanticColor.TextOnAccent}>
@@ -180,23 +194,23 @@ function HeroToday({
         <Stack radius="lg" padding="md" gap="xs" background={SemanticColor.SurfaceOnAccent}>
           <Stack direction="row" align="center" gap="sm">
             <Text variant="bodyStrong" color={SemanticColor.TextOnAccent}>
-              {next.today ? 'Next' : 'Tomorrow'}
+              {next.today ? t.s.next : t.s.tomorrow}
             </Text>
             <Stack grow />
             {next.today && (
               <Text variant="bodyStrong" color={SemanticColor.TextOnAccent}>
-                {untilText(next.event.minutes - minutes)}
+                {t.until(next.event.minutes - minutes)}
               </Text>
             )}
           </Stack>
           <Stack direction="row" align="center" gap="sm">
             <Stack grow>
               <Text variant="pageHeader" numberOfLines={1} color={SemanticColor.TextOnAccent}>
-                {next.event.name.en}
+                {t.text(next.event.name)}
               </Text>
             </Stack>
             <Text variant="pageHeader" color={SemanticColor.TextOnAccent}>
-              {clock(next.event.minutes)}
+              {t.clock(next.event.minutes)}
             </Text>
           </Stack>
         </Stack>
@@ -206,6 +220,7 @@ function HeroToday({
 }
 
 function TodayCard({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
+  const t = useT()
   const [allZmanim, setAllZmanim] = useState(false)
   const shown = zmanimForDay(day.tags)
   const key = (Object.keys(KEY_ZMANIM) as ZmanId[]).filter(
@@ -213,24 +228,24 @@ function TodayCard({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
   )
   return (
     <Card gap="md">
-      <SectionHeading en="Today" he="סדר היום" />
+      <SectionHeading en={t.s.today} he={t.lang === 'en' ? 'סדר היום' : undefined} />
       {day.events.length ? (
         <TimesList events={day.events} now={minutes} />
       ) : (
         <Text variant="body" color={SemanticColor.TextSecondary}>
-          No minyanim listed today.
+          {t.s.noMinyanim}
         </Text>
       )}
       <Stack height={1} background={SemanticColor.BorderDefault} />
       <Stack direction="row" align="center">
         <Text variant="bodyStrong" color={SemanticColor.TextAccent}>
-          Zmanim
+          {t.s.zmanim}
         </Text>
         <Stack grow />
         <Button
           variant="ghost"
           size="sm"
-          title={allZmanim ? 'Fewer' : 'All zmanim'}
+          title={allZmanim ? t.s.fewer : t.s.allZmanim}
           icon={allZmanim ? undefined : 'chevron-down'}
           iconPosition="end"
           onPress={() => setAllZmanim((v) => !v)}
@@ -243,8 +258,8 @@ function TodayCard({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
           {key.map((id) => (
             <TimeTile
               key={id}
-              label={KEY_ZMANIM[id]!}
-              time={clock(day.zmanim[id]!)}
+              label={t.text(KEY_ZMANIM[id]!)}
+              time={t.clock(day.zmanim[id]!)}
               accent={id === 'candleLighting' || id === 'havdalah'}
             />
           ))}
@@ -256,9 +271,10 @@ function TodayCard({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
 
 /** One of the coming days: its times as a grid of tiles, Shabbos and Yom Tov washed in the brand. */
 function WeekDay({ day: d, columns }: { day: DaySchedule; columns: number }) {
+  const t = useT()
   const shabbos = d.weekday === 6
   const special = shabbos || d.tags.includes('yomTov')
-  const title = shabbos && d.parsha ? `Shabbos ${d.parsha.en}` : WEEKDAYS[d.weekday].en
+  const title = t.dayTitle(d)
   return (
     <Card
       gap="sm"
@@ -276,7 +292,7 @@ function WeekDay({ day: d, columns }: { day: DaySchedule; columns: number }) {
           {title}
         </Text>
         <Text variant="body" color={SemanticColor.TextSecondary}>
-          {civilDateShort(d.date)}
+          {t.dateShort(d.date)}
         </Text>
         <Stack grow />
         <Text variant="body" rtl color={SemanticColor.TextAccent}>
@@ -285,7 +301,7 @@ function WeekDay({ day: d, columns }: { day: DaySchedule; columns: number }) {
       </Stack>
       {d.holidays.length > 0 && (
         <Text variant="caption" color={SemanticColor.TextAccent}>
-          {d.holidays.map((h) => h.en).join(' · ')}
+          {d.holidays.map(t.text).join(' · ')}
         </Text>
       )}
       {d.events.length > 0 && (
@@ -293,8 +309,8 @@ function WeekDay({ day: d, columns }: { day: DaySchedule; columns: number }) {
           {d.events.map((e) => (
             <TimeTile
               key={e.eventId}
-              label={e.name.en}
-              time={e.cancelled ? 'Cancelled' : e.minutes === null ? '—' : clock(e.minutes)}
+              label={t.text(e.name)}
+              time={e.cancelled ? t.s.cancelled : e.minutes === null ? '—' : t.clock(e.minutes)}
               cancelled={e.cancelled}
               onTint={special}
             />
@@ -339,14 +355,16 @@ function TimeTile({
   )
 }
 
-function SectionHeading({ en, he }: { en: string; he: string }) {
+function SectionHeading({ en, he }: { en: string; he?: string }) {
   return (
     <Stack direction="row" align="center" gap="sm">
       <Text variant="sectionHeader">{en}</Text>
       <Stack grow />
-      <Text variant="bodyStrong" rtl color={SemanticColor.TextAccent}>
-        {he}
-      </Text>
+      {!!he && (
+        <Text variant="bodyStrong" rtl color={SemanticColor.TextAccent}>
+          {he}
+        </Text>
+      )}
     </Stack>
   )
 }

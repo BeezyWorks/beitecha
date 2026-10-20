@@ -1,11 +1,26 @@
-import { Card, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
-import { ZMAN_IDS, type SelichosMinhag, type ShulSettings, type ZmanId } from '@beitecha/engine'
+import {
+  Card,
+  SegmentedControl,
+  SemanticColor,
+  Stack,
+  Text,
+  ToggleSwitch,
+} from '@beezyworks/design'
+import {
+  ZMAN_IDS,
+  nameStyle,
+  type NameStyle,
+  type SelichosMinhag,
+  type ShulSettings,
+  type ZmanId,
+} from '@beitecha/engine'
 import React from 'react'
 
 import { ZMAN_LABELS } from '@/features/luach/labels'
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
 import { LocalHolidaysCard } from './LocalHolidaysCard'
+import { TimeFormatCard } from './TimeFormatCard'
 import { useAdmin } from './store'
 
 /** The shul's name and look, where it is, and its zmanim opinions. */
@@ -16,38 +31,112 @@ export function ShulTab() {
   const zmanim = schedule.settings.zmanim ?? {}
   const hidden = zmanim.hidden ?? []
   const setSettings = (settings: ShulSettings) => setSchedule({ ...schedule, settings })
-  const setLocation = (patch: Partial<ShulSettings['location']>) => setSettings({ ...schedule.settings, location: { ...location, ...patch } })
-  const setZmanim = (patch: Partial<NonNullable<ShulSettings['zmanim']>>) => setSettings({ ...schedule.settings, zmanim: { ...zmanim, ...patch } })
+  const setLocation = (patch: Partial<ShulSettings['location']>) =>
+    setSettings({ ...schedule.settings, location: { ...location, ...patch } })
+  const setZmanim = (patch: Partial<NonNullable<ShulSettings['zmanim']>>) =>
+    setSettings({ ...schedule.settings, zmanim: { ...zmanim, ...patch } })
   const havdalahMode = zmanim.havdalah && 'minutes' in zmanim.havdalah ? 'minutes' : 'angle'
 
   return (
     <Stack gap="md">
       <Card gap="md">
         <Text variant="sectionHeader">The shul</Text>
-        <Field label="Name" value={profile.name.en} onChangeText={(en) => setProfile({ ...profile, name: { ...profile.name, en } })} />
-        <Field label="Hebrew name" value={profile.name.he ?? ''} onChangeText={(he) => setProfile({ ...profile, name: { ...profile.name, he: he || undefined } })} />
-        <Field label="Street address" value={profile.address ?? ''} onChangeText={(address) => setProfile({ ...profile, address: address || undefined })} />
-        <Field label="City" value={profile.city ?? ''} onChangeText={(city) => setProfile({ ...profile, city: city || undefined })} />
-        <Field label="Website" value={profile.website ?? ''} autoCapitalize="none" onChangeText={(website) => setProfile({ ...profile, website: website || undefined })} />
+        <Field
+          label="Name"
+          value={profile.name.en}
+          onChangeText={(en) => setProfile({ ...profile, name: { ...profile.name, en } })}
+        />
+        <Field
+          label="Hebrew name"
+          value={profile.name.he ?? ''}
+          onChangeText={(he) =>
+            setProfile({ ...profile, name: { ...profile.name, he: he || undefined } })
+          }
+        />
+        <Field
+          label="Street address"
+          value={profile.address ?? ''}
+          onChangeText={(address) => setProfile({ ...profile, address: address || undefined })}
+        />
+        <Field
+          label="City"
+          value={profile.city ?? ''}
+          onChangeText={(city) => setProfile({ ...profile, city: city || undefined })}
+        />
+        <Field
+          label="Website"
+          value={profile.website ?? ''}
+          autoCapitalize="none"
+          onChangeText={(website) => setProfile({ ...profile, website: website || undefined })}
+        />
         <Field
           label="Color"
           value={profile.brandColor ?? ''}
           autoCapitalize="none"
           placeholder="#3E7FD1"
           help="Tints the display and the shul’s page (#rrggbb)."
-          error={profile.brandColor && !/^#[0-9a-f]{6}$/i.test(profile.brandColor) ? 'Use #rrggbb' : null}
+          error={
+            profile.brandColor && !/^#[0-9a-f]{6}$/i.test(profile.brandColor) ? 'Use #rrggbb' : null
+          }
           onChangeText={(c) => setProfile({ ...profile, brandColor: c || undefined })}
         />
+        <Stack gap="sm">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            Language of the shul’s page, display and calendar
+          </Text>
+          <SegmentedControl
+            options={[
+              { key: 'en', label: 'English' },
+              { key: 'he', label: 'עברית' },
+            ]}
+            value={schedule.settings.language ?? 'en'}
+            onChange={(language) => setSettings({ ...schedule.settings, language })}
+          />
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            Labels like “Next” and “Coming up”, weekdays and the date.
+          </Text>
+        </Stack>
+        <Stack gap="sm">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            Names: minyanim, shiurim, zmanim, parsha, holidays, notices
+          </Text>
+          <SegmentedControl<NameStyle>
+            options={[
+              { key: 'en', label: 'English' },
+              { key: 'he', label: 'עברית' },
+              { key: 'both', label: 'Both' },
+            ]}
+            value={nameStyle(schedule.settings)}
+            onChange={(names) => setSettings({ ...schedule.settings, names })}
+          />
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            Can differ from the language above, e.g. English dates with Hebrew minyan names. Names
+            you haven’t given in Hebrew stay in English.
+          </Text>
+        </Stack>
       </Card>
+
+      <TimeFormatCard
+        value={schedule.settings.timeFormat}
+        onChange={(timeFormat) => setSettings({ ...schedule.settings, timeFormat })}
+      />
 
       <Card gap="md">
         <Text variant="sectionHeader">Location</Text>
         <Stack direction="row" gap="md">
           <Stack grow>
-            <NumberField label="Latitude" value={location.latitude} onChange={(latitude) => latitude !== undefined && setLocation({ latitude })} />
+            <NumberField
+              label="Latitude"
+              value={location.latitude}
+              onChange={(latitude) => latitude !== undefined && setLocation({ latitude })}
+            />
           </Stack>
           <Stack grow>
-            <NumberField label="Longitude" value={location.longitude} onChange={(longitude) => longitude !== undefined && setLocation({ longitude })} />
+            <NumberField
+              label="Longitude"
+              value={location.longitude}
+              onChange={(longitude) => longitude !== undefined && setLocation({ longitude })}
+            />
           </Stack>
         </Stack>
         <Field
@@ -60,7 +149,11 @@ export function ShulTab() {
         <Stack direction="row" align="center" gap="md">
           <Text variant="body">In Eretz Yisrael (one day Yom Tov)</Text>
           <Stack grow />
-          <ToggleSwitch value={location.israel} onValueChange={(israel) => setLocation({ israel })} accessibilityLabel="In Eretz Yisrael" />
+          <ToggleSwitch
+            value={location.israel}
+            onValueChange={(israel) => setLocation({ israel })}
+            accessibilityLabel="In Eretz Yisrael"
+          />
         </Stack>
       </Card>
 
@@ -71,7 +164,11 @@ export function ShulTab() {
           value={zmanim.candleLightingMinutes ?? 18}
           onChange={(candleLightingMinutes) => setZmanim({ candleLightingMinutes })}
         />
-        <NumberField label="Tzeis: degrees below the horizon" value={zmanim.tzeisAngle ?? 8.5} onChange={(tzeisAngle) => setZmanim({ tzeisAngle })} />
+        <NumberField
+          label="Tzeis: degrees below the horizon"
+          value={zmanim.tzeisAngle ?? 8.5}
+          onChange={(tzeisAngle) => setZmanim({ tzeisAngle })}
+        />
         <Stack gap="sm">
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Motzei Shabbos / Havdalah
@@ -82,12 +179,25 @@ export function ShulTab() {
               { key: 'minutes', label: 'Fixed minutes after sunset' },
             ]}
             value={havdalahMode}
-            onChange={(k) => setZmanim({ havdalah: k === 'minutes' ? { minutes: 50 } : { angle: 8.5 } })}
+            onChange={(k) =>
+              setZmanim({ havdalah: k === 'minutes' ? { minutes: 50 } : { angle: 8.5 } })
+            }
           />
           <NumberField
-            label={havdalahMode === 'minutes' ? 'Minutes after sunset' : 'Degrees below the horizon'}
-            value={zmanim.havdalah ? ('minutes' in zmanim.havdalah ? zmanim.havdalah.minutes : zmanim.havdalah.angle) : 8.5}
-            onChange={(n) => n !== undefined && setZmanim({ havdalah: havdalahMode === 'minutes' ? { minutes: n } : { angle: n } })}
+            label={
+              havdalahMode === 'minutes' ? 'Minutes after sunset' : 'Degrees below the horizon'
+            }
+            value={
+              zmanim.havdalah
+                ? 'minutes' in zmanim.havdalah
+                  ? zmanim.havdalah.minutes
+                  : zmanim.havdalah.angle
+                : 8.5
+            }
+            onChange={(n) =>
+              n !== undefined &&
+              setZmanim({ havdalah: havdalahMode === 'minutes' ? { minutes: n } : { angle: n } })
+            }
           />
         </Stack>
         <Stack direction="row" align="center" gap="md">
@@ -97,10 +207,18 @@ export function ShulTab() {
               Sunrise and sunset as seen from the shul’s height, not sea level.
             </Text>
           </Stack>
-          <ToggleSwitch value={!!zmanim.useElevation} onValueChange={(useElevation) => setZmanim({ useElevation })} accessibilityLabel="Use elevation" />
+          <ToggleSwitch
+            value={!!zmanim.useElevation}
+            onValueChange={(useElevation) => setZmanim({ useElevation })}
+            accessibilityLabel="Use elevation"
+          />
         </Stack>
         {zmanim.useElevation && (
-          <NumberField label="Elevation (meters)" value={location.elevation ?? 0} onChange={(elevation) => setLocation({ elevation })} />
+          <NumberField
+            label="Elevation (meters)"
+            value={location.elevation ?? 0}
+            onChange={(elevation) => setLocation({ elevation })}
+          />
         )}
         <Stack gap="sm">
           <Text variant="label" color={SemanticColor.TextSecondary}>
@@ -113,7 +231,9 @@ export function ShulTab() {
               </Stack>
               <ToggleSwitch
                 value={!hidden.includes(id)}
-                onValueChange={(on) => setZmanim({ hidden: on ? hidden.filter((h) => h !== id) : [...hidden, id] })}
+                onValueChange={(on) =>
+                  setZmanim({ hidden: on ? hidden.filter((h) => h !== id) : [...hidden, id] })
+                }
                 accessibilityLabel={`Show ${ZMAN_LABELS[id].en}`}
               />
             </Stack>

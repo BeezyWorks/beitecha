@@ -2,7 +2,8 @@ import { Card, Chip, SemanticColor, Stack, Text } from '@beezyworks/design'
 import { Calendar, addDays, validate, type DateString, type Schedule } from '@beitecha/engine'
 import React, { useMemo, useState } from 'react'
 
-import { civilDateShort, clock } from '@/features/luach/format'
+import { civilDateShort } from '@/features/luach/format'
+import { makeT } from '@/features/luach/language'
 import { WEEKDAY_SHORT } from '@/features/luach/labels'
 
 const RANGES = { week: 7, month: 31 } as const
@@ -12,6 +13,7 @@ const RANGES = { week: 7, month: 31 } as const
  * found over the coming year. "Tricky days" jumps through the days schedules break on.
  */
 export function Preview({ schedule, today }: { schedule: Schedule; today: DateString }) {
+  const { clock } = makeT('en', schedule.settings.timeFormat)
   const [range, setRange] = useState<'week' | 'month' | 'tricky'>('week')
   const issues = useMemo(() => validate(schedule, today, 370), [schedule, today])
   const days = useMemo(() => {
@@ -56,7 +58,7 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
           </Stack>
           {d.events.map((o) => (
             <Stack key={o.eventId} direction="row" gap="sm">
-              <Stack width={56}>
+              <Stack width={80}>
                 <Text variant="body" color={o.cancelled || o.error ? SemanticColor.TextDanger : undefined}>
                   {o.cancelled ? '—' : o.minutes === null ? '!' : clock(o.minutes)}
                 </Text>

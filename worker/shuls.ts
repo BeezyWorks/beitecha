@@ -1,4 +1,12 @@
-import { addDays, starterSchedule, todayIn, type Schedule, type ShulProfile, type ShulSettings } from '@beitecha/engine'
+import {
+  addDays,
+  starterSchedule,
+  timeFormatProblem,
+  todayIn,
+  type Schedule,
+  type ShulProfile,
+  type ShulSettings,
+} from '@beitecha/engine'
 
 import { requireUser, type User } from './auth'
 import type { Env } from './env'
@@ -65,6 +73,24 @@ export function scheduleProblem(s: unknown): string | null {
   if (typeof loc.latitude !== 'number' || Math.abs(loc.latitude) > 90) return 'bad latitude'
   if (typeof loc.longitude !== 'number' || Math.abs(loc.longitude) > 180) return 'bad longitude'
   if (!validTimeZone(loc.timeZone)) return 'bad time zone'
+  if (
+    s.settings.language !== undefined &&
+    s.settings.language !== 'en' &&
+    s.settings.language !== 'he'
+  )
+    return 'language must be en or he'
+  if (
+    s.settings.names !== undefined &&
+    s.settings.names !== 'en' &&
+    s.settings.names !== 'he' &&
+    s.settings.names !== 'both'
+  )
+    return 'names must be en, he or both'
+  if (
+    s.settings.timeFormat !== undefined &&
+    (typeof s.settings.timeFormat !== 'string' || timeFormatProblem(s.settings.timeFormat))
+  )
+    return 'timeFormat must be a time format with an hour and minutes'
   if (typeof loc.israel !== 'boolean') return 'location.israel must be true or false'
   for (const key of ['events', 'exceptions', 'notices'] as const) {
     if (!Array.isArray(s[key])) return `${key} must be a list`
@@ -158,13 +184,34 @@ export async function getMine(request: Request, env: Env): Promise<Response> {
 
 export async function createShul(request: Request, env: Env): Promise<Response> {
   const user = await requireUser(request, env)
-  const body = await readJson<{ slug?: string; profile?: ShulProfile; location?: ShulSettings['location'] }>(request, 16 * 1024)
+  const body = await readJson<{
+    slug?: string
+    profile?: ShulProfile
+    location?: ShulSettings['location']
+    language?: ShulSettings['language']
+    minchaMaariv?: 'combined' | 'separate'
+  }>(request, 16 * 1024)
   const slug = String(body.slug ?? '').toLowerCase()
   const slugError = slugProblem(slug)
   if (slugError) throw new HttpError(400, `address: ${slugError}`)
   const profileError = profileProblem(body.profile)
   if (profileError) throw new HttpError(400, profileError)
-  const schedule = starterSchedule({ location: body.location as ShulSettings['location'] })
+  if (body.language !== undefined && body.language !== 'en' && body.language !== 'he')
+    throw new HttpError(400, 'language must be en or he')
+  if (
+    body.minchaMaariv !== undefined &&
+    body.minchaMaariv !== 'combined' &&
+    body.minchaMaariv !== 'separate'
+  ) {
+    throw new HttpError(400, 'minchaMaariv must be combined or separate')
+  }
+  const schedule = starterSchedule(
+    {
+      location: body.location as ShulSettings['location'],
+      ...(body.language && { language: body.language }),
+    },
+    { minchaMaariv: body.minchaMaariv },
+  )
   const scheduleError = scheduleProblem(schedule)
   if (scheduleError) throw new HttpError(400, scheduleError)
 

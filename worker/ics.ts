@@ -1,4 +1,12 @@
-import { Calendar, addDays, todayIn, type Schedule, type ShulProfile } from '@beitecha/engine'
+import {
+  Calendar,
+  addDays,
+  localize,
+  nameStyle,
+  todayIn,
+  type Schedule,
+  type ShulProfile,
+} from '@beitecha/engine'
 
 const DAYS = 60
 
@@ -24,6 +32,7 @@ const fold = (line: string) => {
 /** The next two months of the shul's public times as an iCalendar feed. */
 export function icsFeed(slug: string, profile: ShulProfile, schedule: Schedule, host: string, now = new Date()): string {
   const tz = schedule.settings.location.timeZone
+  const names = nameStyle(schedule.settings)
   const cal = new Calendar(schedule)
   const from = todayIn(tz, now)
   const dtstamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')
@@ -33,7 +42,7 @@ export function icsFeed(slug: string, profile: ShulProfile, schedule: Schedule, 
     'PRODID:-//BeezyWorks//Beitecha//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${escape(profile.name.en)}`,
+    `X-WR-CALNAME:${escape(localize(profile.name, names))}`,
     `X-WR-TIMEZONE:${tz}`,
     'REFRESH-INTERVAL;VALUE=DURATION:PT12H',
   ]
@@ -48,9 +57,9 @@ export function icsFeed(slug: string, profile: ShulProfile, schedule: Schedule, 
         `DTSTAMP:${dtstamp}`,
         `DTSTART;TZID=${tz}:${stamp(date, o.minutes)}`,
         `DURATION:PT${length}M`,
-        `SUMMARY:${escape(o.name.en)}`,
+        `SUMMARY:${escape(localize(o.name, names))}`,
         ...(o.room ? [`LOCATION:${escape(o.room)}`] : []),
-        ...(o.note ? [`DESCRIPTION:${escape(o.note.en)}`] : []),
+        ...(o.note ? [`DESCRIPTION:${escape(localize(o.note, names))}`] : []),
         `URL:https://${host}/${slug}`,
         'END:VEVENT',
       )

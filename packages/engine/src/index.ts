@@ -1,7 +1,15 @@
 export * from './types'
 export { Calendar, computeDay, computeRange } from './schedule'
 export { sampleSchedule } from './sample'
-export { starterSchedule } from './starter'
+export { starterSchedule, type StarterOptions } from './starter'
+export { localize, nameStyle } from './localize'
+export {
+  DEFAULT_TIME_FORMAT,
+  TIME_FORMAT_PRESETS,
+  formatTime,
+  timeFormatProblem,
+  type TimeFormatPreset,
+} from './timeFormat'
 export { easterSunday, localHolidayDates } from './local'
 export {
   CA_HOLIDAYS,

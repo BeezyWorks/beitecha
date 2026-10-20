@@ -2,7 +2,7 @@ import { SemanticColor, Stack, Text } from '@beezyworks/design'
 import type { Minutes, Occurrence } from '@beitecha/engine'
 import React from 'react'
 
-import { clock } from './format'
+import { useT } from './language'
 
 export interface TimesListProps {
   events: Occurrence[]
@@ -14,8 +14,12 @@ export interface TimesListProps {
 
 /** One day's minyanim and shiurim: name (English + Hebrew) and time, cancellations noted. */
 export function TimesList({ events, now, size = 'page' }: TimesListProps) {
-  const next = now === undefined ? undefined : events.find((e) => !e.cancelled && e.minutes !== null && e.minutes >= now)
+  const next =
+    now === undefined
+      ? undefined
+      : events.find((e) => !e.cancelled && e.minutes !== null && e.minutes >= now)
   const big = size === 'display'
+  const { bothNames, nameRtl, s, text, clock } = useT()
   return (
     <Stack gap={big ? 'sm' : 'xs'}>
       {events.map((e) => {
@@ -34,27 +38,41 @@ export function TimesList({ events, now, size = 'page' }: TimesListProps) {
             opacity={past || e.cancelled ? 0.5 : 1}
           >
             <Stack grow gap="none">
-              <Text variant={big ? 'displayMedium' : 'headline'} color={isNext ? SemanticColor.TextAccent : undefined}>
-                {e.name.en}
+              <Text
+                variant={big ? 'displayMedium' : 'headline'}
+                rtl={nameRtl}
+                color={isNext ? SemanticColor.TextAccent : undefined}
+              >
+                {text(e.name)}
               </Text>
               {!!e.note && (
-                <Text variant={big ? 'title' : 'caption'} color={e.cancelled ? SemanticColor.TextDanger : SemanticColor.TextSecondary}>
-                  {e.cancelled ? `Cancelled — ${e.note.en}` : e.note.en}
+                <Text
+                  variant={big ? 'title' : 'caption'}
+                  color={e.cancelled ? SemanticColor.TextDanger : SemanticColor.TextSecondary}
+                >
+                  {e.cancelled ? `${s.cancelled} — ${text(e.note)}` : text(e.note)}
                 </Text>
               )}
               {!e.note && e.cancelled && (
                 <Text variant={big ? 'title' : 'caption'} color={SemanticColor.TextDanger}>
-                  Cancelled
+                  {s.cancelled}
                 </Text>
               )}
             </Stack>
-            {!!e.name.he && (
-              <Text variant={big ? 'displayMedium' : 'headline'} rtl color={SemanticColor.TextSecondary}>
+            {bothNames && !!e.name.he && (
+              <Text
+                variant={big ? 'displayMedium' : 'headline'}
+                rtl
+                color={SemanticColor.TextSecondary}
+              >
                 {e.name.he}
               </Text>
             )}
             <Stack width={big ? 150 : 64} align="end">
-              <Text variant={big ? 'displayMedium' : 'headline'} color={isNext ? SemanticColor.TextAccent : undefined}>
+              <Text
+                variant={big ? 'displayMedium' : 'headline'}
+                color={isNext ? SemanticColor.TextAccent : undefined}
+              >
                 {e.minutes === null ? '—' : clock(e.minutes)}
               </Text>
             </Stack>

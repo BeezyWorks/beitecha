@@ -7,6 +7,7 @@ import { Centered } from '@/components/Centered'
 import { usePageTitle } from '@/components/PageTitle'
 import { ScaleToFit } from '@/components/ScaleToFit'
 import { ThemeRoot } from '@/components/ThemeRoot'
+import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useDays } from '@/features/luach/useDays'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
@@ -23,7 +24,12 @@ export function DisplayScreen({ slug }: { slug: string }) {
   const { today, minutes } = useShulClock(tz, 5_000)
   const days = useDays(feed?.schedule, today, 8)
   useDisplayUpkeep(slug, today, params.label)
-  usePageTitle(feed ? `${feed.profile.name.en} · Display` : undefined)
+  const t = makeT(
+    feed?.schedule.settings.language,
+    feed?.schedule.settings.timeFormat,
+    feed?.schedule.settings.names,
+  )
+  usePageTitle(feed ? `${t.text(feed.profile.name)} · Display` : undefined)
 
   if (!feed)
     return notFound ? (
@@ -42,19 +48,21 @@ export function DisplayScreen({ slug }: { slug: string }) {
 
   return (
     <ThemeRoot brandColor={feed.profile.brandColor} mode={mode}>
-      <Stack fill background={SemanticColor.SurfaceBackground}>
-        <ScaleToFit width={W} height={H} shift={shift}>
-          {days[0] && (
-            <Board
-              name={feed.profile.name}
-              slug={slug}
-              days={days}
-              minutes={minutes}
-              notices={notices}
-            />
-          )}
-        </ScaleToFit>
-      </Stack>
+      <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
+        <Stack fill background={SemanticColor.SurfaceBackground}>
+          <ScaleToFit width={W} height={H} shift={shift}>
+            {days[0] && (
+              <Board
+                name={feed.profile.name}
+                slug={slug}
+                days={days}
+                minutes={minutes}
+                notices={notices}
+              />
+            )}
+          </ScaleToFit>
+        </Stack>
+      </LanguageProvider>
     </ThemeRoot>
   )
 }

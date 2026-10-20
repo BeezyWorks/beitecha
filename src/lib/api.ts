@@ -68,7 +68,13 @@ export const api = {
   /** Throws ApiError 409 (body = the current record) on a stale revision. */
   save: async (slug: string, body: { profile?: ShulProfile; schedule?: Schedule; baseRevision: number }) =>
     (await request<ShulFeed>(`/api/shuls/${slug}`, { method: 'PUT', body })).data,
-  create: async (body: { slug: string; profile: ShulProfile; location: ShulSettings['location'] }) =>
+  create: async (body: {
+    slug: string
+    profile: ShulProfile
+    location: ShulSettings['location']
+    language?: ShulSettings['language']
+    minchaMaariv?: 'combined' | 'separate'
+  }) =>
     (await request<{ slug: string }>('/api/shuls', { body })).data,
   directory: async (q: string) =>
     (await request<{ shuls: { slug: string; name: ShulProfile['name']; city?: string }[] }>(`/api/directory?q=${encodeURIComponent(q)}`)).data.shuls,

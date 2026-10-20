@@ -12,6 +12,12 @@ export interface Localized {
   he?: string
 }
 
+/** The language a shul's public page, display and calendar feed are written in. */
+export type Language = 'en' | 'he'
+
+/** Which language names (minyanim, zmanim, parsha, holidays, notices) are shown in; `both` where there is room. */
+export type NameStyle = Language | 'both'
+
 // ---------------------------------------------------------------------------
 // Shul settings
 
@@ -34,11 +40,11 @@ export interface ZmanimSettings {
   /** Motzei Shabbos/Yom Tov: a sun angle, or fixed minutes after sunset. Default 8.5°. */
   havdalah?: { angle: number } | { minutes: number }
   useElevation?: boolean
+  /** Zmanim the shul doesn't show on the display, public page or ICS. Rules can still use them. */
+  hidden?: ZmanId[]
 }
 
 export type SelichosMinhag = 'ashkenaz' | 'sefard' | 'none'
-  /** Zmanim the shul doesn't show on the display, public page or ICS. Rules can still use them. */
-  hidden?: ZmanId[]
 
 /**
  * When a local (civil) holiday falls. Hebcal knows nothing of Thanksgiving or a UK
@@ -70,6 +76,15 @@ export interface LocalHoliday {
 
 export interface ShulSettings {
   location: ShulLocation
+  /** Default `en`. `he` shows Hebrew names and labels only (falling back to English where there is none). */
+  language?: Language
+  /**
+   * Names can differ from the rest, e.g. English dates and "Coming up" but Hebrew minyan and parsha
+   * names. Default: `both` when `language` is `en`, `he` when it is `he`.
+   */
+  names?: NameStyle
+  /** How times are written, in moment tokens (see `timeFormat.ts`). Default `h:mm`. */
+  timeFormat?: string
   zmanim?: ZmanimSettings
   /**
    * Built-in civil calendar. Absent = by time zone (US zones → `us`, Europe/London → `uk`).

@@ -1,4 +1,13 @@
-import { Button, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
+import {
+  Button,
+  Card,
+  SegmentedControl,
+  SemanticColor,
+  Stack,
+  Text,
+  ToggleSwitch,
+} from '@beezyworks/design'
+import type { Language } from '@beitecha/engine'
 import { router } from 'expo-router'
 import React, { useState } from 'react'
 
@@ -33,6 +42,8 @@ export function NewShulScreen() {
   const [lng, setLng] = useState('')
   const [timeZone, setTimeZone] = useState(browserZone)
   const [israel, setIsrael] = useState(browserZone() === 'Asia/Jerusalem')
+  const [language, setLanguage] = useState<Language>('en')
+  const [combined, setCombined] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -67,6 +78,8 @@ export function NewShulScreen() {
         slug: address,
         profile: { name: { en: name.trim(), ...(nameHe.trim() ? { he: nameHe.trim() } : {}) }, ...(city.trim() ? { city: city.trim() } : {}) },
         location: { latitude, longitude, timeZone: timeZone.trim(), israel },
+        language,
+        minchaMaariv: combined ? 'combined' : 'separate',
       })
       router.replace(`/${created}/admin`)
     } catch (e) {
@@ -97,6 +110,35 @@ export function NewShulScreen() {
           autoCapitalize="none"
           help={`${SITE_URL.replace(/^https?:\/\//, '')}/${address || '…'}`}
         />
+      </Card>
+      <Card gap="md">
+        <Text variant="sectionHeader">Language and minyanim</Text>
+        <Stack gap="sm">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            Language of your page and display
+          </Text>
+          <SegmentedControl
+            options={[
+              { key: 'en', label: 'English' },
+              { key: 'he', label: 'עברית' },
+            ]}
+            value={language}
+            onChange={setLanguage}
+          />
+        </Stack>
+        <Stack direction="row" align="center" gap="md">
+          <Stack grow>
+            <Text variant="body">Mincha and Maariv are one minyan</Text>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              Listed as “Mincha/Maariv” on weekdays. You can change this later.
+            </Text>
+          </Stack>
+          <ToggleSwitch
+            value={combined}
+            onValueChange={setCombined}
+            accessibilityLabel="Mincha and Maariv together"
+          />
+        </Stack>
       </Card>
       <Card gap="md">
         <Text variant="sectionHeader">Where is it?</Text>

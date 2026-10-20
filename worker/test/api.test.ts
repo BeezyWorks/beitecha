@@ -32,9 +32,14 @@ async function call(method: string, path: string, body?: unknown, opts: { token?
 
 const location = { latitude: 40.0821, longitude: -74.2097, timeZone: 'America/New_York', israel: false }
 let n = 0
-async function newShul(owner = 'owner1') {
+async function newShul(owner = 'owner1', extra: Record<string, unknown> = {}) {
   const slug = `shul-${++n}-${Math.random().toString(36).slice(2, 7)}`
-  const res = await call('POST', '/api/shuls', { slug, profile: { name: { en: `Shul ${n}` } }, location }, { token: owner })
+  const res = await call(
+    'POST',
+    '/api/shuls',
+    { slug, profile: { name: { en: `Shul ${n}` } }, location, ...extra },
+    { token: owner },
+  )
   expect(res.status).toBe(201)
   return slug
 }
@@ -58,11 +63,29 @@ describe('creating a shul', () => {
     const slug = await newShul('creator')
     const pub = await call('GET', `/api/shuls/${slug}`)
     expect(pub.status).toBe(200)
-    expect(pub.data.schedule.events.map((e: any) => e.id)).toEqual(['shacharis', 'mincha', 'maariv'])
+    expect(pub.data.schedule.events.map((e: any) => e.id)).toEqual([
+      'shacharis',
+      'mincha-maariv',
+      'maariv',
+    ])
     const mine = await call('GET', '/api/me/shuls', undefined, { token: 'creator' })
     expect(mine.data.shuls).toEqual([{ slug, name: { en: expect.any(String) }, role: 'owner' }])
     const again = await call('POST', '/api/shuls', { slug, profile: { name: { en: 'Y' } }, location }, { token: 'x' })
     expect(again.status).toBe(409)
+  })
+
+  it('can start with separate Mincha and Maariv, in Hebrew', async () => {
+    const slug = await newShul('creator', { minchaMaariv: 'separate', language: 'he' })
+    const { schedule } = (await call('GET', `/api/shuls/${slug}`)).data
+    expect(schedule.events.map((e: any) => e.id)).toEqual(['shacharis', 'mincha', 'maariv'])
+    expect(schedule.settings.language).toBe('he')
+    const bad = { slug: 'good-three', profile: { name: { en: 'X' } }, location }
+    expect(
+      (await call('POST', '/api/shuls', { ...bad, language: 'fr' }, { token: 'u' })).status,
+    ).toBe(400)
+    expect(
+      (await call('POST', '/api/shuls', { ...bad, minchaMaariv: 'both' }, { token: 'u' })).status,
+    ).toBe(400)
   })
 })
 
@@ -183,6 +206,23 @@ describe('calendar feed', () => {
     expect(res.data).toMatch(/^BEGIN:VCALENDAR\r\n/)
     expect(res.data).toMatch(/DTSTART;TZID=America\/New_York:\d{8}T\d{6}\r\n/)
     expect(res.data).toContain('SUMMARY:Shacharis')
+  })
+
+  it('writes event names in the shul’s language', async () => {
+    const slug = await newShul('owner1', { language: 'he' })
+    const res = await call('GET', `/${slug}.ics`)
+    expect(res.data).toContain('SUMMARY:שחרית')
+    expect(res.data).toContain('SUMMARY:מנחה וערבית')
+  })
+
+  it('can write names in Hebrew while the shul’s language stays English', async () => {
+    const slug = await newShul('owner2')
+    const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'owner2' })
+    const schedule = { ...data.schedule, settings: { ...data.schedule.settings, names: 'he' } }
+    expect((await call('PUT', `/api/shuls/${slug}`, { schedule, baseRevision: data.revision }, { token: 'owner2' })).status).toBe(200)
+    expect((await call('GET', `/${slug}.ics`)).data).toContain('SUMMARY:שחרית')
+    const bad = { ...schedule, settings: { ...schedule.settings, names: 'fr' } }
+    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: bad, baseRevision: data.revision + 1 }, { token: 'owner2' })).status).toBe(400)
   })
 })
 

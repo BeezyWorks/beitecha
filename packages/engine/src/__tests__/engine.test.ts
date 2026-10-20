@@ -13,9 +13,14 @@ import {
   US_HOLIDAYS,
   computeDay,
   formatClock,
+  formatTime,
+  timeFormatProblem,
   inferCivilCalendar,
   localHolidayDates,
+  localize,
+  nameStyle,
   sampleSchedule,
+  starterSchedule,
   validate,
 } from '../index'
 import type { EventDef, LocalHoliday, Schedule, ShulSettings } from '../types'
@@ -282,8 +287,6 @@ describe('time zones', () => {
     expect(z.sunset).toBeGreaterThan(16 * 60 + 30)
     expect(z.sunset).toBeLessThan(16 * 60 + 50)
   })
-})
-
 
   it('hides zmanim from the day but still lets rules anchor on them', () => {
     const hidden: Schedule = {
@@ -296,6 +299,8 @@ describe('time zones', () => {
     expect(day.zmanim.sunrise).toBeDefined()
     expect(new Calendar(hidden).zmanimOn('2026-10-21').sunset).toBeDefined()
   })
+})
+
 describe('local holidays', () => {
   const withLocal = (holidays: LocalHoliday[], civil: ShulSettings['civilHolidays'] = 'none'): Schedule =>
     withEvents(
@@ -425,5 +430,76 @@ describe('religious public holidays', () => {
     const names = Object.values(CIVIL_CALENDARS).flatMap((c) => c.holidays.map((h) => `${h.name.en} ${h.name.he ?? ''}`))
     expect(names.filter((n) => /christ|easter|good friday|boxing|ascension|whit|assum|saints|noël|pâques|toussaint|pentec/i.test(n))).toEqual([])
     expect(CIVIL_CALENDARS.us.holidays.find((h) => h.id === 'christmas')?.name.en).toBe(PUBLIC_HOLIDAY)
+  })
+})
+
+describe('starter schedule', () => {
+  const onDate = (schedule: Schedule, date: string) => computeDay(schedule, date).events
+  const label = (o: { name: { en: string }; note?: { en: string } }) => o.note?.en ?? o.name.en
+
+  it('davens Mincha/Maariv as one minyan by default, with Maariv alone on Motzei Shabbos', () => {
+    const schedule = starterSchedule(settings)
+    expect(schedule.events.map((e) => e.name.en)).toEqual(['Shacharis', 'Mincha/Maariv', 'Maariv'])
+    expect(schedule.events[1].name.he).toBe('מנחה וערבית')
+    expect(validate(schedule, '2026-10-20').filter((i) => i.level === 'error')).toEqual([])
+    // Tuesday: one combined minyan.
+    expect(onDate(schedule, '2026-10-20').map((o) => o.name.en)).toEqual(['Shacharis', 'Mincha/Maariv'])
+    // Friday and Shabbos: Mincha only, plus Maariv at havdalah on Shabbos (its date carries motzeiShabbos).
+    expect(onDate(schedule, '2026-10-23').map(label)).toEqual(['Shacharis', 'Mincha'])
+    expect(onDate(schedule, '2026-10-24').map(label)).toEqual(['Shacharis', 'Mincha', 'Maariv'])
+    expect(timeOf(schedule, 'maariv', '2026-10-24')).toBeDefined()
+    expect(timeOf(schedule, 'maariv', '2026-10-20')).toBeUndefined()
+  })
+
+  it('can keep Mincha and Maariv apart, with Maariv called Aravis in Hebrew', () => {
+    const schedule = starterSchedule(settings, { minchaMaariv: 'separate' })
+    expect(schedule.events.map((e) => e.id)).toEqual(['shacharis', 'mincha', 'maariv'])
+    expect(schedule.events[2].name.he).toBe('ערבית')
+    expect(timeOf(schedule, 'maariv', '2026-10-20')).toBe(timeOf(schedule, 'mincha', '2026-10-20'))
+  })
+})
+
+describe('localize', () => {
+  it('picks Hebrew when asked and present, otherwise English', () => {
+    expect(localize({ en: 'Maariv', he: 'ערבית' }, 'he')).toBe('ערבית')
+    expect(localize({ en: 'Rav’s Shiur' }, 'he')).toBe('Rav’s Shiur')
+    expect(localize({ en: 'Maariv', he: 'ערבית' })).toBe('Maariv')
+    expect(localize({ en: 'Maariv', he: 'ערבית' }, 'both')).toBe('Maariv')
+  })
+
+  it('shows names by `names`, else by what `language` implies', () => {
+    expect(nameStyle({})).toBe('both')
+    expect(nameStyle({ language: 'en' })).toBe('both')
+    expect(nameStyle({ language: 'he' })).toBe('he')
+    // English labels and dates, Hebrew davening names.
+    expect(nameStyle({ language: 'en', names: 'he' })).toBe('he')
+    expect(nameStyle({ language: 'he', names: 'en' })).toBe('en')
+  })
+})
+
+describe('formatTime', () => {
+  const at = (h: number, m: number) => h * 60 + m
+  it('formats the usual styles', () => {
+    expect(formatTime(at(15, 5))).toBe('3:05')
+    expect(formatTime(at(15, 5), 'h:mm A')).toBe('3:05 PM')
+    expect(formatTime(at(15, 5), 'h:mm a')).toBe('3:05 pm')
+    expect(formatTime(at(15, 5), 'h:mmAA')).toBe('3:05P')
+    expect(formatTime(at(15, 5), 'HH:mm')).toBe('15:05')
+    expect(formatTime(at(5, 5), 'HH:mm')).toBe('05:05')
+    expect(formatTime(at(5, 5), 'H:mm')).toBe('5:05')
+  })
+  it('handles midnight, noon, wrapping and [literals]', () => {
+    expect(formatTime(0, 'h:mm A')).toBe('12:00 AM')
+    expect(formatTime(at(12, 0), 'h:mm a')).toBe('12:00 pm')
+    expect(formatTime(0, 'kk:mm')).toBe('24:00')
+    expect(formatTime(at(24, 30), 'HH:mm')).toBe('00:30')
+    expect(formatTime(at(15, 5), 'h:mm [at night]')).toBe('3:05 at night')
+  })
+  it('rejects formats without an hour and minutes', () => {
+    expect(timeFormatProblem('h:mm A')).toBeNull()
+    expect(timeFormatProblem('')).not.toBeNull()
+    expect(timeFormatProblem('mm')).not.toBeNull()
+    expect(timeFormatProblem('h')).not.toBeNull()
+    expect(timeFormatProblem('[h]:[mm]')).not.toBeNull()
   })
 })

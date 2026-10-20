@@ -10,7 +10,7 @@ import {
 import type { DaySchedule, Minutes, Notice, Occurrence } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
-import { ampm, clock } from '@/features/luach/format'
+import { ampm } from '@/features/luach/format'
 import { zmanimForDay } from '@/features/luach/labels'
 import { useT } from '@/features/luach/language'
 import { nextUp, type NextUp } from '@/features/luach/nextUp'
@@ -86,7 +86,7 @@ function Hero({
           <Text variant="pageHeader" color={SemanticColor.TextOnAccent}>
             {t.text(name)}
           </Text>
-          {t.lang === 'en' && !!name.he && (
+          {t.bothNames && !!name.he && (
             <Text variant="largeTitle" rtl align="left" color={SemanticColor.TextOnAccent}>
               {name.he}
             </Text>
@@ -97,13 +97,15 @@ function Hero({
         <Stack gap="xs">
           <Stack direction="row" align="end" gap="sm">
             <Text variant="displayLarge" color={SemanticColor.TextOnAccent}>
-              {clock(minutes)}
+              {t.clock(minutes)}
             </Text>
-            <Stack paddingBottom="md">
-              <Text variant="titleLarge" color={SemanticColor.TextOnAccent}>
-                {ampm(minutes)}
-              </Text>
-            </Stack>
+            {!t.customTimeFormat && (
+              <Stack paddingBottom="md">
+                <Text variant="titleLarge" color={SemanticColor.TextOnAccent}>
+                  {ampm(minutes)}
+                </Text>
+              </Stack>
+            )}
           </Stack>
           <Text variant="titleLarge" color={SemanticColor.TextOnAccent}>
             {t.weekday(day.weekday)}, {t.date(day.date)}
@@ -142,7 +144,7 @@ function Hero({
                 </Text>
               </Stack>
               <Text variant="displayMedium" color={SemanticColor.TextOnAccent}>
-                {clock(next.event.minutes)}
+                {t.clock(next.event.minutes)}
               </Text>
             </Stack>
           </Stack>
@@ -238,14 +240,14 @@ function TodayRow({
           </Text>
         )}
       </Stack>
-      {!!e.name.he && (
+      {t.bothNames && !!e.name.he && (
         <Text variant="largeTitle" rtl color={quiet}>
           {e.name.he}
         </Text>
       )}
       <Stack width={compact ? 80 : 100} align="end">
         <Text variant={big} color={tone}>
-          {e.minutes === null ? '—' : clock(e.minutes)}
+          {e.minutes === null ? '—' : t.clock(e.minutes)}
         </Text>
       </Stack>
     </Stack>
@@ -283,7 +285,7 @@ function Zmanim({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
                 </Text>
                 <Stack grow />
                 <Text variant="titleLarge" color={lit ? SemanticColor.TextAccent : undefined}>
-                  {clock(m)}
+                  {t.clock(m)}
                 </Text>
               </Stack>
             )
@@ -338,7 +340,7 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
               </Text>
               <Stack grow />
               <Text variant="title" color={e.cancelled ? SemanticColor.TextDanger : undefined}>
-                {e.cancelled ? t.s.cancelled : clock(e.minutes!)}
+                {e.cancelled ? t.s.cancelled : t.clock(e.minutes!)}
               </Text>
             </Stack>
           ))}
@@ -395,7 +397,7 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
       <Text variant="headerTitleWide" numberOfLines={3} color={SemanticColor.TextPrimary}>
         {t.text(n.text)}
       </Text>
-      {t.lang === 'en' && !!n.text.he && (
+      {t.bothNames && !!n.text.he && (
         <Text variant="titleLarge" rtl numberOfLines={2} color={SemanticColor.TextSecondary}>
           {n.text.he}
         </Text>

@@ -2,11 +2,12 @@ import { SemanticColor, Stack, Text } from '@beezyworks/design'
 import type { DaySchedule } from '@beitecha/engine'
 import React from 'react'
 
-import { clock } from './format'
-import { ZMAN_LABELS, zmanimForDay } from './labels'
+import { useT } from './language'
+import { zmanimForDay } from './labels'
 
 export function ZmanimList({ day, size = 'page' }: { day: DaySchedule; size?: 'page' | 'display' }) {
   const big = size === 'display'
+  const t = useT()
   return (
     <Stack gap={big ? 'xs' : 'none'}>
       {zmanimForDay(day.tags).map((id) => {
@@ -15,10 +16,10 @@ export function ZmanimList({ day, size = 'page' }: { day: DaySchedule; size?: 'p
         return (
           <Stack key={id} direction="row" align="center" gap="sm" paddingVertical="xs">
             <Text variant={big ? 'titleLarge' : 'body'} color={SemanticColor.TextSecondary}>
-              {ZMAN_LABELS[id].en}
+              {t.zman(id)}
             </Text>
             <Stack grow />
-            <Text variant={big ? 'titleLarge' : 'bodyStrong'}>{clock(m)}</Text>
+            <Text variant={big ? 'titleLarge' : 'bodyStrong'}>{t.clock(m)}</Text>
           </Stack>
         )
       })}

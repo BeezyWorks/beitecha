@@ -2,7 +2,7 @@ import { Badge, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
 import type { Notice } from '@beitecha/engine'
 import React from 'react'
 
-import { civilDateShort } from './format'
+import { useT } from './language'
 
 /** A sponsorship or announcement. */
 export function NoticeCard({
@@ -13,10 +13,11 @@ export function NoticeCard({
   size?: 'page' | 'display'
 }) {
   const big = size === 'display'
+  const { bothNames, s, text, dateShort } = useT()
   const when =
     notice.to && notice.to !== notice.from
-      ? `${civilDateShort(notice.from)} – ${civilDateShort(notice.to)}`
-      : civilDateShort(notice.from)
+      ? `${dateShort(notice.from)} – ${dateShort(notice.to)}`
+      : dateShort(notice.from)
   return (
     <Card
       gap="sm"
@@ -30,11 +31,11 @@ export function NoticeCard({
     >
       <Stack direction="row" align="center" gap="sm">
         <Badge
-          label={notice.kind === 'sponsor' ? 'Sponsored' : 'Announcement'}
+          label={notice.kind === 'sponsor' ? s.sponsored : s.announcement}
           tone={notice.kind === 'sponsor' ? 'accent' : 'neutral'}
         />
         {!!notice.title && (
-          <Text variant={big ? 'titleLarge' : 'bodyStrong'}>{notice.title.en}</Text>
+          <Text variant={big ? 'titleLarge' : 'bodyStrong'}>{text(notice.title)}</Text>
         )}
         <Stack grow />
         <Text variant={big ? 'title' : 'caption'} color={SemanticColor.TextSecondary}>
@@ -45,9 +46,9 @@ export function NoticeCard({
         variant={big ? 'headerTitleWide' : 'bodySerifLarge'}
         color={big ? SemanticColor.TextPrimary : undefined}
       >
-        {notice.text.en}
+        {text(notice.text)}
       </Text>
-      {!!notice.text.he && (
+      {bothNames && !!notice.text.he && (
         <Text variant={big ? 'titleLarge' : 'bodySerif'} rtl>
           {notice.text.he}
         </Text>

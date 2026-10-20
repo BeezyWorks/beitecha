@@ -3,7 +3,8 @@ import { Calendar, addDays, type DateString, type Exception, type Occurrence, ty
 import React, { useMemo, useState } from 'react'
 
 import { Field } from '@/components/Field'
-import { civilDateShort, clock } from '@/features/luach/format'
+import { civilDateShort } from '@/features/luach/format'
+import { makeT } from '@/features/luach/language'
 import { WEEKDAYS } from '@/features/luach/labels'
 import { formatClockHHMM } from './time'
 import { newId, useAdmin } from './store'
@@ -17,6 +18,7 @@ type Draft =
 
 function OccurrenceRow({ date, o, exception }: { date: DateString; o: Occurrence; exception?: Exception }) {
   const { upsertException, removeException, schedule } = useAdmin()
+  const { clock } = makeT('en', schedule?.settings.timeFormat)
   const [draft, setDraft] = useState<Draft | null>(null)
   const events = schedule?.events ?? []
 
@@ -33,7 +35,7 @@ function OccurrenceRow({ date, o, exception }: { date: DateString; o: Occurrence
   return (
     <Stack gap="sm" paddingVertical="xs">
       <Stack direction="row" align="center" gap="sm" wrap>
-        <Stack width={70}>
+        <Stack width={88}>
           <Text variant="bodyStrong" color={o.cancelled ? SemanticColor.TextDanger : undefined}>
             {o.cancelled ? '—' : o.minutes === null ? '?' : clock(o.minutes)}
           </Text>

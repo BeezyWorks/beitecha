@@ -1,7 +1,8 @@
 import { Card, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
-import type { SelichosMinhag, ShulSettings } from '@beitecha/engine'
+import { ZMAN_IDS, type SelichosMinhag, type ShulSettings, type ZmanId } from '@beitecha/engine'
 import React from 'react'
 
+import { ZMAN_LABELS } from '@/features/luach/labels'
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
 import { LocalHolidaysCard } from './LocalHolidaysCard'
@@ -13,6 +14,7 @@ export function ShulTab() {
   if (!profile || !schedule) return null
   const { location } = schedule.settings
   const zmanim = schedule.settings.zmanim ?? {}
+  const hidden = zmanim.hidden ?? []
   const setSettings = (settings: ShulSettings) => setSchedule({ ...schedule, settings })
   const setLocation = (patch: Partial<ShulSettings['location']>) => setSettings({ ...schedule.settings, location: { ...location, ...patch } })
   const setZmanim = (patch: Partial<NonNullable<ShulSettings['zmanim']>>) => setSettings({ ...schedule.settings, zmanim: { ...zmanim, ...patch } })
@@ -100,6 +102,23 @@ export function ShulTab() {
         {zmanim.useElevation && (
           <NumberField label="Elevation (meters)" value={location.elevation ?? 0} onChange={(elevation) => setLocation({ elevation })} />
         )}
+        <Stack gap="sm">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            Show these zmanim
+          </Text>
+          {ZMAN_IDS.map((id: ZmanId) => (
+            <Stack key={id} direction="row" align="center" gap="md">
+              <Stack grow>
+                <Text variant="body">{ZMAN_LABELS[id].en}</Text>
+              </Stack>
+              <ToggleSwitch
+                value={!hidden.includes(id)}
+                onValueChange={(on) => setZmanim({ hidden: on ? hidden.filter((h) => h !== id) : [...hidden, id] })}
+                accessibilityLabel={`Show ${ZMAN_LABELS[id].en}`}
+              />
+            </Stack>
+          ))}
+        </Stack>
         <Stack gap="sm">
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Selichos (for the “Selichos” days in rules)

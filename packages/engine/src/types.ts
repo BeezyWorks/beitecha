@@ -37,6 +37,8 @@ export interface ZmanimSettings {
 }
 
 export type SelichosMinhag = 'ashkenaz' | 'sefard' | 'none'
+  /** Zmanim the shul doesn't show on the display, public page or ICS. Rules can still use them. */
+  hidden?: ZmanId[]
 
 /**
  * When a local (civil) holiday falls. Hebcal knows nothing of Thanksgiving or a UK

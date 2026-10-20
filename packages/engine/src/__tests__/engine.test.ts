@@ -284,6 +284,18 @@ describe('time zones', () => {
   })
 })
 
+
+  it('hides zmanim from the day but still lets rules anchor on them', () => {
+    const hidden: Schedule = {
+      ...sampleSchedule,
+      settings: { ...sampleSchedule.settings, zmanim: { hidden: ['sofZmanShma', 'sunset'] } },
+    }
+    const day = computeDay(hidden, '2026-10-21')
+    expect(day.zmanim.sofZmanShma).toBeUndefined()
+    expect(day.zmanim.sunset).toBeUndefined()
+    expect(day.zmanim.sunrise).toBeDefined()
+    expect(new Calendar(hidden).zmanimOn('2026-10-21').sunset).toBeDefined()
+  })
 describe('local holidays', () => {
   const withLocal = (holidays: LocalHoliday[], civil: ShulSettings['civilHolidays'] = 'none'): Schedule =>
     withEvents(

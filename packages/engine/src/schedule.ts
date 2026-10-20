@@ -225,6 +225,15 @@ export class Calendar {
     return this.schedule.notices.filter((n) => date >= n.from && date <= (n.to ?? n.from))
   }
 
+  /** The zmanim to display: all but the ones the shul hides. Rules can still anchor on a hidden one. */
+  private shownZmanim(date: DateString): Partial<Record<ZmanId, Minutes>> {
+    const hidden = this.schedule.settings.zmanim?.hidden
+    if (!hidden?.length) return this.zmanimOn(date)
+    const out = { ...this.zmanimOn(date) }
+    for (const id of hidden) delete out[id]
+    return out
+  }
+
   day(date: DateString, opts?: { includeInternal?: boolean }): DaySchedule {
     const info = this.info(date)
     return {
@@ -234,7 +243,7 @@ export class Calendar {
       holidays: displayHolidays(info),
       parsha: parshaFor(date, this.schedule.settings),
       tags: [...info.tags],
-      zmanim: this.zmanimOn(date),
+      zmanim: this.shownZmanim(date),
       events: this.occurrences(date, opts),
       notices: this.notices(date),
     }

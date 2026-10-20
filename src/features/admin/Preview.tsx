@@ -24,8 +24,8 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
   return (
     <Stack gap="md">
       {issues.length > 0 && (
-        <Card gap="xs" background={SemanticColor.SurfaceDanger}>
-          <Text variant="headline" color={SemanticColor.TextDanger}>
+        <Card gap="xs" background={SemanticColor.AccentAlertFaded}>
+          <Text variant="headline">
             {issues.length === 1 ? '1 problem' : `${issues.length} problems`}
           </Text>
           {issues.slice(0, 8).map((i, n) => (

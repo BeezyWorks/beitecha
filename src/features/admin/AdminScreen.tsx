@@ -71,9 +71,19 @@ export function AdminScreen({ slug }: { slug: string }) {
     </Stack>
   )
   const showPreview = tab === 'times' || tab === 'shul'
+  // On a wide screen the preview docks beside the (width-capped) editor column; each scrolls on its own.
+  const aside =
+    wide && showPreview ? (
+      <Stack width={420} borderColor={SemanticColor.BorderDefault} background={SemanticColor.SurfaceCard}>
+        <ScrollStack padding="lg" gap="md">
+          <Text variant="sectionHeader">Preview</Text>
+          <Preview schedule={schedule} today={today} />
+        </ScrollStack>
+      </Stack>
+    ) : undefined
 
   return (
-    <Screen>
+    <Screen aside={aside}>
       <Stack fill>
         <Stack
           direction="row"
@@ -113,8 +123,8 @@ export function AdminScreen({ slug }: { slug: string }) {
           </Stack>
         )}
         {save === 'error' && (
-          <Stack padding="md" background={SemanticColor.SurfaceDanger}>
-            <Text variant="body" color={SemanticColor.TextDanger}>
+          <Stack padding="md" background={SemanticColor.AccentAlertFaded}>
+            <Text variant="body">
               {saveError}
             </Text>
           </Stack>
@@ -124,31 +134,15 @@ export function AdminScreen({ slug }: { slug: string }) {
             <Chip key={t.key} label={t.label} selected={tab === t.key} onPress={() => setTab(t.key)} />
           ))}
         </Stack>
-        {wide && showPreview ? (
-          <Stack direction="row" grow>
-            <Stack grow>
-              <ScrollStack key={tab} padding="lg" gap="lg">
-                {editor}
-              </ScrollStack>
+        <ScrollStack key={tab} padding="lg" gap="lg">
+          {editor}
+          {showPreview && !aside && (
+            <Stack gap="md">
+              <Text variant="sectionHeader">Preview</Text>
+              <Preview schedule={schedule} today={today} />
             </Stack>
-            <Stack width={420} borderColor={SemanticColor.BorderDefault} background={SemanticColor.SurfaceCard}>
-              <ScrollStack padding="lg" gap="md">
-                <Text variant="sectionHeader">Preview</Text>
-                <Preview schedule={schedule} today={today} />
-              </ScrollStack>
-            </Stack>
-          </Stack>
-        ) : (
-          <ScrollStack key={tab} padding="lg" gap="lg">
-            {editor}
-            {showPreview && (
-              <Stack gap="md">
-                <Text variant="sectionHeader">Preview</Text>
-                <Preview schedule={schedule} today={today} />
-              </Stack>
-            )}
-          </ScrollStack>
-        )}
+          )}
+        </ScrollStack>
       </Stack>
     </Screen>
   )

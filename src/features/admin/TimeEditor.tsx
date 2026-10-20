@@ -40,7 +40,7 @@ function OffsetField({ value, onChange }: { value: number; onChange: (n: number)
   useEffect(() => setText(String(Math.abs(value))), [value])
   const sign = value < 0 ? -1 : 1
   return (
-    <Stack direction="row" align="center" gap="xs">
+    <Stack direction="row" align="center" gap="xs" wrap>
       <Stack width={64}>
         <TextField
           variant="boxed"
@@ -87,7 +87,7 @@ function SourceRow({
   }
   return (
     <Stack gap="sm" padding="sm" radius="md" borderWidth={1} borderColor={SemanticColor.BorderDefault}>
-      <Stack direction="row" align="center" gap="sm">
+      <Stack direction="row" align="center" gap="sm" wrap>
         <SegmentedControl
           options={[
             { key: 'clock', label: 'Fixed time' },
@@ -152,7 +152,7 @@ export function TimeEditor({
   return (
     <Stack gap="sm">
       {form.sources.length > 1 && (
-        <Stack direction="row" align="center" gap="sm">
+        <Stack direction="row" align="center" gap="sm" wrap>
           <Text variant="body">Whichever is</Text>
           <SegmentedControl
             options={[

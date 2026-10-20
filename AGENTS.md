@@ -2,7 +2,7 @@
 
 Shul schedules from rules: a gabbai defines minyanim/shiurim as rules over zmanim and the Jewish calendar, plus
 one-time changes and sponsors; Beitecha computes the times and shows them on a lobby display, a public page (QR code),
-an ICS feed, and later inside the Siddur (SiddurOneRN). Web only. Served at `beitecha.baderech.app`. A sibling of the
+an ICS feed, and inside the Siddur (SiddurOneRN, `siddur.one/shul/<slug>`). Web only. Served at `beitecha.baderech.app`. A sibling of the
 Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals on their way, this is for institutions.
 
 ## Architecture
@@ -11,7 +11,7 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   (`packages/engine/src/types.ts`) and never computes times except for the ICS feed. Every surface runs the same
   engine, so the display, public page, ICS and the Siddur always agree, and displays keep working offline from a
   cached copy.
-- **Engine (`packages/engine`).** `Calendar` (memoized per date) resolves an event on a date as: first matching
+- **Engine (`packages/engine`, the `BeezyWorks/beitecha-engine` submodule; the Siddur mounts it too).** `Calendar` (memoized per date) resolves an event on a date as: first matching
   rule → its `TimeExpr` → that day's exceptions on top. Events can anchor on other events (cycle-detected, reported as
   `error`, never thrown). `validate()` dry-runs a year for errors and exceptions that do nothing. Vitest; tests run
   under several machine time zones to prove output only depends on the shul's zone.
@@ -26,7 +26,7 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   over the `AUTH` service binding. Roles: `owner` (invites, removes) and `editor`. Vitest with
   `@cloudflare/vitest-pool-workers`; the accounts service is faked in `vitest.config.mts` ("Bearer <id>" = user id).
 - **App (`src/`).** Expo Router (web only), `src/app/` holds only route files re-exporting feature screens.
-  Features: `luach` (shared feed/clock hooks and day components), `public`, `display`, `print`, `admin`, `home`,
+  Features: `luach` (shared feed/clock hooks, day components, and `useT()` over the engine's `makeT` wording), `public`, `display`, `print`, `admin`, `home`,
   `account`.
   - **Design system = `@beezyworks/design`**, the `packages/design` submodule, same as the siblings. No raw colors or
     style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
@@ -46,6 +46,10 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
 - **Print** (`/<slug>/print`, the admin's "Print this week"): the published week on A4 or Letter, Shabbos, weekday
   minyanim and zmanim on the front, sponsorships and announcements on the back (or all on one side). Each side is
   shrunk to fit its sheet, never split.
+- **The Siddur link.** The display's and the printed sheet's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
+  the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (open to any
+  origin, like `/api/directory`) and computes with the same engine, so labels, dates and "next up" live in the engine
+  (`makeT`, `labels.ts`, `nextUp.ts`), not here. A change to them is an engine commit both apps pick up.
 - **Display upkeep** (`useDisplayUpkeep`): heartbeat every 5 min (capped at 20 displays per shul), wake lock, hidden
   cursor, reload when the shul's day rolls over, hourly 1px drift against burn-in.
 

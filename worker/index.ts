@@ -49,6 +49,19 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
   return pathMatched ? fail(405, 'method not allowed') : fail(404, 'not found')
 }
 
+/** Public reads anyone may make: the Siddur's web build, on its own origins, reads a shul's feed. */
+const PUBLIC_READ = /^\/api\/(directory|shuls\/[^/]+)$/
+
+function publicCors(request: Request, url: URL, response: Response): Response {
+  if (!PUBLIC_READ.test(url.pathname) || (request.method !== 'GET' && request.method !== 'OPTIONS')) return response
+  const res = new Response(response.body, response)
+  res.headers.set('access-control-allow-origin', '*')
+  res.headers.set('access-control-allow-headers', 'if-none-match')
+  res.headers.set('access-control-allow-methods', 'GET')
+  res.headers.set('access-control-expose-headers', 'etag')
+  return res
+}
+
 /** In local dev the Expo server (another port) calls the API cross-origin. */
 function devCors(request: Request, env: Env, response: Response): Response {
   const origin = request.headers.get('origin')
@@ -66,8 +79,9 @@ export default {
     const url = new URL(request.url)
     if (url.pathname === '/health') return Response.json({ ok: true })
     if (url.pathname.startsWith('/api/')) {
-      if (request.method === 'OPTIONS') return devCors(request, env, new Response(null, { status: 204 }))
-      return devCors(request, env, await handleApi(request, env, url))
+      const response =
+        request.method === 'OPTIONS' ? new Response(null, { status: 204 }) : await handleApi(request, env, url)
+      return devCors(request, env, publicCors(request, url, response))
     }
     // `/<slug>.ics` is the short subscribe link printed under the QR code.
     const ics = /^\/([a-z0-9-]+)\.ics$/.exec(url.pathname)

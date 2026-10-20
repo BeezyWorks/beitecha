@@ -1,19 +1,21 @@
 import { QRCode, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
-  parseDate,
+  DAILY_ZMANIM,
   type DaySchedule,
   type Localized,
   type Minutes,
   type Notice,
   type Occurrence,
+  parseDate,
   type ShulProfile,
+  ZMAN_LABELS,
   type ZmanId,
+  zmanimForDay,
 } from '@beitecha/engine'
 import React from 'react'
 
-import { DAILY_ZMANIM, ZMAN_LABELS, zmanimForDay } from '@/features/luach/labels'
 import { makeT, useT } from '@/features/luach/language'
-import { SITE_URL } from '@/lib/config'
+import { siddurShulUrl } from '@/lib/config'
 
 /** Where the Shabbos panel takes over Friday's times from the weekday grid, without a chatzos. */
 const NOON = 12 * 60
@@ -577,7 +579,7 @@ function NoticeBlock({ notice: n }: { notice: Notice }) {
 
 function Footer({ slug }: { slug: string }) {
   const t = useT()
-  const url = `${SITE_URL}/${slug}`
+  const url = siddurShulUrl(slug)
   return (
     <Stack
       direction="row"

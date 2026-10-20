@@ -7,16 +7,22 @@ import {
   Surface,
   Text,
 } from '@beezyworks/design'
-import type { DaySchedule, Minutes, Notice, Occurrence } from '@beitecha/engine'
+import {
+  ampm,
+  type DaySchedule,
+  type Minutes,
+  nextUp,
+  type NextUp,
+  type Notice,
+  type Occurrence,
+  zmanimForDay,
+} from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
 import { ShrinkToFit } from '@/components/ShrinkToFit'
-import { ampm } from '@/features/luach/format'
-import { zmanimForDay } from '@/features/luach/labels'
 import { useT } from '@/features/luach/language'
-import { nextUp, type NextUp } from '@/features/luach/nextUp'
 import { Pill } from '@/features/luach/Pill'
-import { SITE_URL } from '@/lib/config'
+import { siddurShulUrl } from '@/lib/config'
 
 /** The canvas `DisplayScreen` scales to the screen: small enough that the DL's type ramp reads across a lobby. */
 export const W = 1280
@@ -153,7 +159,7 @@ function Hero({
 
         <Stack direction="row" align="center" gap="md">
           <Stack radius="md" overflow="hidden" background={SemanticColor.SurfaceCard} padding="xs">
-            <QRCode value={`${SITE_URL}/${slug}`} size={72} logo={false} />
+            <QRCode value={siddurShulUrl(slug)} size={72} logo={false} />
           </Stack>
           <Stack grow gap="xs">
             <Text variant="title" color={SemanticColor.TextOnAccent}>

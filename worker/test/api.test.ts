@@ -115,6 +115,18 @@ describe('the public feed', () => {
     expect(pub.data.schedule.notices).toEqual([])
   })
 
+  it('can be read from any origin, unlike the admin', async () => {
+    const slug = await newShul()
+    const res = await call('GET', `/api/shuls/${slug}`, undefined, { headers: { origin: 'https://siddur.one' } })
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+    expect(res.headers.get('access-control-expose-headers')).toBe('etag')
+    const pre = await call('OPTIONS', `/api/shuls/${slug}`, undefined, { headers: { origin: 'https://siddur.one' } })
+    expect(pre.status).toBe(204)
+    expect(pre.headers.get('access-control-allow-headers')).toBe('if-none-match')
+    const admin = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'owner1', headers: { origin: 'https://siddur.one' } })
+    expect(admin.headers.get('access-control-allow-origin')).toBeNull()
+  })
+
   it('404s an unknown shul', async () => {
     expect((await call('GET', '/api/shuls/nope-nope')).status).toBe(404)
   })

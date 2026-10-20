@@ -175,7 +175,7 @@ function Today({ day, minutes, next }: { day: DaySchedule; minutes: Minutes; nex
   return (
     <Surface grow radius="xl" shadow="card">
       <Stack padding="lg" gap="sm">
-        <PanelHeading en={t.s.today} he={t.lang === 'en' ? 'סדר היום' : undefined} />
+        <PanelHeading en={t.s.today} he="סדר היום" />
         {day.events.length ? (
           <Stack gap={compact ? 'xs' : 'sm'}>
             {day.events.map((e, i) => (
@@ -232,8 +232,8 @@ function TodayRow({
       opacity={past || e.cancelled ? 0.4 : 1}
     >
       <Stack grow gap="none">
-        <Text variant={big} numberOfLines={1} color={tone}>
-          {e.name.en}
+        <Text variant={big} numberOfLines={1} rtl={t.nameRtl} color={tone}>
+          {t.text(e.name)}
         </Text>
         {!!note && (
           <Text variant="title" color={e.cancelled ? SemanticColor.TextDanger : quiet}>
@@ -263,7 +263,7 @@ function Zmanim({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
   return (
     <Surface radius="xl" shadow="card">
       <Stack padding="lg" gap="sm">
-        <PanelHeading en={t.s.zmanim} he={t.lang === 'en' ? 'זמני היום' : undefined} />
+        <PanelHeading en={t.s.zmanim} he="זמני היום" />
         <Stack gap="none">
           {zmanimForDay(day.tags).map((id) => {
             const m = day.zmanim[id]
@@ -335,9 +335,10 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
               <Text
                 variant="title"
                 numberOfLines={1}
+                rtl={t.nameRtl}
                 color={e.cancelled ? SemanticColor.TextSecondary : undefined}
               >
-                {e.name.en}
+                {t.text(e.name)}
               </Text>
               <Stack grow />
               <Text variant="title" color={e.cancelled ? SemanticColor.TextDanger : undefined}>
@@ -409,12 +410,17 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
 
 // ---------------------------------------------------------------------------
 
-function PanelHeading({ en, he }: { en: string; he?: string }) {
+/** In Hebrew when the page or its names are; with the Hebrew beside it when names show in both. */
+function PanelHeading({ en, he }: { en: string; he: string }) {
+  const t = useT()
+  const hebrew = t.rtl || t.nameRtl
   return (
     <Stack direction="row" align="center" gap="sm" paddingBottom="xs">
-      <Text variant="pageHeader">{en}</Text>
+      <Text variant="pageHeader" rtl={hebrew}>
+        {hebrew ? he : en}
+      </Text>
       <Stack grow />
-      {!!he && (
+      {!hebrew && t.bothNames && (
         <Text variant="titleLarge" rtl color={SemanticColor.TextAccent}>
           {he}
         </Text>

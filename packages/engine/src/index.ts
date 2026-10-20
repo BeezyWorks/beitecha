@@ -2,6 +2,7 @@ export * from './types'
 export { Calendar, computeDay, computeRange } from './schedule'
 export { sampleSchedule } from './sample'
 export { starterSchedule, type StarterOptions } from './starter'
+export { STANDARD_TEFILOS } from './tefilos'
 export { localize, nameStyle } from './localize'
 export {
   DEFAULT_TIME_FORMAT,

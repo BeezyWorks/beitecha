@@ -1,5 +1,6 @@
 import {
   DAY_TAGS,
+  STANDARD_TEFILOS,
   ZMAN_IDS,
   effectiveHolidays,
   type DayTag,
@@ -53,7 +54,7 @@ interface EventDef {
 interface Rule {
   when?: Condition // omit = every day (use as the last, catch-all rule)
   time: TimeExpr | null // null = the event does NOT happen on matching days
-  note?: { en: string } // short note shown with the time, e.g. "Selichos first"
+  note?: { en: string; he?: string } // short note shown with the time, e.g. "Selichos first"
 }
 
 type Condition =
@@ -103,22 +104,21 @@ const EXAMPLE = `{
       ]
     },
     {
-      "id": "mincha",
-      "name": { "en": "Mincha", "he": "מנחה" },
+      "id": "mincha-maariv",
+      "name": { "en": "Mincha/Maariv", "he": "מנחה וערבית" },
       "kind": "tefila",
       "rules": [
-        { "when": { "any": [{ "tag": "erevShabbos" }, { "tag": "erevYomTov" }] }, "time": { "round": { "offset": 10, "of": { "zman": "candleLighting" } }, "to": 5, "mode": "down" } },
+        { "when": { "any": [{ "tag": "erevShabbos" }, { "tag": "erevYomTov" }] }, "time": { "round": { "offset": 10, "of": { "zman": "candleLighting" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
+        { "when": { "any": [{ "tag": "shabbos" }, { "tag": "yomTov" }] }, "time": { "round": { "offset": -40, "of": { "zman": "sunset" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
         { "time": { "round": { "weekly": { "offset": -15, "of": { "zman": "sunset" } }, "pick": "earliest", "days": [0, 1, 2, 3, 4] }, "to": 5, "mode": "down" } }
       ]
     },
     {
       "id": "maariv",
-      "name": { "en": "Maariv", "he": "מעריב" },
+      "name": { "en": "Maariv", "he": "ערבית" },
       "kind": "tefila",
       "rules": [
-        { "when": { "any": [{ "tag": "motzeiShabbos" }, { "tag": "motzeiYomTov" }] }, "time": { "zman": "havdalah" } },
-        { "when": { "any": [{ "tag": "shabbos" }, { "tag": "yomTov" }] }, "time": null },
-        { "time": { "offset": 15, "of": { "event": "mincha" } } }
+        { "when": { "any": [{ "tag": "motzeiShabbos" }, { "tag": "motzeiYomTov" }] }, "time": { "zman": "havdalah" } }
       ]
     }
   ]
@@ -138,6 +138,9 @@ export function buildAiPrompt(schedule: Schedule, profile: ShulProfile): string 
   const holidays = local.length
     ? local.map((h) => `  ${h.id}: ${h.name.en}`).join('\n')
     : '  (none)'
+  const tefilos = Object.values(STANDARD_TEFILOS)
+    .map((t) => `  ${t.id}: ${t.name.en} (${t.name.he})`)
+    .join('\n')
   const current = JSON.stringify({ events: schedule.events }, null, 2)
 
   return `You are helping the gabbai of ${profile.name.en} set up their shul's schedule in Beitecha, an app that works out each day's minyan and shiur times from rules over the Jewish calendar and zmanim. Turn the gabbai's description (at the end of this message) into Beitecha's JSON format, described below.
@@ -151,6 +154,14 @@ How to answer:
 The format (TypeScript, for reference; output is plain JSON):
 
 ${SCHEMA}
+
+Standard tefillos (use these ids and names):
+${tefilos}
+
+Mincha/Maariv:
+- "Mincha/Maariv" is one minyan: Mincha, then Maariv straight after it, as in every shul. It is ONE event ("${STANDARD_TEFILOS.minchaMaariv.id}") at the time Mincha starts. "Mincha/Maariv at X" means that event at X: don't ask when Maariv starts or how long Mincha takes, and don't split it into two events.
+- Make separate "${STANDARD_TEFILOS.mincha.id}" and "${STANDARD_TEFILOS.maariv.id}" events only for times when Maariv is its own minyan (e.g. Maariv at tzeis, or after Shabbos).
+- On Shabbos and Yom Tov afternoon, Maariv isn't straight after Mincha (it waits until Shabbos/Yom Tov ends), so the Mincha/Maariv event's Shabbos/Yom Tov rule gets the note { "en": "Mincha", "he": "מנחה" }, and Maariv after Shabbos is the separate "${STANDARD_TEFILOS.maariv.id}" event on motzeiShabbos. On Erev Shabbos/Yom Tov, Kabbalas Shabbos comes in between, so note that rule "Mincha" too.
 
 Rules of thumb:
 - Rules are checked in order and the FIRST whose "when" matches sets the time, so put special days (Yom Tov, fasts, Rosh Chodesh, holidays) before the ordinary weekday rule, and end with a rule without "when" as the default when the event happens every other day.

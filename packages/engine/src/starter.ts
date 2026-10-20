@@ -1,3 +1,4 @@
+import { STANDARD_TEFILOS as T } from './tefilos'
 import type { EventDef, Rule, Schedule, ShulSettings, TimeExpr } from './types'
 
 export interface StarterOptions {
@@ -6,9 +7,7 @@ export interface StarterOptions {
 }
 
 const SHACHARIS: EventDef = {
-  id: 'shacharis',
-  name: { en: 'Shacharis', he: 'שחרית' },
-  kind: 'tefila',
+  ...T.shacharis,
   rules: [
     { when: { any: [{ tag: 'shabbos' }, { tag: 'yomTov' }] }, time: { clock: '09:00' } },
     {
@@ -46,15 +45,11 @@ export function starterSchedule(
       ? [
           SHACHARIS,
           {
-            id: 'mincha',
-            name: { en: 'Mincha', he: 'מנחה' },
-            kind: 'tefila',
+            ...T.mincha,
             rules: [EREV_MINCHA, { time: WEEKDAY_MINCHA }],
           },
           {
-            id: 'maariv',
-            name: { en: 'Maariv', he: 'ערבית' },
-            kind: 'tefila',
+            ...T.maariv,
             rules: [
               HAVDALAH,
               { when: { any: [{ tag: 'shabbos' }, { tag: 'yomTov' }] }, time: null },
@@ -66,9 +61,7 @@ export function starterSchedule(
           SHACHARIS,
           // Mincha and Maariv back to back; on Shabbos and Yom Tov only Mincha is davened at this time.
           {
-            id: 'mincha-maariv',
-            name: { en: 'Mincha/Maariv', he: 'מנחה וערבית' },
-            kind: 'tefila',
+            ...T.minchaMaariv,
             rules: [
               { ...EREV_MINCHA, note: { en: 'Mincha', he: 'מנחה' } },
               {
@@ -79,7 +72,7 @@ export function starterSchedule(
               { time: WEEKDAY_MINCHA },
             ],
           },
-          { id: 'maariv', name: { en: 'Maariv', he: 'ערבית' }, kind: 'tefila', rules: [HAVDALAH] },
+          { ...T.maariv, rules: [HAVDALAH] },
         ]
   return { settings, events, exceptions: [], notices: [] }
 }

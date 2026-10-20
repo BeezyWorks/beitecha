@@ -19,6 +19,7 @@ describe('buildAiPrompt', () => {
     expect(prompt).toContain('candleLighting')
     expect(prompt).toContain('aseresYemeiTeshuva')
     expect(prompt).toContain(`"id": "${sampleSchedule.events[0].id}"`)
+    expect(prompt).toContain('mincha-maariv: Mincha/Maariv (מנחה וערבית)')
     expect(prompt.trimEnd().endsWith('description of their schedule:')).toBe(true)
   })
 })
@@ -39,6 +40,9 @@ describe('parseAiImport', () => {
     expect(at('shacharis-early', '2026-10-24')).toBe(7 * 60 + 30) // Shabbos
     expect(at('shacharis-early', '2026-09-12')).toBeNull() // Rosh Hashana on Shabbos
     expect(at('maariv', '2026-10-24')).not.toBeNull() // Motzei Shabbos
+    expect(at('maariv', '2026-10-21')).toBeNull() // weekday Maariv is part of Mincha/Maariv
+    expect(at('mincha-maariv', '2026-10-21')).not.toBeNull()
+    expect(cal.resolve('mincha-maariv', '2026-10-24').note?.en).toBe('Mincha') // Shabbos
   })
 
   it('finds the JSON inside prose and fences, and takes the largest block', () => {

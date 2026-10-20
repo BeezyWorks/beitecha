@@ -34,6 +34,8 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     has; same), `components/Select.tsx` (styled like the DL's own web pickers) and `components/Print.tsx` (paper-sized
     sheets portalled out of the app's clipping root, `@page` CSS, scaled down to fit one sheet).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
+  - Headers are in Cardo, whose bold Hebrew is mostly regular weight; `lib/hebrewHeaders.ts` gives Cardo Bold's Hebrew
+    range to Frank Ruhl Libre Bold (a `unicode-range` `@font-face`), so set Hebrew headings in the header variants as usual.
   - Shul pages write themselves in `settings.language` (labels, weekdays, dates: `en` or `he`) and `settings.names` (minyan,
     zman, parsha, holiday and notice names: `en`, `he` or `both`; default follows `language`: `en` → `both`, `he` → `he`).
     Viewer surfaces never read `.en` directly: use `useT()` (`features/luach/language.tsx`) for names, labels, dates and

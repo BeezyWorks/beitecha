@@ -7,6 +7,7 @@ import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-c
 
 import { ThemeRoot } from '@/components/ThemeRoot'
 import { useAccount } from '@/features/account/store'
+import { pairHebrewHeaders } from '@/lib/hebrewHeaders'
 
 function RootNavigator() {
   const resolve = useColorResolver()
@@ -39,6 +40,10 @@ export default function RootLayout() {
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  useEffect(() => {
+    if (fontsLoaded) pairHebrewHeaders()
+  }, [fontsLoaded])
 
   if (!fontsLoaded) return null
 

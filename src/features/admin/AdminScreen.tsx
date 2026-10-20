@@ -70,6 +70,11 @@ export function AdminScreen({ slug }: { slug: string }) {
       {tab === 'team' && <TeamTab />}
     </Stack>
   )
+  // The sheet prints the published schedule, so save the draft first.
+  const printWeek = async () => {
+    if (dirty) await saveDraft()
+    if (!useAdmin.getState().dirty) router.push(`/${slug}/print`)
+  }
   const showPreview = tab === 'times' || tab === 'shul'
   // On a wide screen the preview docks beside the (width-capped) editor column; each scrolls on its own.
   const aside =
@@ -111,6 +116,7 @@ export function AdminScreen({ slug }: { slug: string }) {
           <Stack grow />
           <Button variant="ghost" size="sm" title="Public page" icon="external-link" onPress={() => router.push(`/${slug}`)} />
           <Button variant="ghost" size="sm" title="Display" icon="external-link" onPress={() => router.push(`/${slug}/display`)} />
+          <Button variant="ghost" size="sm" title="Print this week" icon="print" onPress={printWeek} />
           {dirty && <Button variant="secondary" size="sm" title="Discard" onPress={discard} />}
           <Button size="sm" title="Save" disabled={!dirty || save === 'saving'} loading={save === 'saving'} onPress={() => saveDraft()} />
         </Stack>

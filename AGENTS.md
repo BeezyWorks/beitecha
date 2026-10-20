@@ -26,11 +26,13 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   over the `AUTH` service binding. Roles: `owner` (invites, removes) and `editor`. Vitest with
   `@cloudflare/vitest-pool-workers`; the accounts service is faked in `vitest.config.mts` ("Bearer <id>" = user id).
 - **App (`src/`).** Expo Router (web only), `src/app/` holds only route files re-exporting feature screens.
-  Features: `luach` (shared feed/clock hooks and day components), `public`, `display`, `admin`, `home`, `account`.
+  Features: `luach` (shared feed/clock hooks and day components), `public`, `display`, `print`, `admin`, `home`,
+  `account`.
   - **Design system = `@beezyworks/design`**, the `packages/design` submodule, same as the siblings. No raw colors or
     style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
     scaled to the screen; a DL candidate), `components/ShrinkToFit.tsx` (one line shrunk to the room it
-    has; same) and `components/Select.tsx` (styled like the DL's own web pickers).
+    has; same), `components/Select.tsx` (styled like the DL's own web pickers) and `components/Print.tsx` (paper-sized
+    sheets portalled out of the app's clipping root, `@page` CSS, scaled down to fit one sheet).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
   - Shul pages write themselves in `settings.language` (labels, weekdays, dates: `en` or `he`) and `settings.names` (minyan,
     zman, parsha, holiday and notice names: `en`, `he` or `both`; default follows `language`: `en` → `both`, `he` → `he`).
@@ -39,6 +41,9 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   - The admin edits a draft in a zustand store (`features/admin/store.ts`) and saves the whole document.
     `features/admin/forms.ts` maps `Condition`/`TimeExpr` to editable forms and back; anything the forms can't say
     round-trips through a JSON editor instead of being lost. Jest-tested.
+- **Print** (`/<slug>/print`, the admin's "Print this week"): the published week on A4 or Letter, Shabbos, weekday
+  minyanim and zmanim on the front, sponsorships and announcements on the back (or all on one side). Each side is
+  shrunk to fit its sheet, never split.
 - **Display upkeep** (`useDisplayUpkeep`): heartbeat every 5 min (capped at 20 displays per shul), wake lock, hidden
   cursor, reload when the shul's day rolls over, hourly 1px drift against burn-in.
 

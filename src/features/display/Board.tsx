@@ -88,7 +88,7 @@ function Hero({
             {t.text(name)}
           </Text>
           {t.bothNames && !!name.he && (
-            <Text variant="largeTitle" rtl align="left" color={SemanticColor.TextOnAccent}>
+            <Text variant="pageHeader" rtl align="left" color={SemanticColor.TextOnAccent}>
               {name.he}
             </Text>
           )}
@@ -242,7 +242,7 @@ function TodayRow({
         )}
       </Stack>
       {t.bothNames && !!e.name.he && (
-        <Text variant="largeTitle" rtl color={quiet}>
+        <Text variant="pageHeader" rtl color={quiet}>
           {e.name.he}
         </Text>
       )}
@@ -315,7 +315,7 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
               {d === days[1] ? t.s.tomorrow : t.s.comingUp} · {t.dateShort(d.date)}
             </Text>
             <Stack grow />
-            <Text variant="headline" rtl color={SemanticColor.TextAccent}>
+            <Text variant="sectionHeader" rtl color={SemanticColor.TextAccent}>
               {d.hebrew.he}
             </Text>
           </Stack>
@@ -398,7 +398,7 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
         {t.text(n.text)}
       </Text>
       {t.bothNames && !!n.text.he && (
-        <Text variant="titleLarge" rtl numberOfLines={2} color={SemanticColor.TextSecondary}>
+        <Text variant="pageHeader" rtl numberOfLines={2} color={SemanticColor.TextSecondary}>
           {n.text.he}
         </Text>
       )}
@@ -421,7 +421,7 @@ function PanelHeading({ en, he }: { en: string; he: string }) {
       </Text>
       <Stack grow />
       {!hebrew && t.bothNames && (
-        <Text variant="titleLarge" rtl color={SemanticColor.TextAccent}>
+        <Text variant="pageHeader" rtl color={SemanticColor.TextAccent}>
           {he}
         </Text>
       )}

@@ -14,7 +14,7 @@ import {
 import React, { createContext, useContext, useMemo } from 'react'
 
 import { civilDate, civilDateShort, clock, untilText } from './format'
-import { WEEKDAYS, ZMAN_LABELS } from './labels'
+import { WEEKDAYS, WEEKDAY_SHORT, ZMAN_LABELS } from './labels'
 
 const STRINGS = {
   en: {
@@ -39,6 +39,12 @@ const STRINGS = {
     showOnMonitor: 'Show on a monitor',
     gabbaiSignIn: 'Gabbai sign-in',
     timesOnPhone: 'Times on your phone',
+    erevShabbos: 'Erev Shabbos',
+    weekdays: 'Weekdays',
+    zmanimThisWeek: 'Zmanim this week',
+    sponsorships: 'Sponsorships',
+    announcements: 'Announcements',
+    upToDate: 'Always up to date: scan for this week’s times.',
   },
   he: {
     cancelled: 'בוטל',
@@ -62,8 +68,16 @@ const STRINGS = {
     showOnMonitor: 'הצג על מסך',
     gabbaiSignIn: 'כניסת גבאי',
     timesOnPhone: 'הזמנים בטלפון',
+    erevShabbos: 'ערב שבת',
+    weekdays: 'ימות החול',
+    zmanimThisWeek: 'זמני השבוע',
+    sponsorships: 'הקדשות',
+    announcements: 'הודעות',
+    upToDate: 'סרקו לזמנים המעודכנים של השבוע.',
   },
 } as const satisfies Record<Language, Record<string, string>>
+
+const HE_WEEKDAYS_SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'שבת']
 
 const HE_MONTHS = [
   'ינואר',
@@ -140,6 +154,8 @@ function build(lang: Language, timeFormat: string | undefined, names: NameStyle)
     customTimeFormat: timeFormat,
     clock: (minutes: number) => (timeFormat ? formatTime(minutes, timeFormat) : clock(minutes)),
     weekday: (d: Weekday) => label(WEEKDAYS[d]),
+    /** `Mon` / `ב׳` */
+    weekdayShort: (d: Weekday) => (he ? HE_WEEKDAYS_SHORT[d] : WEEKDAY_SHORT[d]),
     zman: (id: ZmanId) => text(ZMAN_LABELS[id]),
     /** `October 19` / `19 באוקטובר` */
     date: (date: DateString) => {

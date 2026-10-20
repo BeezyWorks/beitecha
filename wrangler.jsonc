@@ -17,8 +17,7 @@
     {
       "binding": "DB",
       "database_name": "beitecha",
-      // Filled in by `wrangler d1 create beitecha` before the first deploy.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "e0d4eae9-0272-4521-ba7e-a66df9e18c99",
       "migrations_dir": "migrations"
     }
   ],

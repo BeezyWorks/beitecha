@@ -1,12 +1,14 @@
 import { Button, Card, SemanticColor, Stack, Text, TextField } from '@beezyworks/design'
 import { router } from 'expo-router'
 import React, { useEffect, useState } from 'react'
+import { Linking } from 'react-native'
 
 import { Page } from '@/components/Page'
 import { usePageTitle } from '@/components/PageTitle'
 import { SignIn } from '@/features/account/SignIn'
 import { useAccount } from '@/features/account/store'
 import { api, type MyShul } from '@/lib/api'
+import { siddurShulUrl } from '@/lib/config'
 
 export function HomeScreen() {
   usePageTitle('Beitecha · Your shul’s times, everywhere')
@@ -75,7 +77,7 @@ function MyShuls() {
               /{s.slug} · {s.role === 'owner' ? 'Owner' : 'Editor'}
             </Text>
           </Stack>
-          <Button variant="secondary" size="sm" title="Public page" onPress={() => router.push(`/${s.slug}`)} />
+          <Button variant="secondary" size="sm" title="Siddur page" onPress={() => Linking.openURL(siddurShulUrl(s.slug))} />
         </Card>
       ))}
     </Stack>
@@ -94,7 +96,7 @@ function FindShul() {
     <Stack gap="sm">
       <TextField variant="boxed" size="lg" placeholder="Find a shul" value={q} onChangeText={setQ} autoCorrect={false} />
       {results?.map((r) => (
-        <Card key={r.slug} onPress={() => router.push(`/${r.slug}`)} gap="xs" paddingVertical={14}>
+        <Card key={r.slug} onPress={() => Linking.openURL(siddurShulUrl(r.slug))} gap="xs" paddingVertical={14}>
           <Text variant="headline">{r.name.en}</Text>
           {!!r.city && (
             <Text variant="caption" color={SemanticColor.TextSecondary}>

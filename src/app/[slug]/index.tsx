@@ -1,9 +1,14 @@
 import { useLocalSearchParams } from 'expo-router'
-import React from 'react'
+import React, { useEffect } from 'react'
 
-import { PublicScreen } from '@/features/public/PublicScreen'
+import { Centered } from '@/components/Centered'
+import { siddurShulUrl } from '@/lib/config'
 
+/** A shul's public page lives in the Siddur; this keeps old QR codes and links working by sending them there. */
 export default function ShulPage() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
-  return <PublicScreen slug={slug} />
+  useEffect(() => {
+    if (slug) window.location.replace(siddurShulUrl(slug))
+  }, [slug])
+  return <Centered loading />
 }

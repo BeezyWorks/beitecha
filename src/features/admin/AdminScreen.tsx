@@ -1,7 +1,7 @@
 import { Button, Chip, Screen, ScrollStack, SemanticColor, Stack, Text, useIsWideLayout } from '@beezyworks/design'
 import { router } from 'expo-router'
 import React, { useEffect, useState } from 'react'
-import { Platform } from 'react-native'
+import { Linking, Platform } from 'react-native'
 
 import { Centered } from '@/components/Centered'
 import { Page } from '@/components/Page'
@@ -9,6 +9,7 @@ import { usePageTitle } from '@/components/PageTitle'
 import { SignIn } from '@/features/account/SignIn'
 import { useAccount } from '@/features/account/store'
 import { useShulClock } from '@/features/luach/useShulClock'
+import { siddurShulUrl } from '@/lib/config'
 import { ChangesTab } from './ChangesTab'
 import { EventsTab } from './EventsTab'
 import { NoticesTab } from './NoticesTab'
@@ -114,7 +115,7 @@ export function AdminScreen({ slug }: { slug: string }) {
             </Text>
           </Stack>
           <Stack grow />
-          <Button variant="ghost" size="sm" title="Public page" icon="external-link" onPress={() => router.push(`/${slug}`)} />
+          <Button variant="ghost" size="sm" title="Siddur page" icon="external-link" onPress={() => Linking.openURL(siddurShulUrl(slug))} />
           <Button variant="ghost" size="sm" title="Display" icon="external-link" onPress={() => router.push(`/${slug}/display`)} />
           <Button variant="ghost" size="sm" title="Print this week" icon="print" onPress={printWeek} />
           {dirty && <Button variant="secondary" size="sm" title="Discard" onPress={discard} />}

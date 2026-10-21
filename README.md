@@ -11,9 +11,8 @@ times from the zmanim and the Jewish calendar for the shul's exact location, in 
 
 - **On the monitor in the lobby**: `beitecha.baderech.app/<shul>/display`. Point any TV's browser at it and leave it. It
   keeps working offline, reloads itself each night, and checks in so the gabbai can see it's on.
-- **On a page anyone can open** by scanning the QR code in the display's corner: `beitecha.baderech.app/<shul>`.
 - **In people's calendars**: `beitecha.baderech.app/<shul>.ics`.
-- **In the Siddur**: the display's QR code opens the shul's times in the Siddur (`siddur.one/shul/<slug>`), in the app or its web build.
+- **In the Siddur**: the display's QR code opens the shul's times in the Siddur (`siddur.one/shul/<slug>`), in the app or its web build. `beitecha.baderech.app/<slug>` redirects there.
 
 It's free. Gabbaim sign in with the shared Baderech account (the same one the Siddur uses).
 
@@ -23,7 +22,7 @@ It's free. Gabbaim sign in with the shared Baderech account (the same one the Si
 | --- | --- |
 | `packages/engine` | `@beitecha/engine`: the rules engine. Pure TypeScript on `@hebcal/core`. Schedule + date → times. Its own repo (`BeezyWorks/beitecha-engine`), mounted here and in the Siddur as a submodule. Shared by the web app, the worker and the Siddur. |
 | `worker/` | Cloudflare Worker: the API on D1, the ICS feed, and the static web app. |
-| `src/` | Expo Router web app: public page, display, admin, home. |
+| `src/` | Expo Router web app: display, admin, print, home. |
 | `packages/design` | `@beezyworks/design`, git submodule (BeezyWorks/design-system). |
 | `migrations/` | D1 schema. |
 

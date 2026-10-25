@@ -117,7 +117,7 @@ const EXAMPLE = `{
       "kind": "tefila",
       "tefila": "minchaMaariv",
       "rules": [
-        { "when": { "any": [{ "tag": "erevShabbos" }, { "tag": "erevYomTov" }] }, "time": { "round": { "offset": 10, "of": { "zman": "candleLighting" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
+        { "when": { "any": [{ "tag": "erevShabbos" }, { "tag": "erevYomTov" }] }, "time": { "round": { "offset": 10, "of": { "zman": "candleLighting" } }, "to": 5, "mode": "down" } },
         { "when": { "any": [{ "tag": "shabbos" }, { "tag": "yomTov" }] }, "time": { "round": { "offset": -40, "of": { "zman": "sunset" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
         { "time": { "round": { "weekly": { "offset": -10, "of": { "zman": "plag" } }, "pick": "earliest", "days": [0, 1, 2, 3, 4] }, "to": 5, "mode": "withTrend" } }
       ]
@@ -171,7 +171,8 @@ ${tefilos}
 Mincha/Maariv:
 - "Mincha/Maariv" is one minyan: Mincha, then Maariv straight after it, as in every shul. It is ONE event ("${STANDARD_TEFILOS.minchaMaariv.id}") at the time Mincha starts. "Mincha/Maariv at X" means that event at X: don't ask when Maariv starts or how long Mincha takes, and don't split it into two events.
 - Make separate "${STANDARD_TEFILOS.mincha.id}" and "${STANDARD_TEFILOS.maariv.id}" events only for times when Maariv is its own minyan (e.g. Maariv at tzeis, or after Shabbos).
-- On Shabbos and Yom Tov afternoon, Maariv isn't straight after Mincha (it waits until Shabbos/Yom Tov ends), so the Mincha/Maariv event's Shabbos/Yom Tov rule gets the note { "en": "Mincha", "he": "מנחה" }, and Maariv after Shabbos is the separate "${STANDARD_TEFILOS.maariv.id}" event on motzeiShabbos. On Erev Shabbos/Yom Tov, Kabbalas Shabbos comes in between, so note that rule "Mincha" too.
+- On Shabbos and Yom Tov afternoon, Maariv isn't straight after Mincha (it waits until Shabbos/Yom Tov ends), so the Mincha/Maariv event's Shabbos/Yom Tov rule gets the note { "en": "Mincha", "he": "מנחה" }, and Maariv after Shabbos is the separate "${STANDARD_TEFILOS.maariv.id}" event on motzeiShabbos.
+- Erev Shabbos: when the gabbai gives the Friday minyan as some minutes before shkia, or at, around or after candle lighting (hadlakas neiros), it's the Mincha/Maariv event with Kabbalas Shabbos in between: an erevShabbos rule on "${STANDARD_TEFILOS.minchaMaariv.id}", with no note (Beitecha calls it Mincha/Kabbalas Shabbos on Fridays). Only when they say Mincha is earlier (e.g. a fixed early time or plag) and Maariv later is it two events: an erevShabbos rule on "${STANDARD_TEFILOS.mincha.id}" and one on "${STANDARD_TEFILOS.maariv.id}" (shown as Kabbalas Shabbos/Maariv).
 
 Rules of thumb:
 - Rules are checked in order and the FIRST whose "when" matches sets the time, so put special days (Yom Tov, fasts, Rosh Chodesh, holidays) before the ordinary weekday rule, and end with a rule without "when" as the default when the event happens every other day.

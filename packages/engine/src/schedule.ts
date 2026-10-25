@@ -2,6 +2,7 @@ import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zman
 import { addDays, parseClock, startOfWeek, utcOffset } from './dates'
 import { LocalHolidays } from './local'
 import { effectiveHolidays } from './localPresets'
+import { tefilaName } from './tefilos'
 import type {
   Condition,
   DateString,
@@ -227,7 +228,7 @@ export class Calendar {
       if (!happens) continue
       out.push({
         eventId: event.id,
-        name: event.name,
+        name: event.kind === 'tefila' ? tefilaName(event, this.info(date).tags) : event.name,
         kind: event.kind,
         tefila: event.tefila,
         room: event.room,

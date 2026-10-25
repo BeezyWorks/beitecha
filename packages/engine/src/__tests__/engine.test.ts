@@ -309,6 +309,31 @@ describe('tefila types', () => {
     expect(guess('x4', 'Daf Yomi')).toBeUndefined()
     expect(guessTefila({ id: 'mincha', name: { en: 'Mincha' }, tefila: 'maariv' })).toBe('maariv')
   })
+
+  it('names Erev Shabbos minyanim for Kabbalas Shabbos', () => {
+    const minyan = (id: string, tefila: EventDef['tefila'], en: string): EventDef => ({
+      id,
+      name: { en },
+      kind: 'tefila',
+      tefila,
+      rules: [{ time: { clock: '18:00' } }],
+    })
+    const schedule = withEvents([
+      minyan('mincha-maariv', 'minchaMaariv', 'Mincha/Maariv'),
+      minyan('maariv', 'maariv', 'Maariv'),
+      minyan('mincha', 'mincha', 'Mincha'),
+      minyan('late', 'maariv', 'Late Maariv'),
+    ])
+    const names = (date: string) =>
+      Object.fromEntries(computeDay(schedule, date).events.map((e) => [e.eventId, e.name.en]))
+    expect(names('2026-10-23')).toEqual({ // a Friday
+      'mincha-maariv': 'Mincha/Kabbalas Shabbos',
+      maariv: 'Kabbalas Shabbos/Maariv',
+      mincha: 'Mincha',
+      late: 'Late Maariv',
+    })
+    expect(names('2026-10-22')['mincha-maariv']).toBe('Mincha/Maariv')
+  })
 })
 
 describe('time zones', () => {

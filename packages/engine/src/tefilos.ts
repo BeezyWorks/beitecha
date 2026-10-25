@@ -1,4 +1,4 @@
-import type { EventDef, TefilaType } from './types'
+import type { DayTag, EventDef, Localized, TefilaType } from './types'
 
 type Tefila = Pick<EventDef, 'id' | 'name' | 'kind' | 'tefila'>
 
@@ -36,4 +36,28 @@ export function guessTefila(e: Pick<EventDef, 'id' | 'name' | 'tefila'>): Tefila
   if (maariv) return 'maariv'
   if (SHACHARIS.test(text)) return 'shacharis'
   return undefined
+}
+
+/**
+ * On Erev Shabbos, Kabbalas Shabbos comes between Mincha and Maariv: a Mincha/Maariv is
+ * Mincha and Kabbalas Shabbos, and a Maariv on its own (when Mincha was earlier) starts with it.
+ */
+const EREV_SHABBOS_NAMES: Partial<Record<TefilaType, Localized>> = {
+  minchaMaariv: { en: 'Mincha/Kabbalas Shabbos', he: 'מנחה וקבלת שבת' },
+  maariv: { en: 'Kabbalas Shabbos/Maariv', he: 'קבלת שבת וערבית' },
+}
+
+const same = (a: string | undefined, b: string | undefined) =>
+  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/**
+ * A minyan's name on a day: its own, except that a standard Mincha/Maariv or Maariv is called
+ * by what it davens on Erev Shabbos. A name the gabbai chose stays as it is.
+ */
+export function tefilaName(e: Pick<EventDef, 'name' | 'tefila'>, tags: Iterable<DayTag>): Localized {
+  const special = e.tefila && EREV_SHABBOS_NAMES[e.tefila]
+  if (!special || ![...tags].includes('erevShabbos')) return e.name
+  const standard = STANDARD_TEFILOS[e.tefila!].name
+  const isStandard = same(e.name.en, standard.en) || same(e.name.he, standard.he)
+  return isStandard ? special : e.name
 }

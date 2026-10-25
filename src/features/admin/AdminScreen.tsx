@@ -10,6 +10,7 @@ import { SignIn } from '@/features/account/SignIn'
 import { useAccount } from '@/features/account/store'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { siddurShulUrl } from '@/lib/config'
+import { CalendarTab } from './CalendarTab'
 import { ChangesTab } from './ChangesTab'
 import { EventsTab } from './EventsTab'
 import { NoticesTab } from './NoticesTab'
@@ -18,10 +19,11 @@ import { ShulTab } from './ShulTab'
 import { useAdmin } from './store'
 import { TeamTab } from './TeamTab'
 
-type Tab = 'times' | 'changes' | 'sponsors' | 'shul' | 'team'
+type Tab = 'times' | 'events' | 'changes' | 'sponsors' | 'shul' | 'team'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'times', label: 'Times' },
+  { key: 'events', label: 'Events' },
   { key: 'changes', label: 'This week' },
   { key: 'sponsors', label: 'Sponsors' },
   { key: 'shul', label: 'Shul' },
@@ -65,6 +67,7 @@ export function AdminScreen({ slug }: { slug: string }) {
   const editor = (
     <Stack gap="lg">
       {tab === 'times' && <EventsTab />}
+      {tab === 'events' && <CalendarTab today={today} />}
       {tab === 'changes' && <ChangesTab today={today} />}
       {tab === 'sponsors' && <NoticesTab today={today} />}
       {tab === 'shul' && <ShulTab />}

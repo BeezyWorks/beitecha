@@ -28,7 +28,7 @@ const KINDS: { key: EventKind; label: string }[] = (['tefila', 'shiur', 'other']
 const SECTIONS: { kind: EventKind; title: string; add: string; empty: string }[] = [
   { kind: 'tefila', title: 'Minyanim', add: 'Add a minyan', empty: 'No minyanim yet.' },
   { kind: 'shiur', title: 'Shiurim', add: 'Add a shiur', empty: 'No shiurim yet.' },
-  { kind: 'other', title: 'Events', add: 'Add an event', empty: 'Kiddush, melava malka, a siyum: anything else on the schedule.' },
+  { kind: 'other', title: 'Other regular times', add: 'Add a regular time', empty: 'Weekly things like Kiddush. A one-time event (a dinner, a Chanukah party) goes in the Events tab.' },
 ]
 
 const NEW_MINYAN_TIME: Record<TefilaType, string> = { shacharis: '07:00', mincha: '13:30', maariv: '21:00', minchaMaariv: '18:00' }

@@ -2,7 +2,7 @@ import { addDays, parseDate } from './dates'
 import { localHolidayDates } from './local'
 import { effectiveHolidays } from './localPresets'
 import { Calendar } from './schedule'
-import type { Condition, DateString, Schedule, TimeExpr } from './types'
+import { TEFILA_TYPES, type Condition, type DateString, type Schedule, type TimeExpr } from './types'
 
 export interface Issue {
   level: 'error' | 'warning'
@@ -60,6 +60,12 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
   const known = new Set([...ids, ...schedule.exceptions.flatMap((x) => (x.type === 'add' ? [x.event.id] : []))])
 
   for (const e of schedule.events) {
+    if (e.kind === 'tefila' && !TEFILA_TYPES.includes(e.tefila!)) {
+      issues.push({ level: 'error', eventId: e.id, message: `Minyan "${e.name.en}" needs its tefila: Shacharis, Mincha, Maariv or Mincha/Maariv` })
+    }
+    if (e.kind !== 'tefila' && e.tefila) {
+      issues.push({ level: 'warning', eventId: e.id, message: `"${e.name.en}" isn't a minyan but has a tefila` })
+    }
     e.rules.forEach((rule, i) => {
       if (rule.when && conditionIsEmpty(rule.when)) {
         issues.push({ level: 'warning', eventId: e.id, message: `Rule ${i + 1} never applies` })

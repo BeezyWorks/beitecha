@@ -92,6 +92,20 @@ describe('parseAiImport', () => {
     ])
   })
 
+  it('wants each minyan’s tefila, unless its name already says', () => {
+    const minyan = (name: string, extra = {}) => ({ id: name.toLowerCase(), name: { en: name }, kind: 'tefila', rules: [], ...extra })
+    const result = parseAiImport(JSON.stringify([minyan('Early'), minyan('Late', { tefila: 'musaf' }), minyan('Arvit')]))
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        '"Early": a minyan needs "tefila": shacharis, mincha, maariv or minchaMaariv',
+        '"Late": "tefila" must be shacharis, mincha, maariv or minchaMaariv',
+      ],
+    })
+    const ok = parseAiImport(JSON.stringify([minyan('Early', { tefila: 'shacharis' }), minyan('Arvit')]))
+    expect(ok.ok && ok.events.map((e) => e.tefila)).toEqual(['shacharis', 'maariv'])
+  })
+
   it('says so when there is no JSON', () => {
     expect(parseAiImport('Sure! What time is Shacharis?')).toEqual({
       ok: false,

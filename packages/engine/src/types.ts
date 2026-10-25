@@ -200,7 +200,12 @@ export type TimeExpr =
 // ---------------------------------------------------------------------------
 // Events, exceptions, notices
 
+/** `tefila` is a minyan, `shiur` a shiur, `other` any other event (a kiddush, a melava malka). */
 export type EventKind = 'tefila' | 'shiur' | 'other'
+
+/** Which tefila a minyan davens. `minchaMaariv` is Mincha with Maariv straight after it. */
+export const TEFILA_TYPES = ['shacharis', 'mincha', 'maariv', 'minchaMaariv'] as const
+export type TefilaType = (typeof TEFILA_TYPES)[number]
 
 export interface Rule {
   /** Absent = every day. */
@@ -214,6 +219,8 @@ export interface EventDef {
   id: string
   name: Localized
   kind: EventKind
+  /** Which tefila; every `tefila` event has one, other kinds none. */
+  tefila?: TefilaType
   room?: string
   /** `internal` events can be referenced but are never shown. */
   visibility?: 'public' | 'internal'
@@ -263,6 +270,7 @@ export interface Occurrence {
   eventId: string
   name: Localized
   kind: EventKind
+  tefila?: TefilaType
   room?: string
   /** Null when cancelled or when the time couldn't be worked out (see `error`). */
   minutes: Minutes | null

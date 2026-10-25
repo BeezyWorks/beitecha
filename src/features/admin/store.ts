@@ -1,4 +1,4 @@
-import type { EventDef, Exception, Notice, Schedule, ShulProfile } from '@beitecha/engine'
+import { guessTefila, type EventDef, type Exception, type Notice, type Schedule, type ShulProfile } from '@beitecha/engine'
 import { create } from 'zustand'
 
 import { api, ApiError, type ShulAdmin } from '@/lib/api'
@@ -32,6 +32,12 @@ interface AdminState {
 
 export const newId = () => Math.random().toString(36).slice(2, 10)
 
+/** Minyanim saved before they had a tefila get the one their name says; the next save keeps it. */
+const withTefilos = (s: Schedule): Schedule => ({
+  ...s,
+  events: s.events.map((e) => (e.kind === 'tefila' && !e.tefila ? { ...e, tefila: guessTefila(e) } : e)),
+})
+
 export const useAdmin = create<AdminState>((set, get) => {
   const edit = (fn: (s: Schedule) => Schedule) => {
     const { schedule } = get()
@@ -54,7 +60,7 @@ export const useAdmin = create<AdminState>((set, get) => {
       set({ slug, loadError: null })
       try {
         const loaded = await api.admin(slug)
-        set({ loaded, profile: loaded.profile, schedule: loaded.schedule, dirty: false, save: 'idle', saveError: null })
+        set({ loaded, profile: loaded.profile, schedule: withTefilos(loaded.schedule), dirty: false, save: 'idle', saveError: null })
       } catch (e) {
         set({
           loaded: null,
@@ -70,8 +76,10 @@ export const useAdmin = create<AdminState>((set, get) => {
     addEvent: (e) => edit((s) => ({ ...s, events: [...s.events, e] })),
     moveEvent: (id, by) =>
       edit((s) => {
+        // Minyanim, shiurim and events are listed apart, so step over the other kinds.
         const i = s.events.findIndex((e) => e.id === id)
-        const j = i + by
+        let j = i + by
+        while (j >= 0 && j < s.events.length && s.events[j].kind !== s.events[i]?.kind) j += by
         if (i < 0 || j < 0 || j >= s.events.length) return s
         const events = [...s.events]
         ;[events[i], events[j]] = [events[j], events[i]]

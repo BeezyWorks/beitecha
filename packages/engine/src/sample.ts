@@ -12,6 +12,7 @@ export const sampleSchedule: Schedule = {
       id: 'shacharis',
       name: { en: 'Shacharis', he: 'שחרית' },
       kind: 'tefila',
+      tefila: 'shacharis',
       rules: [
         { when: { any: [{ tag: 'shabbos' }, { tag: 'yomTov' }] }, time: { clock: '09:00' } },
         { when: { tag: 'selichos' }, time: { clock: '06:00' }, note: { en: 'Selichos', he: 'סליחות' } },
@@ -27,6 +28,7 @@ export const sampleSchedule: Schedule = {
       id: 'mincha',
       name: { en: 'Mincha', he: 'מנחה' },
       kind: 'tefila',
+      tefila: 'mincha',
       rules: [
         {
           when: { any: [{ tag: 'erevShabbos' }, { tag: 'erevYomTov' }] },
@@ -59,6 +61,7 @@ export const sampleSchedule: Schedule = {
       id: 'maariv',
       name: { en: 'Maariv', he: 'ערבית' },
       kind: 'tefila',
+      tefila: 'maariv',
       rules: [
         { when: { any: [{ tag: 'motzeiShabbos' }, { tag: 'motzeiYomTov' }] }, time: { zman: 'havdalah' } },
         { when: { any: [{ tag: 'erevShabbos' }, { tag: 'erevYomTov' }, { tag: 'shabbos' }, { tag: 'yomTov' }] }, time: null },

@@ -1,4 +1,4 @@
-import type { DayTag, EventKind, Localized, Weekday, ZmanId } from './types'
+import type { DayTag, EventKind, Localized, TefilaType, Weekday, ZmanId } from './types'
 
 export const ZMAN_LABELS: Record<ZmanId, Localized> = {
   alos: { en: 'Alos HaShachar', he: 'עלות השחר' },
@@ -74,4 +74,11 @@ export const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Shab'] 
 
 export const weekdayShort = (d: Weekday) => WEEKDAY_SHORT[d]
 
-export const KIND_LABELS: Record<EventKind, string> = { tefila: 'Tefila', shiur: 'Shiur', other: 'Other' }
+export const KIND_LABELS: Record<EventKind, string> = { tefila: 'Minyan', shiur: 'Shiur', other: 'Event' }
+
+export const TEFILA_LABELS: Record<TefilaType, string> = {
+  shacharis: 'Shacharis',
+  mincha: 'Mincha',
+  maariv: 'Maariv',
+  minchaMaariv: 'Mincha/Maariv',
+}

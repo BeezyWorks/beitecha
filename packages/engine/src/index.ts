@@ -2,7 +2,7 @@ export * from './types'
 export { Calendar, computeDay, computeRange } from './schedule'
 export { sampleSchedule } from './sample'
 export { starterSchedule, type StarterOptions } from './starter'
-export { STANDARD_TEFILOS } from './tefilos'
+export { STANDARD_TEFILOS, guessTefila } from './tefilos'
 export { localize, nameStyle } from './localize'
 export {
   DEFAULT_TIME_FORMAT,
@@ -41,6 +41,7 @@ export {
   DAILY_ZMANIM,
   KIND_LABELS,
   TAG_LABELS,
+  TEFILA_LABELS,
   WEEKDAYS,
   WEEKDAY_SHORT,
   ZMAN_LABELS,

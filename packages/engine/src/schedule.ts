@@ -229,6 +229,7 @@ export class Calendar {
         eventId: event.id,
         name: event.name,
         kind: event.kind,
+        tefila: event.tefila,
         room: event.room,
         minutes: r.minutes,
         cancelled: r.cancelled,

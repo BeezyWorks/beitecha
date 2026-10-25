@@ -14,6 +14,7 @@ import {
   computeDay,
   formatClock,
   formatTime,
+  guessTefila,
   timeFormatProblem,
   inferCivilCalendar,
   localHolidayDates,
@@ -141,6 +142,7 @@ describe('rules', () => {
         id: 'mincha',
         name: { en: 'Mincha' },
         kind: 'tefila',
+        tefila: 'mincha',
         rules: [{ time: { earliest: [{ zman: 'candleLighting' }, { clock: '19:15' }] } }],
       },
     ])
@@ -278,6 +280,35 @@ describe('validate', () => {
     expect(issues.some((i) => i.exceptionId === 'tue' && /does nothing/.test(i.message))).toBe(true)
     expect(issues.some((i) => i.exceptionId === 'gone' && /deleted event/.test(i.message))).toBe(true)
   })
+
+  it('wants every minyan to say which tefila it is', () => {
+    const s: Schedule = {
+      ...sampleSchedule,
+      events: [...sampleSchedule.events, { id: 'v', name: { en: 'Vasikin' }, kind: 'tefila', rules: [] }],
+    }
+    const issues = validate(s, '2026-10-18', 1)
+    expect(issues.filter((i) => i.level === 'error').map((i) => i.eventId)).toEqual(['v'])
+  })
+})
+
+describe('tefila types', () => {
+  it('carries the tefila into occurrences', () => {
+    const day = computeDay(sampleSchedule, '2026-10-21')
+    expect(day.events.find((e) => e.eventId === 'mincha')?.tefila).toBe('mincha')
+    expect(day.events.find((e) => e.eventId === 'shiur')).toBeUndefined() // Shabbos only
+  })
+
+  it('guesses it for schedules from before minyanim had one', () => {
+    const guess = (id: string, en: string, he?: string) => guessTefila({ id, name: { en, he } })
+    expect(guess('x1', 'Shacharis')).toBe('shacharis')
+    expect(guess('early', 'Early Shachris')).toBe('shacharis')
+    expect(guess('mincha-maariv', 'Mincha/Maariv')).toBe('minchaMaariv')
+    expect(guess('x2', 'Mincha & Arvit')).toBe('minchaMaariv')
+    expect(guess('x3', 'Late', 'ערבית')).toBe('maariv')
+    expect(guess('mincha', 'Mincha Gedola')).toBe('mincha')
+    expect(guess('x4', 'Daf Yomi')).toBeUndefined()
+    expect(guessTefila({ id: 'mincha', name: { en: 'Mincha' }, tefila: 'maariv' })).toBe('maariv')
+  })
 })
 
 describe('time zones', () => {
@@ -329,6 +360,7 @@ describe('local holidays', () => {
           id: 'shacharis',
           name: { en: 'Shacharis' },
           kind: 'tefila',
+          tefila: 'shacharis',
           rules: [
             { when: { localHoliday: 'thanksgiving' }, time: { clock: '08:00' } },
             { when: { tag: 'legalHoliday' }, time: { clock: '07:30' } },
@@ -391,6 +423,7 @@ describe('built-in civil calendar', () => {
       id: 'shacharis',
       name: { en: 'Shacharis' },
       kind: 'tefila',
+      tefila: 'shacharis',
       rules: [{ when: { tag: 'legalHoliday' }, time: { clock: '08:00' } }, { time: { clock: '06:30' } }],
     },
   ]

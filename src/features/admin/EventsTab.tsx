@@ -1,5 +1,14 @@
-import { Button, Card, IconButton, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
-import type { EventDef, EventKind, Rule } from '@beitecha/engine'
+import { Button, Card, Chip, IconButton, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
+import {
+  KIND_LABELS,
+  STANDARD_TEFILOS,
+  TEFILA_LABELS,
+  TEFILA_TYPES,
+  type EventDef,
+  type EventKind,
+  type Rule,
+  type TefilaType,
+} from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
@@ -10,11 +19,52 @@ import { describeTime, TimeEditor } from './TimeEditor'
 
 const NO_EVENTS: EventDef[] = []
 
-const KINDS: { key: EventKind; label: string }[] = [
-  { key: 'tefila', label: 'Tefila' },
-  { key: 'shiur', label: 'Shiur' },
-  { key: 'other', label: 'Other' },
+const KINDS: { key: EventKind; label: string }[] = (['tefila', 'shiur', 'other'] as const).map((key) => ({
+  key,
+  label: KIND_LABELS[key],
+}))
+
+/** Each kind's own list, in this order, with what a new one starts as. */
+const SECTIONS: { kind: EventKind; title: string; add: string; empty: string }[] = [
+  { kind: 'tefila', title: 'Minyanim', add: 'Add a minyan', empty: 'No minyanim yet.' },
+  { kind: 'shiur', title: 'Shiurim', add: 'Add a shiur', empty: 'No shiurim yet.' },
+  { kind: 'other', title: 'Events', add: 'Add an event', empty: 'Kiddush, melava malka, a siyum: anything else on the schedule.' },
 ]
+
+const NEW_MINYAN_TIME: Record<TefilaType, string> = { shacharis: '07:00', mincha: '13:30', maariv: '21:00', minchaMaariv: '18:00' }
+
+function newEvent(kind: EventKind, tefila?: TefilaType): EventDef {
+  const id = newId()
+  if (kind === 'tefila' && tefila) {
+    const { name } = STANDARD_TEFILOS[tefila]
+    return { id, name: { ...name }, kind, tefila, rules: [{ time: { clock: NEW_MINYAN_TIME[tefila] } }] }
+  }
+  return kind === 'shiur'
+    ? { id, name: { en: 'New shiur' }, kind, rules: [{ time: { clock: '20:00' } }] }
+    : { id, name: { en: 'New event' }, kind, rules: [{ time: { clock: '12:00' } }] }
+}
+
+/** A minyan still named after its tefila is renamed with it; one with its own name keeps it. */
+function retype(event: EventDef, tefila: TefilaType): EventDef {
+  const was = event.tefila && STANDARD_TEFILOS[event.tefila].name
+  const named = !event.name.en.trim() || (was && event.name.en === was.en)
+  return named ? { ...event, tefila, name: { ...STANDARD_TEFILOS[tefila].name } } : { ...event, tefila }
+}
+
+function TefilaPicker({ value, onChange }: { value?: TefilaType; onChange: (t: TefilaType) => void }) {
+  return (
+    <Stack gap="xs">
+      <Text variant="caption" color={value ? SemanticColor.TextSecondary : SemanticColor.TextDanger}>
+        {value ? 'Tefila' : 'Which tefila is this minyan?'}
+      </Text>
+      <Stack direction="row" wrap gap="xs">
+        {TEFILA_TYPES.map((t) => (
+          <Chip key={t} label={TEFILA_LABELS[t]} selected={value === t} onPress={() => onChange(t)} />
+        ))}
+      </Stack>
+    </Stack>
+  )
+}
 
 function RuleCard({
   rule,
@@ -80,7 +130,7 @@ function RuleCard({
   )
 }
 
-function EventCard({ event, index, all }: { event: EventDef; index: number; all: EventDef[] }) {
+function EventCard({ event, index, count, all }: { event: EventDef; index: number; count: number; all: EventDef[] }) {
   const { updateEvent, removeEvent, moveEvent } = useAdmin()
   const [open, setOpen] = useState(false)
   const set = (patch: Partial<EventDef>) => updateEvent(event.id, { ...event, ...patch })
@@ -100,14 +150,16 @@ function EventCard({ event, index, all }: { event: EventDef; index: number; all:
             )}
           </Stack>
           <Text variant="caption" color={SemanticColor.TextSecondary}>
-            {KINDS.find((k) => k.key === event.kind)?.label}
+            {event.kind === 'tefila' ? (event.tefila ? TEFILA_LABELS[event.tefila] : 'Minyan') : KIND_LABELS[event.kind]}
             {event.room ? ` · ${event.room}` : ''}
             {event.visibility === 'internal' ? ' · hidden' : ''} · {event.rules.length} rule{event.rules.length === 1 ? '' : 's'}
           </Text>
         </Stack>
         <IconButton name="chevron-left" size={16} disabled={index === 0} onPress={() => moveEvent(event.id, -1)} accessibilityLabel="Move up" />
-        <IconButton name="chevron-right" size={16} disabled={index === all.length - 1} onPress={() => moveEvent(event.id, 1)} accessibilityLabel="Move down" />
+        <IconButton name="chevron-right" size={16} disabled={index === count - 1} onPress={() => moveEvent(event.id, 1)} accessibilityLabel="Move down" />
       </Stack>
+
+      {event.kind === 'tefila' && !event.tefila && <TefilaPicker onChange={(t) => updateEvent(event.id, retype(event, t))} />}
 
       <Stack gap="sm">
         {event.rules.map((rule, i) => (
@@ -152,8 +204,17 @@ function EventCard({ event, index, all }: { event: EventDef; index: number; all:
               <Field label="Hebrew name" value={event.name.he ?? ''} onChangeText={(he) => set({ name: { ...event.name, he: he || undefined } })} />
             </Stack>
           </Stack>
+          <SegmentedControl
+            options={KINDS}
+            value={event.kind}
+            onChange={(kind) =>
+              updateEvent(event.id, kind === 'tefila' ? { ...event, kind } : { ...event, kind, tefila: undefined })
+            }
+          />
+          {event.kind === 'tefila' && event.tefila && (
+            <TefilaPicker value={event.tefila} onChange={(t) => updateEvent(event.id, retype(event, t))} />
+          )}
           <Stack direction="row" gap="md" align="center" wrap>
-            <SegmentedControl options={KINDS} value={event.kind} onChange={(kind) => set({ kind })} />
             <Stack grow>
               <Field label="Room (optional)" placeholder="Beis Medrash" value={event.room ?? ''} onChangeText={(room) => set({ room: room || undefined })} />
             </Stack>
@@ -186,16 +247,34 @@ export function EventsTab() {
   return (
     <Stack gap="md">
       <AiSetupCard />
-      {events.map((e, i) => (
-        <EventCard key={e.id} event={e} index={i} all={events} />
-      ))}
-      <Stack direction="row" gap="sm" wrap>
-        <Button
-          icon="add"
-          title="Add a minyan or shiur"
-          onPress={() => addEvent({ id: newId(), name: { en: 'New event' }, kind: 'tefila', rules: [{ time: { clock: '07:00' } }] })}
-        />
-      </Stack>
+      {SECTIONS.map(({ kind, title, add, empty }) => {
+        const list = events.filter((e) => e.kind === kind)
+        return (
+          <Stack key={kind} gap="md">
+            <Text variant="headline">{title}</Text>
+            {list.map((e, i) => (
+              <EventCard key={e.id} event={e} index={i} count={list.length} all={events} />
+            ))}
+            {!list.length && (
+              <Text variant="caption" color={SemanticColor.TextSecondary}>
+                {empty}
+              </Text>
+            )}
+            <Stack direction="row" gap="sm" wrap align="center">
+              {kind === 'tefila' ? (
+                <>
+                  <Text variant="bodyStrong">{add}:</Text>
+                  {TEFILA_TYPES.map((t) => (
+                    <Button key={t} variant="secondary" size="sm" icon="add" title={TEFILA_LABELS[t]} onPress={() => addEvent(newEvent(kind, t))} />
+                  ))}
+                </>
+              ) : (
+                <Button variant="secondary" size="sm" icon="add" title={add} onPress={() => addEvent(newEvent(kind))} />
+              )}
+            </Stack>
+          </Stack>
+        )
+      })}
     </Stack>
   )
 }

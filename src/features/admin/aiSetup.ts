@@ -4,10 +4,13 @@ import {
   effectiveHolidays,
   type EventDef,
   type EventKind,
+  guessTefila,
   type Rule,
   type Schedule,
   type ShulProfile,
   STANDARD_TEFILOS,
+  TEFILA_TYPES,
+  type TefilaType,
   ZMAN_IDS,
   ZMAN_LABELS,
   type ZmanId,
@@ -44,7 +47,8 @@ const SCHEMA = `type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6 // 0 = Sunday … 6 = S
 interface EventDef {
   id: string // short, lowercase, unique, e.g. "shacharis", "shacharis-early", "daf-yomi"
   name: { en: string; he?: string } // he = Hebrew name, if you know it
-  kind: 'tefila' | 'shiur' | 'other'
+  kind: 'tefila' | 'shiur' | 'other' // tefila = a minyan
+  tefila?: 'shacharis' | 'mincha' | 'maariv' | 'minchaMaariv' // every minyan has one: which tefila it davens; other kinds none
   room?: string
   visibility?: 'internal' // only for helper events other events are timed from; never shown
   rules: Rule[] // FIRST matching rule wins; a day no rule matches has no occurrence
@@ -89,6 +93,7 @@ const EXAMPLE = `{
       "id": "shacharis",
       "name": { "en": "Shacharis", "he": "שחרית" },
       "kind": "tefila",
+      "tefila": "shacharis",
       "rules": [
         { "when": { "any": [{ "tag": "shabbos" }, { "tag": "yomTov" }] }, "time": { "clock": "09:00" } },
         { "when": { "any": [{ "weekday": [0] }, { "tag": "legalHoliday" }] }, "time": { "clock": "08:00" } },
@@ -100,6 +105,7 @@ const EXAMPLE = `{
       "id": "shacharis-early",
       "name": { "en": "Early Shacharis" },
       "kind": "tefila",
+      "tefila": "shacharis",
       "rules": [
         { "when": { "any": [{ "holiday": "Rosh Hashana" }, { "holiday": "Yom Kippur" }] }, "time": null },
         { "when": { "tag": "shabbos" }, "time": { "clock": "07:30" } }
@@ -109,6 +115,7 @@ const EXAMPLE = `{
       "id": "mincha-maariv",
       "name": { "en": "Mincha/Maariv", "he": "מנחה וערבית" },
       "kind": "tefila",
+      "tefila": "minchaMaariv",
       "rules": [
         { "when": { "any": [{ "tag": "erevShabbos" }, { "tag": "erevYomTov" }] }, "time": { "round": { "offset": 10, "of": { "zman": "candleLighting" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
         { "when": { "any": [{ "tag": "shabbos" }, { "tag": "yomTov" }] }, "time": { "round": { "offset": -40, "of": { "zman": "sunset" } }, "to": 5, "mode": "down" }, "note": { "en": "Mincha", "he": "מנחה" } },
@@ -119,6 +126,7 @@ const EXAMPLE = `{
       "id": "maariv",
       "name": { "en": "Maariv", "he": "ערבית" },
       "kind": "tefila",
+      "tefila": "maariv",
       "rules": [
         { "when": { "any": [{ "tag": "motzeiShabbos" }, { "tag": "motzeiYomTov" }] }, "time": { "zman": "havdalah" } }
       ]
@@ -141,7 +149,7 @@ export function buildAiPrompt(schedule: Schedule, profile: ShulProfile): string 
     ? local.map((h) => `  ${h.id}: ${h.name.en}`).join('\n')
     : '  (none)'
   const tefilos = Object.values(STANDARD_TEFILOS)
-    .map((t) => `  ${t.id}: ${t.name.en} (${t.name.he})`)
+    .map((t) => `  ${t.id}: ${t.name.en} (${t.name.he}), "tefila": "${t.tefila}"`)
     .join('\n')
   const current = JSON.stringify({ events: schedule.events }, null, 2)
 
@@ -208,6 +216,7 @@ The gabbai's description of their schedule:
 export type ImportResult = { ok: true; events: EventDef[] } | { ok: false; errors: string[] }
 
 const KINDS: EventKind[] = ['tefila', 'shiur', 'other']
+const TEFILOS: readonly string[] = TEFILA_TYPES
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -331,6 +340,14 @@ export function parseAiImport(text: string): ImportResult {
     if (id) ids.add(id)
     if (!KINDS.includes(e.kind as EventKind))
       errors.push(`${label}: "kind" must be tefila, shiur or other`)
+    // A minyan whose name says which tefila it is needn't spell it out.
+    const given = TEFILOS.includes(e.tefila as string) ? (e.tefila as TefilaType) : undefined
+    const tefila =
+      e.kind === 'tefila' && name ? (given ?? guessTefila({ id: id ?? '', name })) : undefined
+    if (e.kind === 'tefila' && e.tefila !== undefined && !TEFILOS.includes(e.tefila as string))
+      errors.push(`${label}: "tefila" must be shacharis, mincha, maariv or minchaMaariv`)
+    else if (e.kind === 'tefila' && !tefila)
+      errors.push(`${label}: a minyan needs "tefila": shacharis, mincha, maariv or minchaMaariv`)
     if (!Array.isArray(e.rules)) errors.push(`${label}: needs a "rules" list`)
     const rules = Array.isArray(e.rules) ? e.rules : []
     rules.forEach((r: unknown, j: number) => {
@@ -345,6 +362,7 @@ export function parseAiImport(text: string): ImportResult {
       id: id ?? '',
       name: name ?? { en: '' },
       kind: e.kind as EventKind,
+      tefila: e.kind === 'tefila' ? tefila : undefined,
       rules: rules as Rule[],
     } as EventDef
   })

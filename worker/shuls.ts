@@ -1,11 +1,13 @@
 import {
   addDays,
   starterSchedule,
+  TEFILA_TYPES,
   timeFormatProblem,
   todayIn,
   type Schedule,
   type ShulProfile,
   type ShulSettings,
+  type TefilaType,
 } from '@beitecha/engine'
 
 import { requireUser, type User } from './auth'
@@ -97,6 +99,8 @@ export function scheduleProblem(s: unknown): string | null {
   }
   for (const e of s.events as unknown[]) {
     if (!isObject(e) || typeof e.id !== 'string' || !Array.isArray(e.rules)) return 'every event needs an id and rules'
+    if (e.kind === 'tefila' && !TEFILA_TYPES.includes(e.tefila as TefilaType))
+      return 'every minyan needs its tefila: shacharis, mincha, maariv or minchaMaariv'
   }
   return null
 }

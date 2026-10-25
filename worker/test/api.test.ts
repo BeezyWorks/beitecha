@@ -170,6 +170,16 @@ describe('editing', () => {
     expect(res.status).toBe(400)
   })
 
+  it('wants every minyan to say which tefila it is', async () => {
+    const slug = await newShul('typed')
+    const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'typed' })
+    const minyan = { id: 'v', name: { en: 'Vasikin' }, kind: 'tefila', rules: [] }
+    const save = (e: object) =>
+      call('PUT', `/api/shuls/${slug}`, { schedule: { ...data.schedule, events: [e] }, baseRevision: data.revision }, { token: 'typed' })
+    expect((await save(minyan)).status).toBe(400)
+    expect((await save({ ...minyan, tefila: 'shacharis' })).status).toBe(200)
+  })
+
   it('records who saved each revision', async () => {
     const slug = await newShul('hist')
     await call('PUT', `/api/shuls/${slug}`, { profile: { name: { en: 'H' } }, baseRevision: 1 }, { token: 'hist' })

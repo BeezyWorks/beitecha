@@ -115,6 +115,22 @@ describe('the public feed', () => {
     expect(pub.data.schedule.notices).toEqual([])
   })
 
+  it('keeps a reminder until its event, and turns away unknown notice kinds', async () => {
+    const slug = await newShul()
+    const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'owner1' })
+    const schedule = {
+      ...data.schedule,
+      exceptions: [
+        { id: 'bbq', date: '2099-01-01', type: 'add', event: { id: 'bbq', name: { en: 'BBQ' }, kind: 'other' }, time: { clock: '12:00' } },
+      ],
+      notices: [{ id: 'r', kind: 'reminder', from: '2020-01-01', eventId: 'bbq', text: { en: 'BBQ soon' } }],
+    }
+    expect((await call('PUT', `/api/shuls/${slug}`, { schedule, baseRevision: data.revision }, { token: 'owner1' })).status).toBe(200)
+    expect((await call('GET', `/api/shuls/${slug}`)).data.schedule.notices.map((n: any) => n.id)).toEqual(['r'])
+    const bad = { ...schedule, notices: [{ id: 'b', kind: 'bulletin', from: '2020-01-01', text: { en: 'x' } }] }
+    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: bad, baseRevision: data.revision + 1 }, { token: 'owner1' })).status).toBe(400)
+  })
+
   it('can be read by the Siddur’s web build, and only it', async () => {
     const slug = await newShul()
     const read = (origin: string, method = 'GET', path = `/api/shuls/${slug}`) =>
@@ -241,6 +257,32 @@ describe('calendar feed', () => {
     expect(res.data).toMatch(/^BEGIN:VCALENDAR\r\n/)
     expect(res.data).toMatch(/DTSTART;TZID=America\/New_York:\d{8}T\d{6}\r\n/)
     expect(res.data).toContain('SUMMARY:Shacharis')
+  })
+
+  it('gives an event its end, where it is and its link', async () => {
+    const slug = await newShul()
+    const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'owner1' })
+    const date = new Date(Date.now() + 3 * 86400_000).toISOString().slice(0, 10)
+    const schedule = {
+      ...data.schedule,
+      exceptions: [
+        {
+          id: 'bbq',
+          date,
+          type: 'add',
+          event: { id: 'bbq', name: { en: 'Shul BBQ' }, kind: 'other', location: 'Pine Park', link: 'https://example.org/bbq', speaker: { en: 'Chef Dov' } },
+          time: { clock: '12:00' },
+          end: { clock: '15:00' },
+        },
+      ],
+    }
+    expect((await call('PUT', `/api/shuls/${slug}`, { schedule, baseRevision: data.revision }, { token: 'owner1' })).status).toBe(200)
+    const ics: string = (await call('GET', `/${slug}.ics`)).data
+    const bbq = ics.slice(ics.indexOf('SUMMARY:Shul BBQ') - 200, ics.indexOf('END:VEVENT', ics.indexOf('SUMMARY:Shul BBQ')))
+    expect(bbq).toContain('DURATION:PT180M')
+    expect(bbq).toContain('LOCATION:Pine Park')
+    expect(bbq).toContain('DESCRIPTION:Chef Dov')
+    expect(bbq).toContain('URL:https://example.org/bbq')
   })
 
   it('writes event names in the shul’s language', async () => {

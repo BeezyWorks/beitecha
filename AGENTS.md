@@ -20,6 +20,11 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   - **Day tags come from the morning's Hebrew date** (Friday is `erevShabbos`; Shabbos is also `motzeiShabbos` unless
     Yom Tov follows). `fast` = public fasts only (not BeHaB, Bechoros, Erev Tish'a B'Av, Yom Kippur).
   - **Zmanim round the safe way**: deadlines down, start times up (`ROUND_UP` in `day.ts`).
+  - **Event details for the Siddur's Shul tab** are set once, never weekly: `category` (program/meal) and `audience`
+    sit beside `kind` (old clients only know `kind`) and are guessed from the name when unset (`categories.ts`);
+    a time hung on a minyan is said by it ("after Maariv", `Occurrence.relative`) unless the rule says otherwise.
+    Sections like "Shabbos afternoon" are the client's, from the times. A reminder with an `eventId` comes down
+    after its one-time event (`noticeLastDay`).
 - **Worker (`worker/`).** Plain router in `index.ts`; handlers in `shuls.ts`. D1 tables in `migrations/`. Writes use a
   revision check in one SQL statement (409 with the current record, like the accounts service's `app_data`). Auth: the
   app sends the Baderech bearer token, the worker checks it with `GET /api/auth/get-session` on the accounts Worker

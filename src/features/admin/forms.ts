@@ -1,4 +1,19 @@
-import type { Condition, DayTag, RoundMode, TimeExpr, Weekday, ZmanId } from '@beitecha/engine'
+import {
+  guessAudience,
+  guessCategory,
+  type Audience,
+  type Condition,
+  type DayTag,
+  type EventCategory,
+  type EventDef,
+  type Notice,
+  type RelativeTo,
+  type RoundMode,
+  type Rule,
+  type TimeExpr,
+  type Weekday,
+  type ZmanId,
+} from '@beitecha/engine'
 
 // ---------------------------------------------------------------------------
 // Clock input: gabbaim type "6:30", "6:30pm", "18:30".
@@ -191,4 +206,79 @@ export function formToTime(form: TimeForm): TimeExpr {
   }
   if (form.round) e = { round: e, to: form.round.to, mode: form.round.mode }
   return e
+}
+
+// ---------------------------------------------------------------------------
+// Event details: guessed from the name until the gabbai says otherwise.
+
+type Details = Pick<EventDef, 'name' | 'kind' | 'category' | 'audience'>
+
+/** The category shown for an event, and whether it's only the name's guess. Minyanim and shiurim have none. */
+export function categoryChoice(e: Details): { value?: EventCategory; guessed: boolean } {
+  return { value: guessCategory(e), guessed: e.kind === 'other' && !e.category }
+}
+
+/** Who an event is shown as being for (`everyone` when nothing says), and whether it's only the name's guess. */
+export function audienceChoice(e: Details): { value: Audience; guessed: boolean } {
+  return { value: guessAudience(e) ?? 'everyone', guessed: !e.audience }
+}
+
+/** Whole minutes from "75", undefined when empty, null when it isn't a length. */
+export function parseMinutes(input: string): number | undefined | null {
+  if (!input.trim()) return undefined
+  const n = Number(input.trim())
+  return Number.isInteger(n) && n > 0 && n < 24 * 60 ? n : null
+}
+
+/** What's wrong with a link the gabbai typed, or null. */
+export function linkProblem(input: string): string | null {
+  if (!input.trim()) return null
+  return /^https:\/\/[^\s/]+\.\S+$/i.test(input.trim()) ? null : 'A web address starting https://'
+}
+
+// ---------------------------------------------------------------------------
+// How a rule's time is said: as the time implies ("after Maariv"), just the time, or between two minyanim.
+
+export type SaidForm =
+  | { mode: 'auto' }
+  | { mode: 'none' }
+  | { mode: 'between'; between: [string, string] }
+  /** An explicit after/before, written as JSON; the form leaves it be. */
+  | { mode: 'other'; value: RelativeTo }
+
+export function saidToForm(r: Rule['relative']): SaidForm {
+  if (r === undefined) return { mode: 'auto' }
+  if (r === null) return { mode: 'none' }
+  if ('between' in r) return { mode: 'between', between: r.between }
+  return { mode: 'other', value: r }
+}
+
+export function formToSaid(f: SaidForm): Rule['relative'] {
+  if (f.mode === 'auto') return undefined
+  if (f.mode === 'none') return null
+  if (f.mode === 'between') return { between: f.between }
+  return f.value
+}
+
+// ---------------------------------------------------------------------------
+// What a sponsorship is for.
+
+export type SponsorTarget = { kind: 'event'; eventId: string } | { kind: 'day' } | { kind: 'notices' }
+
+export function sponsorTarget(n: Notice): SponsorTarget {
+  if (n.eventId) return { kind: 'event', eventId: n.eventId }
+  return n.sponsors === 'notices' ? { kind: 'notices' } : { kind: 'day' }
+}
+
+export function withSponsorTarget(n: Notice, t: SponsorTarget): Notice {
+  const { eventId: _e, sponsors: _s, ...rest } = n
+  if (t.kind === 'event') return { ...rest, eventId: t.eventId }
+  return t.kind === 'notices' ? { ...rest, sponsors: 'notices' } : rest
+}
+
+/** A notice of another kind keeps only what that kind uses: a sponsorship's target, a reminder's event. */
+export function withNoticeKind(n: Notice, kind: Notice['kind']): Notice {
+  const { eventId, sponsors: _s, ...rest } = n
+  if (kind === 'sponsor') return { ...n, kind }
+  return kind === 'reminder' && eventId ? { ...rest, kind, eventId } : { ...rest, kind }
 }

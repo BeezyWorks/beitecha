@@ -1,9 +1,12 @@
 import {
   addDays,
+  NOTICE_KINDS,
+  noticeLastDay,
   starterSchedule,
   TEFILA_TYPES,
   timeFormatProblem,
   todayIn,
+  type NoticeKind,
   type Schedule,
   type ShulProfile,
   type ShulSettings,
@@ -102,6 +105,9 @@ export function scheduleProblem(s: unknown): string | null {
     if (e.kind === 'tefila' && !TEFILA_TYPES.includes(e.tefila as TefilaType))
       return 'every minyan needs its tefila: shacharis, mincha, maariv or minchaMaariv'
   }
+  for (const n of s.notices as unknown[]) {
+    if (!isObject(n) || !NOTICE_KINDS.includes(n.kind as NoticeKind)) return `every notice is one of: ${NOTICE_KINDS.join(', ')}`
+  }
   return null
 }
 
@@ -136,7 +142,8 @@ function publicSchedule(schedule: Schedule): Schedule {
   return {
     ...schedule,
     exceptions: schedule.exceptions.filter((x) => x.date >= cutoff),
-    notices: schedule.notices.filter((n) => (n.to ?? n.from) >= cutoff),
+    // A reminder about a one-time event stays until the event.
+    notices: schedule.notices.filter((n) => noticeLastDay(n, schedule.exceptions) >= cutoff),
   }
 }
 

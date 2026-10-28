@@ -14,7 +14,10 @@ import {
   computeDay,
   formatClock,
   formatTime,
+  guessAudience,
+  guessCategory,
   guessTefila,
+  noticeLastDay,
   timeFormatProblem,
   inferCivilCalendar,
   localHolidayDates,
@@ -599,5 +602,169 @@ describe('wording', () => {
     const first = day.events.find((e) => !e.cancelled && e.minutes !== null)!
     expect(nextUp(day, tomorrow, 0)).toMatchObject({ event: { eventId: first.eventId }, today: true })
     expect(nextUp(day, tomorrow, 24 * 60)).toMatchObject({ today: false })
+  })
+})
+
+describe('event details', () => {
+  const on = (schedule: Schedule, date: string, id: string) =>
+    computeDay(schedule, date).events.find((e) => e.eventId === id)
+
+  it('guesses category and audience from the name, and lets the gabbai say otherwise', () => {
+    const other = (en: string, extra: Partial<EventDef> = {}) => ({ name: { en }, kind: 'other' as const, ...extra })
+    expect(guessCategory(other('Early Kiddush'))).toBe('meal')
+    expect(guessCategory(other('Shalosh Seudos'))).toBe('meal')
+    expect(guessCategory(other('Melava Malka'))).toBe('meal')
+    expect(guessCategory(other('Chanukah party'))).toBe('program')
+    expect(guessCategory(other('Kiddush', { category: 'program' }))).toBe('program')
+    expect(guessCategory(other('Kiddush Levana'))).toBe('program')
+    expect(guessCategory({ name: { en: 'Kiddush' }, kind: 'shiur' })).toBeUndefined()
+    expect(guessAudience(other('Youth groups'))).toBe('kids')
+    expect(guessAudience(other('Pirchei'))).toBe('kids')
+    expect(guessAudience(other('Avos U’Banim'))).toBe('kids')
+    expect(guessAudience({ name: { en: 'Women’s Tehillim' }, kind: 'shiur' })).toBe('women')
+    expect(guessAudience({ name: { en: "Men's club" }, kind: 'other' })).toBe('men')
+    expect(guessAudience(other('Bochurim Mishmar'))).toBe('teens')
+    expect(guessAudience(other('Daf Yomi'))).toBeUndefined()
+    expect(guessAudience(other('Youth groups', { audience: 'everyone' }))).toBeUndefined()
+  })
+
+  it('carries them into occurrences', () => {
+    const kiddush = on(sampleSchedule, '2026-10-31', 'kiddush')!
+    expect(kiddush).toMatchObject({ kind: 'other', category: 'meal', room: 'Social hall' })
+    expect(on(sampleSchedule, '2026-10-31', 'pirchei')).toMatchObject({ category: 'program', audience: 'kids', ages: { en: 'Boys 1st–5th' } })
+    expect(on(sampleSchedule, '2026-10-31', 'womens-shiur')).toMatchObject({ audience: 'women', speaker: { en: 'Mrs. Klein' } })
+    expect(on(sampleSchedule, '2026-10-31', 'seudas-shlishis')?.audience).toBe('men')
+    expect(on(sampleSchedule, '2026-10-31', 'shacharis')?.category).toBeUndefined()
+  })
+
+  it('ends by the rule, else by the event’s duration', () => {
+    const youth = on(sampleSchedule, '2026-10-31', 'youth-groups')!
+    expect([formatClock(youth.minutes!), formatClock(youth.endMinutes!)]).toEqual(['10:15', '11:30'])
+    const mishmar = on(sampleSchedule, '2026-10-30', 'mishmar')!
+    expect(mishmar.endMinutes! - mishmar.minutes!).toBe(60)
+    const seuda = on(sampleSchedule, '2026-10-31', 'seudas-shlishis')!
+    expect(seuda.endMinutes).toBe(computeDay(sampleSchedule, '2026-10-31').zmanim.sunset)
+    expect(on(sampleSchedule, '2026-10-31', 'shacharis')?.endMinutes).toBeUndefined()
+    // A retimed event keeps its length.
+    const moved = { ...sampleSchedule, exceptions: [{ id: 'm', date: '2026-10-30', type: 'retime' as const, eventId: 'mishmar', time: { clock: '20:00' } }] }
+    expect(formatClock(on(moved, '2026-10-30', 'mishmar')!.endMinutes!)).toBe('21:00')
+  })
+
+  it('finds one-time events beyond the next few days', () => {
+    const cal = new Calendar(sampleSchedule)
+    const bbq = cal.oneTimeEvents('2026-10-28')
+    expect(bbq.map((x) => x.date)).toEqual(['2026-11-08'])
+    expect(bbq[0].event).toMatchObject({ name: { en: 'Shul BBQ' }, category: 'meal', location: 'Pine Park pavilion, 200 Pine St', link: 'https://example.org/bbq', source: 'added' })
+    expect(formatClock(bbq[0].event.endMinutes!)).toBe('15:00')
+    expect(cal.oneTimeEvents('2026-10-28', 7)).toEqual([])
+    expect(cal.oneTimeEvents('2026-11-09')).toEqual([])
+  })
+})
+
+describe('saying times', () => {
+  const t = makeT('en')
+  const said = (schedule: Schedule, date: string, id: string) => {
+    const o = computeDay(schedule, date).events.find((e) => e.eventId === id)
+    return o?.relative && t.relative(o.relative)
+  }
+
+  it('says a time hung on a minyan by that minyan', () => {
+    expect(said(sampleSchedule, '2026-10-29', 'halacha')).toBe('after Maariv')
+    expect(said(sampleSchedule, '2026-10-31', 'shiur')).toBe('before Mincha')
+    // Two Shacharis minyanim on Shabbos: which one.
+    expect(said(sampleSchedule, '2026-10-31', 'daf-yomi')).toBe('before the 9:00 Shacharis')
+    expect(said(sampleSchedule, '2026-10-29', 'mishna-berura')).toBe('between Mincha and Maariv')
+    expect(said(sampleSchedule, '2026-10-29', 'daf-yomi')).toBeUndefined() // a clock time
+    expect(said(sampleSchedule, '2026-10-29', 'maariv')).toBeUndefined()
+  })
+
+  it('in Hebrew', () => {
+    const he = makeT('he')
+    const day = computeDay(sampleSchedule, '2026-10-29')
+    const rel = (id: string) => he.relative(day.events.find((e) => e.eventId === id)!.relative!)
+    expect(rel('halacha')).toBe('אחרי ערבית')
+    expect(rel('mishna-berura')).toBe('בין מנחה לערבית')
+  })
+
+  it('follows the rule’s own word, and drops it when the time moves or an anchor is gone', () => {
+    const base: EventDef = {
+      id: 'chabura',
+      name: { en: 'Chabura' },
+      kind: 'shiur',
+      rules: [{ time: { round: { offset: 20, of: { event: 'maariv' } }, to: 5, mode: 'up' }, relative: null }],
+    }
+    const s = (e: EventDef, extra: Partial<Schedule> = {}) => ({ ...sampleSchedule, events: [...sampleSchedule.events, e], ...extra })
+    expect(said(s(base), '2026-10-29', 'chabura')).toBeUndefined()
+    const rule = { ...base.rules[0], relative: undefined }
+    expect(said(s({ ...base, rules: [rule] }), '2026-10-29', 'chabura')).toBe('after Maariv')
+    const retimed = s(
+      { ...base, rules: [{ ...rule, relative: { between: ['mincha', 'maariv'] } }] },
+      { exceptions: [{ id: 'r', date: '2026-10-29', type: 'retime', eventId: 'chabura', time: { clock: '22:00' } }] },
+    )
+    expect(said(retimed, '2026-10-29', 'chabura')).toBeUndefined()
+    expect(said(retimed, '2026-10-28', 'chabura')).toBe('between Mincha and Maariv')
+    const noMaariv = s(
+      { ...base, rules: [{ time: { clock: '22:00' }, relative: { after: 'maariv' } }] },
+      { exceptions: [{ id: 'c', date: '2026-10-29', type: 'cancel', eventId: 'maariv' }] },
+    )
+    expect(said(noMaariv, '2026-10-29', 'chabura')).toBeUndefined()
+    expect(said(noMaariv, '2026-10-28', 'chabura')).toBe('after Maariv')
+  })
+})
+
+describe('notice kinds', () => {
+  it('takes a reminder down after its event', () => {
+    const cal = new Calendar(sampleSchedule)
+    const reminder = sampleSchedule.notices.find((n) => n.kind === 'reminder')!
+    expect(noticeLastDay(reminder, sampleSchedule.exceptions)).toBe('2026-11-08')
+    expect(cal.notices('2026-11-08').map((n) => n.id)).toEqual(['n3'])
+    expect(cal.notices('2026-11-09')).toEqual([])
+    // A sponsorship of a weekly event still lasts one day.
+    expect(noticeLastDay(sampleSchedule.notices[0], sampleSchedule.exceptions)).toBe('2026-10-31')
+  })
+
+  it('names every kind', () => {
+    expect(makeT('en').noticeKind('simcha')).toBe('Mazal tov')
+    expect(makeT('he').noticeKind('condolence')).toBe('ניחום אבלים')
+  })
+})
+
+describe('validate details', () => {
+  it('flags bad details, relative words and notices', () => {
+    const s: Schedule = {
+      ...sampleSchedule,
+      events: [
+        ...sampleSchedule.events,
+        {
+          id: 'odd',
+          name: { en: 'Odd' },
+          kind: 'tefila',
+          tefila: 'mincha',
+          category: 'meal',
+          duration: -5,
+          link: 'javascript:alert(1)',
+          rules: [{ time: { clock: '12:00' }, end: { clock: '11:00' }, relative: { after: 'nope' } }],
+        },
+      ],
+      notices: [
+        ...sampleSchedule.notices,
+        { id: 'b', kind: 'bulletin' as never, from: '2026-10-20', text: { en: 'x' } },
+        { id: 'r', kind: 'reminder', from: '2026-11-10', eventId: 'bbq', text: { en: 'Too late' } },
+        { id: 'a', kind: 'announcement', from: '2026-10-20', sponsors: 'notices', text: { en: 'Hm' } },
+      ],
+    }
+    const messages = validate(s, '2026-10-18', 3).map((i) => `${i.level}: ${i.message}`)
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        'warning: "Odd" is a minyan; its category is ignored',
+        'error: "Odd" lasts -5 minutes',
+        'warning: "Odd" has a link that isn\'t an https address',
+        'error: Rule 1 is said by unknown event "nope"',
+        'warning: "Odd" ends before it starts',
+        'error: Notice of unknown kind "bulletin"',
+        'warning: The reminder "Too late" starts after its event (2026-11-08)',
+        'warning: The announcement "Hm" isn\'t a sponsorship',
+      ]),
+    )
   })
 })

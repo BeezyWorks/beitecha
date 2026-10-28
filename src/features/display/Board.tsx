@@ -392,7 +392,7 @@ function NoticeRotator({ notices }: { notices: Notice[] }) {
     >
       <Stack direction="row" align="center" gap="sm">
         <Text variant="title" color={SemanticColor.TextAccent}>
-          {sponsor ? t.s.sponsored : t.s.announcement}
+          {t.noticeKind(n.kind)}
           {n.title ? ` · ${t.text(n.title)}` : ''}
         </Text>
         <Stack grow />

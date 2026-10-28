@@ -50,7 +50,14 @@ export function icsFeed(slug: string, profile: ShulProfile, schedule: Schedule, 
     const date = addDays(from, i)
     for (const o of cal.occurrences(date)) {
       if (o.cancelled || o.minutes === null) continue
-      const length = o.kind === 'shiur' ? 45 : 30
+      const length = o.endMinutes !== undefined && o.endMinutes > o.minutes ? o.endMinutes - o.minutes : o.kind === 'shiur' ? 45 : 30
+      const where = [o.room, o.location].filter(Boolean).join(', ')
+      const about = [
+        o.speaker && localize(o.speaker, names),
+        o.topic && localize(o.topic, names),
+        o.ages && localize(o.ages, names),
+        o.note && localize(o.note, names),
+      ].filter(Boolean)
       lines.push(
         'BEGIN:VEVENT',
         `UID:${o.eventId}-${date}@${host}`,
@@ -58,9 +65,10 @@ export function icsFeed(slug: string, profile: ShulProfile, schedule: Schedule, 
         `DTSTART;TZID=${tz}:${stamp(date, o.minutes)}`,
         `DURATION:PT${length}M`,
         `SUMMARY:${escape(localize(o.name, names))}`,
-        ...(o.room ? [`LOCATION:${escape(o.room)}`] : []),
-        ...(o.note ? [`DESCRIPTION:${escape(localize(o.note, names))}`] : []),
-        `URL:https://${host}/${slug}`,
+        ...(where ? [`LOCATION:${escape(where)}`] : []),
+        ...(about.length ? [`DESCRIPTION:${escape(about.join(' · '))}`] : []),
+        // A link is the gabbai's text; only a plain https address goes in, so it can't start a line of its own.
+        `URL:${o.link && /^https:\/\/\S+$/.test(o.link) ? o.link : `https://${host}/${slug}`}`,
         'END:VEVENT',
       )
     }

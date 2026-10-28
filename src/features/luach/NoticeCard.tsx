@@ -4,7 +4,7 @@ import React from 'react'
 
 import { useT } from './language'
 
-/** A sponsorship or announcement. */
+/** A sponsorship, announcement, reminder, mazal tov or condolence. */
 export function NoticeCard({
   notice,
   size = 'page',
@@ -13,7 +13,7 @@ export function NoticeCard({
   size?: 'page' | 'display'
 }) {
   const big = size === 'display'
-  const { bothNames, s, text, dateShort } = useT()
+  const { bothNames, noticeKind, text, dateShort } = useT()
   const when =
     notice.to && notice.to !== notice.from
       ? `${dateShort(notice.from)} – ${dateShort(notice.to)}`
@@ -31,8 +31,8 @@ export function NoticeCard({
     >
       <Stack direction="row" align="center" gap="sm">
         <Badge
-          label={notice.kind === 'sponsor' ? s.sponsored : s.announcement}
-          tone={notice.kind === 'sponsor' ? 'accent' : 'neutral'}
+          label={noticeKind(notice.kind)}
+          tone={notice.kind === 'sponsor' ? 'accent' : notice.kind === 'simcha' ? 'success' : 'neutral'}
         />
         {!!notice.title && (
           <Text variant={big ? 'titleLarge' : 'bodyStrong'}>{text(notice.title)}</Text>

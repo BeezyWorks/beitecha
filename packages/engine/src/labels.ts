@@ -1,4 +1,4 @@
-import type { DayTag, EventKind, Localized, TefilaType, Weekday, ZmanId } from './types'
+import type { Audience, DayTag, EventCategory, EventKind, Localized, NoticeKind, TefilaType, Weekday, ZmanId } from './types'
 
 export const ZMAN_LABELS: Record<ZmanId, Localized> = {
   alos: { en: 'Alos HaShachar', he: 'עלות השחר' },
@@ -81,4 +81,25 @@ export const TEFILA_LABELS: Record<TefilaType, string> = {
   mincha: 'Mincha',
   maariv: 'Maariv',
   minchaMaariv: 'Mincha/Maariv',
+}
+
+export const CATEGORY_LABELS: Record<EventCategory, Localized> = {
+  program: { en: 'Program', he: 'תוכנית' },
+  meal: { en: 'Meal', he: 'סעודה' },
+}
+
+export const AUDIENCE_LABELS: Record<Audience, Localized> = {
+  everyone: { en: 'Everyone', he: 'לכולם' },
+  men: { en: 'Men', he: 'גברים' },
+  women: { en: 'Women', he: 'נשים' },
+  kids: { en: 'Kids', he: 'ילדים' },
+  teens: { en: 'Teens', he: 'נוער' },
+}
+
+export const NOTICE_LABELS: Record<NoticeKind, Localized> = {
+  sponsor: { en: 'Sponsored', he: 'בחסות' },
+  announcement: { en: 'Announcement', he: 'הודעה' },
+  reminder: { en: 'Reminder', he: 'תזכורת' },
+  simcha: { en: 'Mazal tov', he: 'מזל טוב' },
+  condolence: { en: 'Condolences', he: 'ניחום אבלים' },
 }

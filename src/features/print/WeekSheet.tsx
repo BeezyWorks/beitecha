@@ -509,11 +509,13 @@ function RowName({ name }: { name: Localized }) {
   )
 }
 
-/** Sponsorships first (the kiddush is what people look for), then announcements. */
+/** Sponsorships first (the kiddush is what people look for), then everything else, condolences last. */
 function Notices({ notices }: { notices: Notice[] }) {
   const t = useT()
   const sponsors = notices.filter((n) => n.kind === 'sponsor')
-  const announcements = notices.filter((n) => n.kind === 'announcement')
+  const announcements = notices
+    .filter((n) => n.kind !== 'sponsor')
+    .sort((a, b) => Number(a.kind === 'condolence') - Number(b.kind === 'condolence'))
   return (
     <Stack gap="lg">
       {sponsors.length > 0 && (

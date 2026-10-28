@@ -1,6 +1,21 @@
-import { sampleSchedule, type Condition, type TimeExpr } from '@beitecha/engine'
+import { sampleSchedule, type Condition, type Notice, type TimeExpr } from '@beitecha/engine'
 
-import { conditionToForm, formToCondition, formToTime, parseClockInput, timeToForm } from '../forms'
+import {
+  audienceChoice,
+  categoryChoice,
+  conditionToForm,
+  formToCondition,
+  formToSaid,
+  formToTime,
+  linkProblem,
+  parseClockInput,
+  parseMinutes,
+  saidToForm,
+  sponsorTarget,
+  timeToForm,
+  withNoticeKind,
+  withSponsorTarget,
+} from '../forms'
 
 describe('parseClockInput', () => {
   it.each([
@@ -34,6 +49,13 @@ describe('round trips', () => {
       const form = timeToForm(r.time)
       expect(form).not.toBeNull()
       expect(formToTime(form!)).toEqual(r.time)
+    }
+  })
+
+  it('every sample end time survives the form', () => {
+    for (const r of rules) {
+      if (!r.end) continue
+      expect(formToTime(timeToForm(r.end)!)).toEqual(r.end)
     }
   })
 
@@ -71,5 +93,57 @@ describe('local holidays in conditions', () => {
   it('round-trips a local holiday beside others', () => {
     const c: Condition = { all: [{ any: [{ localHoliday: 'thanksgiving' }, { tag: 'legalHoliday' }] }, { not: { weekday: [6] } }] }
     expect(formToCondition(conditionToForm(c)!)).toEqual(c)
+  })
+})
+
+describe('event details', () => {
+  it('shows the name’s guess until the gabbai picks', () => {
+    expect(categoryChoice({ name: { en: 'Kiddush' }, kind: 'other' })).toEqual({ value: 'meal', guessed: true })
+    expect(categoryChoice({ name: { en: 'Kiddush' }, kind: 'other', category: 'program' })).toEqual({ value: 'program', guessed: false })
+    expect(categoryChoice({ name: { en: 'Daf Yomi' }, kind: 'shiur' })).toEqual({ value: undefined, guessed: false })
+    expect(audienceChoice({ name: { en: 'Pirchei' }, kind: 'other' })).toEqual({ value: 'kids', guessed: true })
+    expect(audienceChoice({ name: { en: 'Pirchei' }, kind: 'other', audience: 'everyone' })).toEqual({ value: 'everyone', guessed: false })
+    expect(audienceChoice({ name: { en: 'Daf Yomi' }, kind: 'shiur' })).toEqual({ value: 'everyone', guessed: true })
+  })
+
+  it('reads a length and checks a link', () => {
+    expect(parseMinutes('75')).toBe(75)
+    expect(parseMinutes(' ')).toBeUndefined()
+    expect(parseMinutes('1.5')).toBeNull()
+    expect(parseMinutes('-5')).toBeNull()
+    expect(linkProblem('')).toBeNull()
+    expect(linkProblem('https://example.org/rsvp')).toBeNull()
+    expect(linkProblem('example.org')).toBeTruthy()
+    expect(linkProblem('javascript:alert(1)')).toBeTruthy()
+  })
+})
+
+describe('how a time is said', () => {
+  it('round-trips every choice', () => {
+    expect(saidToForm(undefined)).toEqual({ mode: 'auto' })
+    expect(saidToForm(null)).toEqual({ mode: 'none' })
+    for (const r of [undefined, null, { between: ['mincha', 'maariv'] as [string, string] }, { after: 'maariv' }]) {
+      expect(formToSaid(saidToForm(r))).toEqual(r)
+    }
+  })
+})
+
+describe('notices', () => {
+  const base: Notice = { id: 'n', kind: 'sponsor', from: '2026-10-31', text: { en: 'The Cohens' } }
+
+  it('says what a sponsorship is for', () => {
+    expect(sponsorTarget(base)).toEqual({ kind: 'day' })
+    const kiddush = withSponsorTarget(base, { kind: 'event', eventId: 'kiddush' })
+    expect(kiddush).toEqual({ ...base, eventId: 'kiddush' })
+    expect(sponsorTarget(kiddush)).toEqual({ kind: 'event', eventId: 'kiddush' })
+    const notices = withSponsorTarget(kiddush, { kind: 'notices' })
+    expect(notices).toEqual({ ...base, sponsors: 'notices' })
+    expect(withSponsorTarget(notices, { kind: 'day' })).toEqual(base)
+  })
+
+  it('keeps only what the new kind uses', () => {
+    const s = { ...base, eventId: 'bbq', sponsors: 'notices' as const }
+    expect(withNoticeKind(s, 'reminder')).toEqual({ ...base, kind: 'reminder', eventId: 'bbq' })
+    expect(withNoticeKind(s, 'simcha')).toEqual({ ...base, kind: 'simcha' })
   })
 })

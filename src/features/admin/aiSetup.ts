@@ -49,7 +49,15 @@ interface EventDef {
   name: { en: string; he?: string } // he = Hebrew name, if you know it
   kind: 'tefila' | 'shiur' | 'other' // tefila = a minyan
   tefila?: 'shacharis' | 'mincha' | 'maariv' | 'minchaMaariv' // every minyan has one: which tefila it davens; other kinds none
+  category?: 'program' | 'meal' // non-minyanim only; meal = Kiddush, Seudas Shlishis, Melava Malka
+  audience?: 'men' | 'women' | 'kids' | 'teens' // omit when it's for everyone
+  ages?: { en: string; he?: string } // who exactly, as the shul says it: "Boys 1st–5th"
+  speaker?: { en: string; he?: string } // who gives the shiur or runs it
+  topic?: { en: string; he?: string } // what the shiur is on: "Hilchos Shabbos"
+  duration?: number // minutes, when the schedule says how long (youth groups 10:15–11:30 = 75)
   room?: string
+  location?: string // only for something held away from the shul: an address
+  link?: string // https link to RSVP or for details
   visibility?: 'internal' // only for helper events other events are timed from; never shown
   rules: Rule[] // FIRST matching rule wins; a day no rule matches has no occurrence
 }
@@ -57,6 +65,8 @@ interface EventDef {
 interface Rule {
   when?: Condition // omit = every day (use as the last, catch-all rule)
   time: TimeExpr | null // null = the event does NOT happen on matching days
+  end?: TimeExpr // when it ends on these days, if the schedule says, e.g. { "zman": "sunset" }
+  relative?: { between: [string, string] } // a shiur "between Mincha and Maariv": those minyanim's ids
   note?: { en: string; he?: string } // short note shown with the time, e.g. "Selichos first"
 }
 

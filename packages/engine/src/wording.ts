@@ -1,8 +1,22 @@
 import { parseDate } from './dates'
-import { WEEKDAYS, WEEKDAY_SHORT, ZMAN_LABELS } from './labels'
+import { AUDIENCE_LABELS, CATEGORY_LABELS, NOTICE_LABELS, WEEKDAYS, WEEKDAY_SHORT, ZMAN_LABELS } from './labels'
 import { localize, nameStyle } from './localize'
 import { formatTime } from './timeFormat'
-import type { DateString, DaySchedule, Language, Localized, Minutes, NameStyle, Weekday, ZmanId } from './types'
+import type {
+  Anchor,
+  Audience,
+  DateString,
+  DaySchedule,
+  EventCategory,
+  Language,
+  Localized,
+  Minutes,
+  NameStyle,
+  NoticeKind,
+  Relative,
+  Weekday,
+  ZmanId,
+} from './types'
 
 /** `6:30` (no AM/PM) — shul schedules read better without it. */
 export const clock = (m: Minutes) => {
@@ -143,6 +157,27 @@ function build(lang: Language, timeFormat: string | undefined, names: NameStyle)
     /** `Mon` / `ב׳` */
     weekdayShort: (d: Weekday) => (he ? HE_WEEKDAYS_SHORT[d] : WEEKDAY_SHORT[d]),
     zman: (id: ZmanId) => text(ZMAN_LABELS[id]),
+    category: (c: EventCategory) => label(CATEGORY_LABELS[c]),
+    audience: (a: Audience) => label(AUDIENCE_LABELS[a]),
+    /** "Mazal tov", "Reminder"… */
+    noticeKind: (k: NoticeKind) => label(NOTICE_LABELS[k]),
+    /** `10:15–11:30` */
+    timeRange: (start: Minutes, end?: Minutes) => {
+      const c = (m: Minutes) => (timeFormat ? formatTime(m, timeFormat) : clock(m))
+      return end === undefined ? c(start) : `${c(start)}–${c(end)}`
+    },
+    /** "after Maariv", "before the 9:00 Shacharis", "between Mincha and Maariv" / "אחרי ערבית", "בין מנחה לערבית". */
+    relative: (r: Relative) => {
+      const c = (m: Minutes) => (timeFormat ? formatTime(m, timeFormat) : clock(m))
+      const name = (a: Anchor) =>
+        a.needsTime ? (he ? `${text(a.name)} של ${c(a.minutes)}` : `the ${c(a.minutes)} ${text(a.name)}`) : text(a.name)
+      if (r.position === 'between') {
+        const [a, b] = r.anchors
+        return he ? `בין ${name(a)} ל${name(b)}` : `between ${name(a)} and ${name(b)}`
+      }
+      const words = he ? { after: 'אחרי', before: 'לפני' } : { after: 'after', before: 'before' }
+      return `${words[r.position]} ${name(r.anchors[0])}`
+    },
     /** `October 19` / `19 באוקטובר` */
     date: (date: DateString) => {
       if (!he) return civilDate(date)

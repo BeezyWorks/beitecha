@@ -1,5 +1,6 @@
 export * from './types'
-export { Calendar, computeDay, computeRange } from './schedule'
+export { Calendar, computeDay, computeRange, derivedRelative, noticeLastDay } from './schedule'
+export { guessAudience, guessCategory } from './categories'
 export { sampleSchedule } from './sample'
 export { starterSchedule, type StarterOptions } from './starter'
 export { STANDARD_TEFILOS, guessTefila, tefilaName } from './tefilos'
@@ -38,8 +39,11 @@ export {
   weekdayOf,
 } from './dates'
 export {
+  AUDIENCE_LABELS,
+  CATEGORY_LABELS,
   DAILY_ZMANIM,
   KIND_LABELS,
+  NOTICE_LABELS,
   TAG_LABELS,
   TEFILA_LABELS,
   WEEKDAYS,

@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
 import { makeT } from '@/features/luach/language'
+import { DetailsEditor } from './DetailsEditor'
+import { linkProblem } from './forms'
 import { newId, useAdmin } from './store'
 import { ClockField } from './TimeEditor'
 
@@ -15,13 +17,16 @@ type DatedEvent = Extract<Exception, { type: 'add' }>
 const isDatedEvent = (x: Exception): x is DatedEvent => x.type === 'add' && x.event.kind === 'other'
 
 const clockOf = (x: DatedEvent) => ('clock' in x.time ? x.time.clock : undefined)
+const endOf = (x: DatedEvent) => (x.end && 'clock' in x.end ? x.end.clock : undefined)
 
 function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => void }) {
   const upsertException = useAdmin((s) => s.upsertException)
   const [x, setX] = useState(initial)
   const [time, setTime] = useState(clockOf(initial))
+  const [end, setEnd] = useState(endOf(initial))
   const setEvent = (patch: Partial<DatedEvent['event']>) => setX({ ...x, event: { ...x.event, ...patch } })
-  const valid = x.event.name.en.trim() && DATE_RE.test(x.date) && time
+  const valid =
+    x.event.name.en.trim() && DATE_RE.test(x.date) && time && (!end || end > time) && !linkProblem(x.event.link ?? '')
   return (
     <Card gap="md">
       <Stack direction="row" gap="md" wrap>
@@ -46,15 +51,17 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
           <Field label="Date" value={x.date} onChangeText={(date) => setX({ ...x, date })} help="YYYY-MM-DD" />
         </Stack>
         <ClockField value={time} onChange={setTime} placeholder="7:00 PM" />
+        <ClockField value={end} onChange={setEnd} placeholder="Ends" />
         <Stack grow>
           <Field
-            label="Where (optional)"
+            label="Room (optional)"
             placeholder="Social hall"
             value={x.event.room ?? ''}
             onChangeText={(room) => setEvent({ room: room || undefined })}
           />
         </Stack>
       </Stack>
+      <DetailsEditor event={x.event} onChange={setEvent} oneTime />
       <Field
         label="Note (optional)"
         placeholder="RSVP by Thursday"
@@ -66,7 +73,13 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
           title="Done"
           disabled={!valid}
           onPress={() => {
-            upsertException({ ...x, time: { clock: time! }, event: { ...x.event, name: { ...x.event.name, en: x.event.name.en.trim() } } })
+            const { end: _, ...rest } = x
+            upsertException({
+              ...rest,
+              time: { clock: time! },
+              ...(end && { end: { clock: end } }),
+              event: { ...x.event, name: { ...x.event.name, en: x.event.name.en.trim() } },
+            })
             onDone()
           }}
         />
@@ -129,7 +142,9 @@ export function CalendarTab({ today }: { today: DateString }) {
           </Stack>
           <Text variant="body" color={SemanticColor.TextAccent}>
             {WEEKDAYS[weekdayOf(x.date)].en}, {civilDateShort(x.date)} · {timeLabel(x)}
+            {endOf(x) ? `–${timeLabel({ ...x, time: { clock: endOf(x)! } })}` : ''}
             {x.event.room ? ` · ${x.event.room}` : ''}
+            {x.event.location ? ` · ${x.event.location}` : ''}
           </Text>
           {!!x.note && (
             <Text variant="caption" color={SemanticColor.TextSecondary}>

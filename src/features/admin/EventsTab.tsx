@@ -1,5 +1,6 @@
 import { Button, Card, Chip, IconButton, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
+  derivedRelative,
   KIND_LABELS,
   STANDARD_TEFILOS,
   TEFILA_LABELS,
@@ -12,10 +13,13 @@ import {
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
+import { Select } from '@/components/Select'
 import { AiSetupCard } from './AiSetupCard'
 import { ConditionEditor, describeCondition } from './ConditionEditor'
+import { DetailsEditor, describeDetails } from './DetailsEditor'
+import { formToSaid, saidToForm, type SaidForm } from './forms'
 import { newId, useAdmin } from './store'
-import { describeTime, TimeEditor } from './TimeEditor'
+import { ClockField, describeTime, TimeEditor } from './TimeEditor'
 
 const NO_EVENTS: EventDef[] = []
 
@@ -66,10 +70,96 @@ function TefilaPicker({ value, onChange }: { value?: TefilaType; onChange: (t: T
   )
 }
 
+/** When a rule's time ends: a clock time here, anything else (shkia) as the rule's JSON says. */
+function EndEditor({ rule, events, onChange }: { rule: Rule; events: EventDef[]; onChange: (r: Rule) => void }) {
+  const set = (end: Rule['end']) => {
+    const { end: _, ...rest } = rule
+    onChange(end ? { ...rest, end } : rest)
+  }
+  if (rule.end && !('clock' in rule.end)) {
+    return (
+      <Stack direction="row" align="center" gap="sm" wrap>
+        <Text variant="body">Ends: {describeTime(rule.end, events)}</Text>
+        <Button variant="ghost" size="sm" title="Clear" onPress={() => set(undefined)} />
+      </Stack>
+    )
+  }
+  return (
+    <Stack gap="xs">
+      <Text variant="label" color={SemanticColor.TextSecondary}>
+        Ends (optional)
+      </Text>
+      <ClockField
+        value={rule.end && 'clock' in rule.end ? rule.end.clock : undefined}
+        onChange={(clock) => set(clock ? { clock } : undefined)}
+        placeholder="11:30 AM"
+      />
+    </Stack>
+  )
+}
+
+/** "after Maariv", "between Mincha and Maariv", or just the time. */
+function SaidEditor({ rule, events, onChange }: { rule: Rule; events: EventDef[]; onChange: (r: Rule) => void }) {
+  const form = saidToForm(rule.relative)
+  const set = (f: SaidForm) => {
+    const relative = formToSaid(f)
+    const { relative: _, ...rest } = rule
+    onChange(relative === undefined ? rest : { ...rest, relative })
+  }
+  const minyanim = events.filter((e) => e.kind === 'tefila')
+  const nameOf = (id: string) => events.find((e) => e.id === id)?.name.en ?? id
+  const auto = rule.time ? derivedRelative(rule.time) : undefined
+  const anchor = auto && ('after' in auto ? auto.after : 'before' in auto ? auto.before : undefined)
+  const autoText = anchor && `${auto && 'after' in auto ? 'after' : 'before'} ${nameOf(anchor)}`
+  const options = minyanim.map((e) => ({ value: e.id, label: e.name.en }))
+  return (
+    <Stack gap="xs">
+      <Text variant="label" color={SemanticColor.TextSecondary}>
+        How the time is said
+      </Text>
+      {form.mode === 'other' ? (
+        <Text variant="body">As written in the rule’s JSON</Text>
+      ) : (
+        <SegmentedControl
+          options={[
+            { key: 'auto', label: autoText ? `“${autoText}”` : 'Just the time' },
+            ...(autoText ? [{ key: 'none', label: 'Just the time' }] : []),
+            ...(minyanim.length > 1 ? [{ key: 'between', label: 'Between two minyanim' }] : []),
+          ]}
+          value={form.mode === 'none' && !autoText ? 'auto' : form.mode}
+          onChange={(k) =>
+            set(
+              k === 'between'
+                ? { mode: 'between', between: [minyanim[0].id, minyanim[1].id] }
+                : k === 'none'
+                  ? { mode: 'none' }
+                  : { mode: 'auto' },
+            )
+          }
+        />
+      )}
+      {form.mode === 'between' && (
+        <Stack direction="row" gap="sm" align="center" wrap>
+          <Text variant="body">Between</Text>
+          <Select value={form.between[0]} options={options} onChange={(a) => set({ mode: 'between', between: [a, form.between[1]] })} />
+          <Text variant="body">and</Text>
+          <Select value={form.between[1]} options={options} onChange={(b) => set({ mode: 'between', between: [form.between[0], b] })} />
+        </Stack>
+      )}
+      {anchor && form.mode === 'auto' && (
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          It’s timed from {nameOf(anchor)}, so the Siddur says it that way.
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
 function RuleCard({
   rule,
   index,
   count,
+  kind,
   events,
   onChange,
   onMove,
@@ -78,6 +168,7 @@ function RuleCard({
   rule: Rule
   index: number
   count: number
+  kind: EventKind
   events: EventDef[]
   onChange: (r: Rule) => void
   onMove: (by: -1 | 1) => void
@@ -118,6 +209,12 @@ function RuleCard({
             onChange={(k) => onChange({ ...rule, time: k === 'none' ? null : { clock: '06:30' } })}
           />
           {rule.time !== null && <TimeEditor value={rule.time} events={events} onChange={(time) => onChange({ ...rule, time })} />}
+          {rule.time !== null && kind !== 'tefila' && (
+            <>
+              <EndEditor rule={rule} events={events} onChange={onChange} />
+              <SaidEditor rule={rule} events={events} onChange={onChange} />
+            </>
+          )}
           <Field
             label="Note shown with the time (optional)"
             placeholder="e.g. Selichos first"
@@ -151,6 +248,7 @@ function EventCard({ event, index, count, all }: { event: EventDef; index: numbe
           </Stack>
           <Text variant="caption" color={SemanticColor.TextSecondary}>
             {event.kind === 'tefila' ? (event.tefila ? TEFILA_LABELS[event.tefila] : 'Minyan') : KIND_LABELS[event.kind]}
+            {describeDetails(event)}
             {event.room ? ` · ${event.room}` : ''}
             {event.visibility === 'internal' ? ' · hidden' : ''} · {event.rules.length} rule{event.rules.length === 1 ? '' : 's'}
           </Text>
@@ -169,6 +267,7 @@ function EventCard({ event, index, count, all }: { event: EventDef; index: numbe
             rule={rule}
             index={i}
             count={event.rules.length}
+            kind={event.kind}
             events={others}
             onChange={(r) => setRules(event.rules.map((x, j) => (j === i ? r : x)))}
             onMove={(by) => {
@@ -208,7 +307,12 @@ function EventCard({ event, index, count, all }: { event: EventDef; index: numbe
             options={KINDS}
             value={event.kind}
             onChange={(kind) =>
-              updateEvent(event.id, kind === 'tefila' ? { ...event, kind } : { ...event, kind, tefila: undefined })
+              updateEvent(event.id, {
+                ...event,
+                kind,
+                ...(kind !== 'tefila' && { tefila: undefined }),
+                ...(kind !== 'other' && { category: undefined }),
+              })
             }
           />
           {event.kind === 'tefila' && event.tefila && (
@@ -219,6 +323,7 @@ function EventCard({ event, index, count, all }: { event: EventDef; index: numbe
               <Field label="Room (optional)" placeholder="Beis Medrash" value={event.room ?? ''} onChangeText={(room) => set({ room: room || undefined })} />
             </Stack>
           </Stack>
+          <DetailsEditor event={event} onChange={set} />
           <Stack direction="row" align="center" gap="md">
             <Stack grow>
               <Text variant="body">Hidden</Text>

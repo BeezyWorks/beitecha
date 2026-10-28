@@ -207,11 +207,35 @@ export type EventKind = 'tefila' | 'shiur' | 'other'
 export const TEFILA_TYPES = ['shacharis', 'mincha', 'maariv', 'minchaMaariv'] as const
 export type TefilaType = (typeof TEFILA_TYPES)[number]
 
+/**
+ * What a non-minyan event is, for a viewer's filters. Old clients go by `kind` alone, so this sits beside it.
+ * Absent: guessed from the name (a Kiddush is a `meal`), else `program`.
+ */
+export const EVENT_CATEGORIES = ['program', 'meal'] as const
+export type EventCategory = (typeof EVENT_CATEGORIES)[number]
+
+/** Who an event is for. Absent: guessed from the name ("Pirchei" is for kids), else everyone. */
+export const AUDIENCES = ['everyone', 'men', 'women', 'kids', 'teens'] as const
+export type Audience = (typeof AUDIENCES)[number]
+
+/**
+ * How people say when something is, by the minyanim around it: "after Maariv", "before Mincha",
+ * "between Mincha and Maariv". Event ids.
+ */
+export type RelativeTo = { after: string } | { before: string } | { between: [string, string] }
+
 export interface Rule {
   /** Absent = every day. */
   when?: Condition
   /** `null` = the event doesn't happen on matching days. */
   time: TimeExpr | null
+  /** When it ends on these days, e.g. Seudas Shlishis until shkia. Overrides the event's `duration`. */
+  end?: TimeExpr
+  /**
+   * How the time is said. Absent: from `time` when it is another event's (or an offset of one), so 15 minutes
+   * after Maariv is "after Maariv". `null`: just the time.
+   */
+  relative?: RelativeTo | null
   note?: Localized
 }
 
@@ -221,7 +245,23 @@ export interface EventDef {
   kind: EventKind
   /** Which tefila; every `tefila` event has one, other kinds none. */
   tefila?: TefilaType
+  /** Non-minyanim only. See `EventCategory`. */
+  category?: EventCategory
+  audience?: Audience
+  /** Who exactly, in the shul's words: "Boys 1st–5th", "Ages 3–6 and 7–10". */
+  ages?: Localized
+  /** Who gives the shiur or runs the program. */
+  speaker?: Localized
+  /** What it's on: "Hilchos Shabbos", "Bava Kamma". */
+  topic?: Localized
+  /** Minutes it lasts, when that's worth saying (youth groups 10:15–11:30). */
+  duration?: number
+  /** The room in the shul. */
   room?: string
+  /** Somewhere else altogether: an address or a park, for an event that isn't at the shul. */
+  location?: string
+  /** An `https` link for details or to RSVP. */
+  link?: string
   /** `internal` events can be referenced but are never shown. */
   visibility?: 'public' | 'internal'
   /** First matching rule wins. No match = no occurrence. */
@@ -238,22 +278,35 @@ export type Exception =
       type: 'add'
       event: Omit<EventDef, 'rules'>
       time: TimeExpr
+      end?: TimeExpr
       note?: Localized
     }
 
-export type NoticeKind = 'sponsor' | 'announcement'
+/**
+ * `reminder`: something coming up ("Shul BBQ next Sunday"). `simcha`: a mazal tov. `condolence`: aveilus, shiva
+ * and yahrzeits, shown quietly. Old clients show the new kinds as announcements.
+ */
+export const NOTICE_KINDS = ['sponsor', 'announcement', 'reminder', 'simcha', 'condolence'] as const
+export type NoticeKind = (typeof NOTICE_KINDS)[number]
 
 export interface Notice {
   id: string
   kind: NoticeKind
   /** First day shown. */
   from: DateString
-  /** Last day shown; defaults to `from`. */
+  /**
+   * Last day shown. Defaults to `from`, or for a notice about a one-time event (`eventId`), that event's day,
+   * so a reminder takes itself down.
+   */
   to?: DateString
-  /** What a sponsorship is for (an event id), e.g. the kiddush or a shiur. */
+  /** The event it's about: what a sponsorship is for (the kiddush, a shiur), or what a reminder is for. */
   eventId?: string
+  /** What a sponsorship without an event is for: the day (default, "today's learning") or the notices themselves. */
+  sponsors?: 'day' | 'notices'
   title?: Localized
   text: Localized
+  /** An `https` link for details or to sign up. */
+  link?: string
 }
 
 export interface Schedule {
@@ -266,14 +319,40 @@ export interface Schedule {
 // ---------------------------------------------------------------------------
 // Output
 
+/** An event a time is said by: its name that day and its time. */
+export interface Anchor {
+  eventId: string
+  name: Localized
+  minutes: Minutes
+  /** Another event that day has the same name, so say its time too: "before the 9:00 Shacharis". */
+  needsTime?: boolean
+}
+
+export type Relative =
+  | { position: 'after' | 'before'; anchors: [Anchor] }
+  | { position: 'between'; anchors: [Anchor, Anchor] }
+
 export interface Occurrence {
   eventId: string
   name: Localized
   kind: EventKind
   tefila?: TefilaType
+  /** Non-minyanim always have one: the event's, else guessed from its name. */
+  category?: EventCategory
+  /** The event's, else guessed from its name; absent = everyone. */
+  audience?: Audience
+  ages?: Localized
+  speaker?: Localized
+  topic?: Localized
   room?: string
+  location?: string
+  link?: string
   /** Null when cancelled or when the time couldn't be worked out (see `error`). */
   minutes: Minutes | null
+  /** When it ends, if the shul said. */
+  endMinutes?: Minutes
+  /** "after Maariv": how the time is said, when it hangs on a minyan that happens that day. */
+  relative?: Relative
   cancelled: boolean
   note?: Localized
   source: 'rule' | 'exception' | 'added'

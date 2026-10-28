@@ -2,8 +2,10 @@ import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zman
 import { addDays, parseClock, startOfWeek, utcOffset } from './dates'
 import { LocalHolidays } from './local'
 import { effectiveHolidays } from './localPresets'
+import { guessAudience, guessCategory } from './categories'
 import { tefilaName } from './tefilos'
 import type {
+  Anchor,
   Condition,
   DateString,
   DaySchedule,
@@ -12,6 +14,8 @@ import type {
   Minutes,
   Notice,
   Occurrence,
+  Relative,
+  RelativeTo,
   Schedule,
   TimeExpr,
   ZmanId,
@@ -20,8 +24,33 @@ import type {
 /** Thrown inside evaluation; caught per occurrence and reported as its `error`. */
 class EvalError extends Error {}
 
+/** "15 minutes after Maariv" is "after Maariv", "30 before Mincha" is "before Mincha"; rounding doesn't change it. */
+export function derivedRelative(expr: TimeExpr): RelativeTo | undefined {
+  let e = expr
+  if ('round' in e) e = e.round
+  const offset = 'offset' in e ? e.offset : 0
+  if ('offset' in e) e = e.of
+  if (!('event' in e) || offset === 0) return undefined
+  return offset < 0 ? { before: e.event } : { after: e.event }
+}
+
+/**
+ * The last day a notice shows: its `to`, else the day of the one-time event it's about (a reminder takes itself
+ * down), else its `from`.
+ */
+export function noticeLastDay(notice: Notice, exceptions: Exception[]): DateString {
+  if (notice.to) return notice.to
+  const added = notice.eventId && exceptions.find((x) => x.type === 'add' && x.event.id === notice.eventId)
+  return added && added.date > notice.from ? added.date : notice.from
+}
+
 interface Resolved {
   minutes: Minutes | null
+  end?: Minutes
+  /** The expression the time came from, for saying it as "after Maariv". */
+  expr?: TimeExpr
+  /** The rule's own `relative`. */
+  said?: RelativeTo | null
   cancelled: boolean
   note?: Occurrence['note']
   source: Occurrence['source']
@@ -196,55 +225,122 @@ export class Calendar {
     const noteOnly = exceptions.find((x) => x.type === 'note')
     const exceptionNote = (cancel ?? retime ?? added ?? noteOnly)?.note
 
+    const event = this.events.get(eventId)
+    if (!event) throw new EvalError(`Unknown event "${eventId}"`)
     let base: Resolved
+    let endExpr: TimeExpr | undefined
     if (added && added.type === 'add') {
-      base = { minutes: this.evaluate(added.time, date), cancelled: false, source: 'added' }
+      base = { minutes: this.evaluate(added.time, date), expr: added.time, cancelled: false, source: 'added' }
+      endExpr = added.end
     } else {
-      const event = this.events.get(eventId)
-      if (!event) throw new EvalError(`Unknown event "${eventId}"`)
       const i = this.matchingRule(event, date)
       const rule = event.rules[i]
       if (!rule || rule.time === null) {
         base = { minutes: null, cancelled: false, source: 'rule', ruleIndex: i >= 0 ? i : undefined }
       } else {
-        base = { minutes: this.evaluate(rule.time, date), cancelled: false, source: 'rule', ruleIndex: i, note: rule.note }
+        base = {
+          minutes: this.evaluate(rule.time, date),
+          expr: rule.time,
+          said: rule.relative,
+          cancelled: false,
+          source: 'rule',
+          ruleIndex: i,
+          note: rule.note,
+        }
+        endExpr = rule.end
       }
     }
 
     if (cancel) return { ...base, cancelled: true, source: 'exception', note: exceptionNote }
     if (retime && retime.type === 'retime') {
-      return { ...base, minutes: this.evaluate(retime.time, date), source: 'exception', note: exceptionNote ?? base.note }
+      const minutes = this.evaluate(retime.time, date)
+      // A rule's "between Mincha and Maariv" no longer holds once the time is moved; say the new one's.
+      base = { ...base, minutes, expr: retime.time, said: undefined, source: 'exception', note: exceptionNote ?? base.note }
+    } else if (exceptionNote) base = { ...base, note: exceptionNote }
+    if (base.minutes === null) return base
+    const end = endExpr ? this.evaluate(endExpr, date) : event.duration ? base.minutes + event.duration : null
+    return end === null ? base : { ...base, end }
+  }
+
+  /** How `o`'s time is said, by the minyanim around it that happen that day (`day` is that day's list). */
+  private relativeOf(r: Resolved, kind: Occurrence['kind'], day: Occurrence[]): Relative | undefined {
+    const spec = r.said === null ? undefined : (r.said ?? (kind === 'tefila' || !r.expr ? undefined : derivedRelative(r.expr)))
+    if (!spec) return undefined
+    const anchor = (id: string): Anchor | undefined => {
+      const o = day.find((x) => x.eventId === id)
+      if (!o || o.cancelled || o.minutes === null) return undefined
+      const twin = day.some(
+        (x) => x.eventId !== id && (x.name.en === o.name.en || (!!o.tefila && x.tefila === o.tefila)),
+      )
+      return { eventId: id, name: o.name, minutes: o.minutes, ...(twin && { needsTime: true }) }
     }
-    return exceptionNote ? { ...base, note: exceptionNote } : base
+    if ('between' in spec) {
+      const [a, b] = spec.between.map(anchor)
+      return a && b ? { position: 'between', anchors: [a, b] } : undefined
+    }
+    const position = 'after' in spec ? 'after' : 'before'
+    const a = anchor('after' in spec ? spec.after : spec.before)
+    return a && { position, anchors: [a] }
   }
 
   /** Every event that happens (or was cancelled) on `date`, sorted by time. Internal events are left out. */
   occurrences(date: DateString, { includeInternal = false } = {}): Occurrence[] {
     const out: Occurrence[] = []
+    const resolved = new Map<Occurrence, Resolved>()
     for (const event of this.events.values()) {
       if (!includeInternal && event.visibility === 'internal') continue
       const r = this.resolve(event.id, date)
       const happens = r.minutes !== null || r.cancelled || r.error
       if (!happens) continue
-      out.push({
+      const o: Occurrence = {
         eventId: event.id,
         name: event.kind === 'tefila' ? tefilaName(event, this.info(date).tags) : event.name,
         kind: event.kind,
         tefila: event.tefila,
+        category: guessCategory(event),
+        audience: guessAudience(event),
+        ages: event.ages,
+        speaker: event.speaker,
+        topic: event.topic,
         room: event.room,
+        location: event.location,
+        link: event.link,
         minutes: r.minutes,
+        endMinutes: r.end,
         cancelled: r.cancelled,
         note: r.note,
         source: r.source,
         ruleIndex: r.ruleIndex,
         error: r.error,
-      })
+      }
+      out.push(o)
+      resolved.set(o, r)
+    }
+    for (const o of out) {
+      const relative = this.relativeOf(resolved.get(o)!, o.kind, out)
+      if (relative) o.relative = relative
     }
     return out.sort((a, b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity))
   }
 
   notices(date: DateString): Notice[] {
-    return this.schedule.notices.filter((n) => date >= n.from && date <= (n.to ?? n.from))
+    const { notices, exceptions } = this.schedule
+    return notices.filter((n) => date >= n.from && date <= noticeLastDay(n, exceptions))
+  }
+
+  /**
+   * One-time events (not minyanim) from `from` for `days`: the shul BBQ three weeks out, for a "coming up"
+   * list beyond the days a client computes.
+   */
+  oneTimeEvents(from: DateString, days = 56): { date: DateString; event: Occurrence }[] {
+    const to = addDays(from, days - 1)
+    const out: { date: DateString; event: Occurrence }[] = []
+    for (const x of this.schedule.exceptions) {
+      if (x.type !== 'add' || x.event.kind === 'tefila' || x.date < from || x.date > to) continue
+      const event = this.occurrences(x.date).find((o) => o.eventId === x.event.id)
+      if (event) out.push({ date: x.date, event })
+    }
+    return out.sort((a, b) => a.date.localeCompare(b.date) || (a.event.minutes ?? Infinity) - (b.event.minutes ?? Infinity))
   }
 
   /** The zmanim to display: all but the ones the shul hides. Rules can still anchor on a hidden one. */

@@ -381,12 +381,14 @@ function sponsorsOn(t: T, notices: Notice[], day: DaySchedule) {
     for (const n of notices)
       if (
         n.kind === 'sponsor' &&
+        // Named sponsors go under their heading with the other sponsors, not beside the event.
+        !hasSponsor(n) &&
         n.eventId === e.eventId &&
         n.from <= day.date &&
         // A one-time event's sponsorship can go up before it and lasts until it.
         (day.date <= (n.to ?? n.from) || (!n.to && e.source === 'added'))
       ) {
-        const line = n.sponsoredBy ? `${t.s.sponsoredBy} ${t.text(n.sponsoredBy)}` : t.text(n.text)
+        const line = t.text(n.text)
         by.set(e.eventId, by.has(e.eventId) ? `${by.get(e.eventId)} · ${line}` : line)
       }
   return by

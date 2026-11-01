@@ -27,6 +27,7 @@ type Draft =
 /**
  * One occurrence on one day, with Cancel it / Move / Note for that day only (saved at once) and Undo
  * when changed. `compact` is for narrow panes: the actions wait until the row is tapped.
+ * `actionsOnly` is for under a row that already shows the time and name.
  */
 export function OccurrenceRow({
   date,
@@ -34,6 +35,7 @@ export function OccurrenceRow({
   exception,
   compact,
   defaultOpen,
+  actionsOnly,
 }: {
   date: DateString
   o: Occurrence
@@ -41,12 +43,13 @@ export function OccurrenceRow({
   compact?: boolean
   /** Compact only: start with the actions showing. */
   defaultOpen?: boolean
+  actionsOnly?: boolean
 }) {
   const { upsertException, removeException, schedule } = useAdmin()
   const { clock } = makeT('en', schedule?.settings.timeFormat)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [open, setOpen] = useState(!!defaultOpen)
-  const showActions = !compact || open
+  const showActions = !compact || open || actionsOnly
   const events = schedule?.events ?? []
   const event = events.find((e) => e.id === o.eventId)
 
@@ -71,12 +74,16 @@ export function OccurrenceRow({
         accessibilityLabel={`Changes for ${event ? adminLabel(event) : o.name.en}`}
       >
         <Stack direction="row" align="center" gap="sm" wrap>
-          <Stack width={compact ? 72 : 88}>
-            <Text variant="bodyStrong" color={o.cancelled ? SemanticColor.TextDanger : undefined}>
-              {o.cancelled ? '—' : o.minutes === null ? '?' : clock(o.minutes)}
-            </Text>
-          </Stack>
-          <Text variant="body">{event ? adminLabel(event) : o.name.en}</Text>
+          {!actionsOnly && (
+            <>
+              <Stack width={compact ? 72 : 88}>
+                <Text variant="bodyStrong" color={o.cancelled ? SemanticColor.TextDanger : undefined}>
+                  {o.cancelled ? '—' : o.minutes === null ? '?' : clock(o.minutes)}
+                </Text>
+              </Stack>
+              <Text variant="body">{event ? adminLabel(event) : o.name.en}</Text>
+            </>
+          )}
           {exception && (
             <Badge
               label={
@@ -96,7 +103,7 @@ export function OccurrenceRow({
               {o.note.en}
             </Text>
           )}
-          {!!o.error && (
+          {!!o.error && !actionsOnly && (
             <Text variant="caption" color={SemanticColor.TextDanger}>
               {o.error}
             </Text>

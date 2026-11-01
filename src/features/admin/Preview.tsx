@@ -180,13 +180,7 @@ export function Preview({
                         </Stack>
                       </Touchable>
                       {openKey === key && (
-                        <OccurrenceRow
-                          compact
-                          defaultOpen
-                          date={d.date}
-                          o={o}
-                          exception={exception}
-                        />
+                        <OccurrenceRow actionsOnly date={d.date} o={o} exception={exception} />
                       )}
                     </Stack>
                   )

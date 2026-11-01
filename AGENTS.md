@@ -57,9 +57,11 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     round-trips through a JSON editor instead of being lost. Jest-tested.
     An event's `adminName` ("Shabbos Mincha") is what the admin calls it (`adminLabel`); `name` is what everyone
     else sees, so viewer surfaces never read `adminName`.
-- **Print** (`/<slug>/print`, the admin's "Print this week"): the published week on A4 or Letter, Shabbos, weekday
-  minyanim and zmanim on the front, sponsorships and announcements on the back (or all on one side). Each side is
-  shrunk to fit its sheet, never split.
+- **Print** (the admin's "Print" under "See it": options, a live preview and a full-screen preview; `/<slug>/print` is
+  the published week): A4 or Letter, Shabbos, weekday minyanim and zmanim on the front, sponsorships and
+  announcements behind (or all on one side). `settings.print.pages` (1–5 or `unlimited`, default 2) caps the pages and
+  `textSize` scales the text; content shrinks to fit its pages, and with more than two the announcements' blocks
+  (`PagedSheets`) go whole onto as many sheets as they need, never split.
 - **The Siddur link.** The display's and the printed sheet's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
   the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its
   three web hosts only; the public reads are rate-limited per IP by `PUBLIC_LIMIT`, since CORS doesn't stop non-browsers) and computes with the same engine, so labels, dates and "next up" live in the engine

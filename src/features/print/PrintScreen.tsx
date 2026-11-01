@@ -1,28 +1,29 @@
-import { Button, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { addDays, civilDateShort, type DateString, startOfWeek } from '@beitecha/engine'
+import { Button } from '@beezyworks/design'
+import { startOfWeek } from '@beitecha/engine'
 import { router, useLocalSearchParams } from 'expo-router'
 import React from 'react'
 
-import { Segments } from '@/components/Segments'
 import { Centered } from '@/components/Centered'
 import { usePageTitle } from '@/components/PageTitle'
-import { paperFor, PrintRoot, PrintSheet, type Paper } from '@/components/Print'
+import { paperFor, PrintRoot, type Paper } from '@/components/Print'
 import { ThemeRoot } from '@/components/ThemeRoot'
 import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
+import { PrintSheets, printLayout } from './PrintSheets'
+import { PrintToolbar } from './PrintToolbar'
 import { useWeek } from './useWeek'
-import { hasAnnouncements, NoticesSide, TimesSide } from './WeekSheet'
+import { hasAnnouncements } from './WeekSheet'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
  * The week on paper for the shul's tables: Shabbos, the weekday minyanim and the zmanim on
  * the front; the week's shiurim, starred events coming up, sponsorships and announcements on the
- * back (or all on one side).
+ * back (or all on one side), as many pages as the shul's print settings allow.
  */
 export function PrintScreen({ slug }: { slug: string }) {
-  const params = useLocalSearchParams<{ week?: string; paper?: string; sides?: string }>()
+  const params = useLocalSearchParams<{ week?: string; paper?: string }>()
   const { feed, notFound, error } = useShulFeed(slug)
   const tz = feed?.schedule.settings.location.timeZone
   const { today } = useShulClock(tz, 60_000)
@@ -44,10 +45,9 @@ export function PrintScreen({ slug }: { slug: string }) {
 
   const paper: Paper =
     params.paper === 'a4' || params.paper === 'letter' ? params.paper : paperFor(tz!)
-  const hasBack = hasAnnouncements(week)
-  const twoSided = hasBack && params.sides !== '1'
+  const { maxPages, textSize } = printLayout(feed.schedule.settings.print)
   // A new layout starts its fit-to-page over.
-  const key = `${sunday}|${paper}|${twoSided}`
+  const key = `${sunday}|${paper}|${maxPages}|${textSize}`
 
   return (
     <ThemeRoot brandColor={feed.profile.brandColor} mode="light">
@@ -55,106 +55,38 @@ export function PrintScreen({ slug }: { slug: string }) {
         <PrintRoot
           paper={paper}
           toolbar={
-            <Toolbar
-              slug={slug}
+            <PrintToolbar
               sunday={sunday}
+              onSunday={(week) => router.setParams({ week })}
               paper={paper}
-              twoSided={twoSided}
-              hasNotices={hasBack}
+              onPaper={(p) => router.setParams({ paper: p })}
+              leading={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Back"
+                  icon="chevron-left"
+                  onPress={() => router.replace(`/${slug}/admin?s=print`)}
+                />
+              }
+              note={
+                maxPages > 1 && hasAnnouncements(week)
+                  ? 'Print double-sided, flip on long edge.'
+                  : undefined
+              }
             />
           }
         >
-          <PrintSheet key={`front|${key}`} paper={paper} rtl={t.rtl}>
-            <TimesSide {...week} withNotices={!twoSided} />
-          </PrintSheet>
-          {twoSided && (
-            <PrintSheet key={`back|${key}`} paper={paper} rtl={t.rtl}>
-              <NoticesSide {...week} />
-            </PrintSheet>
-          )}
+          <PrintSheets
+            key={key}
+            week={week}
+            paper={paper}
+            rtl={t.rtl}
+            maxPages={maxPages}
+            textSize={textSize}
+          />
         </PrintRoot>
       </LanguageProvider>
     </ThemeRoot>
-  )
-}
-
-function Toolbar({
-  slug,
-  sunday,
-  paper,
-  twoSided,
-  hasNotices,
-}: {
-  slug: string
-  sunday: DateString
-  paper: Paper
-  twoSided: boolean
-  hasNotices: boolean
-}) {
-  const set = (p: { week?: string; paper?: Paper; sides?: string }) => router.setParams(p)
-  return (
-    <Stack
-      direction="row"
-      align="center"
-      gap="md"
-      paddingHorizontal="lg"
-      paddingVertical="md"
-      wrap
-      borderBottomWidth="hairline"
-      borderColor={SemanticColor.BorderDefault}
-      background={SemanticColor.SurfaceCard}
-    >
-      <Button
-        variant="ghost"
-        size="sm"
-        title="Back"
-        icon="chevron-left"
-        onPress={() => router.replace(`/${slug}/admin?s=display`)}
-      />
-      <Stack direction="row" align="center" gap="xs">
-        <Button
-          variant="ghost"
-          size="sm"
-          title=""
-          icon="chevron-left"
-          onPress={() => set({ week: addDays(sunday, -7) })}
-        />
-        <Text variant="bodyStrong">
-          {civilDateShort(sunday)} – {civilDateShort(addDays(sunday, 6))}
-        </Text>
-        <Button
-          variant="ghost"
-          size="sm"
-          title=""
-          icon="chevron-right"
-          onPress={() => set({ week: addDays(sunday, 7) })}
-        />
-      </Stack>
-      <Segments<Paper>
-        options={[
-          { key: 'letter', label: 'Letter' },
-          { key: 'a4', label: 'A4' },
-        ]}
-        value={paper}
-        onChange={(p) => set({ paper: p })}
-        accessibilityLabel="Paper size"
-      />
-      {hasNotices && (
-        <Segments<'1' | '2'>
-          options={[
-            { key: '2', label: 'Two sides' },
-            { key: '1', label: 'One side' },
-          ]}
-          value={twoSided ? '2' : '1'}
-          onChange={(sides) => set({ sides })}
-          accessibilityLabel="Sides"
-        />
-      )}
-      <Stack grow />
-      <Text variant="caption" color={SemanticColor.TextSecondary}>
-        {twoSided ? 'Print double-sided, flip on long edge.' : 'Fits on one side.'}
-      </Text>
-      <Button size="sm" title="Print" icon="print" onPress={() => window.print()} />
-    </Stack>
   )
 }

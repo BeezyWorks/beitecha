@@ -1,5 +1,5 @@
-import { SemanticColor, useColorResolver } from '@beezyworks/design'
-import React, { useEffect, useState } from 'react'
+import { SemanticColor, Stack, useColorResolver } from '@beezyworks/design'
+import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { View } from 'react-native'
 
@@ -9,6 +9,12 @@ export type Paper = 'a4' | 'letter'
 const PAPER: Record<Paper, { size: string; width: string; height: string }> = {
   a4: { size: 'A4', width: '210mm', height: 'calc(297mm - 1px)' },
   letter: { size: 'letter', width: '8.5in', height: 'calc(11in - 1px)' },
+}
+
+/** A sheet's size in CSS px (96 per inch), for laying out pages without a sheet to measure. */
+export const SHEET_PX: Record<Paper, { width: number; height: number }> = {
+  a4: { width: 793.7, height: 1122.5 },
+  letter: { width: 816, height: 1056 },
 }
 
 /** The sheet's own margin; the printer's is set to none so screen and paper match. */
@@ -81,15 +87,18 @@ export function PrintRoot({
 export function PrintSheet({
   paper,
   rtl,
+  scale: base = 1,
   children,
 }: {
   paper: Paper
   rtl?: boolean
+  /** How big the content starts out (the text size); it's still shrunk until it fits. */
+  scale?: number
   children: React.ReactNode
 }) {
   const [room, setRoom] = useState<{ width: number; height: number } | null>(null)
   const [natural, setNatural] = useState(0)
-  const [scale, setScale] = useState(1)
+  const [scale, setScale] = useState(base)
 
   // Only ever shrink: laid out wider, the content gets shorter and fits with room to spare.
   useEffect(() => {
@@ -107,7 +116,7 @@ export function PrintSheet({
         onLayout={(e) => {
           const { width, height } = e.nativeEvent.layout
           setRoom({ width, height })
-          setScale(1)
+          setScale(base)
         }}
       >
         {room && (
@@ -137,3 +146,115 @@ export const PAPERS: Paper[] = ['a4', 'letter']
 /** Letter in the Americas, A4 everywhere else. */
 export const paperFor = (timeZone: string): Paper =>
   timeZone.startsWith('America/') ? 'letter' : 'a4'
+
+const MARGIN_PX = (11 * 96) / 25.4
+const MIN_SCALE = 0.4
+
+/** What fits on a sheet inside its margins. */
+const roomFor = (paper: Paper) => ({
+  width: SHEET_PX[paper].width - 2 * MARGIN_PX,
+  height: SHEET_PX[paper].height - 1 - 2 * MARGIN_PX,
+})
+
+interface Measured {
+  key: string
+  list: { y: number; height: number }[]
+}
+
+/**
+ * A masthead, blocks and a footer spread over as many sheets as the blocks take: each block goes whole on
+ * the sheet it fits, the masthead first and the footer last. With `maxPages`, the content shrinks until
+ * it fits in that many; without, it stays at `scale`. Blocks are measured laid out off-screen first.
+ */
+export function PagedSheets({
+  paper,
+  rtl,
+  scale: base = 1,
+  maxPages,
+  head,
+  blocks,
+  foot,
+}: {
+  paper: Paper
+  rtl?: boolean
+  scale?: number
+  maxPages?: number
+  head: React.ReactNode
+  blocks: { key: string; node: React.ReactNode }[]
+  foot: React.ReactNode
+}) {
+  const [s, setS] = useState(base)
+  const [sizes, setSizes] = useState<Measured | null>(null)
+  const got = useRef<Measured>({ key: '', list: [] })
+  useEffect(() => setS(base), [base])
+
+  const room = roomFor(paper)
+  const key = `${s}|${paper}|${blocks.map((b) => b.key).join()}`
+  const items = [head, ...blocks.map((b) => b.node), foot]
+
+  const pages = React.useMemo(() => {
+    if (!sizes || sizes.key !== key || sizes.list.length !== items.length) return null
+    const { list } = sizes
+    const gap = list.length > 1 ? Math.max(0, list[1].y - list[0].y - list[0].height) : 16
+    const cap = room.height / s
+    const out: number[][] = [[0]]
+    let used = list[0].height
+    for (let i = 1; i < list.length; i++) {
+      const page = out[out.length - 1]
+      if (used + gap + list[i].height > cap && page.length > 1) {
+        out.push([i])
+        used = list[i].height
+      } else {
+        page.push(i)
+        used += gap + list[i].height
+      }
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sizes, key])
+
+  useEffect(() => {
+    if (pages && maxPages && pages.length > maxPages && s > MIN_SCALE) setS(s * 0.93)
+  }, [pages, maxPages, s])
+
+  const measured =
+    (i: number) => (e: { nativeEvent: { layout: { y: number; height: number } } }) => {
+      if (got.current.key !== key) got.current = { key, list: [] }
+      const { y, height } = e.nativeEvent.layout
+      got.current.list[i] = { y, height }
+      const list = got.current.list
+      if (list.length === items.length && list.every(Boolean)) setSizes({ key, list: [...list] })
+    }
+
+  return (
+    <>
+      <View
+        key={key}
+        pointerEvents="none"
+        style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
+      >
+        <View style={{ width: room.width / s - 1, opacity: 0 }}>
+          <Stack gap="lg">
+            {items.map((node, i) => (
+              <View key={i} onLayout={measured(i)}>
+                {node}
+              </View>
+            ))}
+          </Stack>
+        </View>
+      </View>
+      {pages?.map((idx, n) => (
+        <PrintSheet key={`${n}|${s}`} paper={paper} rtl={rtl} scale={s}>
+          <Stack grow gap="lg">
+            {idx.map((i) => (
+              <React.Fragment key={i}>
+                {i === items.length - 1 && <Stack grow />}
+                {items[i]}
+              </React.Fragment>
+            ))}
+          </Stack>
+        </PrintSheet>
+      ))}
+    </>
+  )
+}

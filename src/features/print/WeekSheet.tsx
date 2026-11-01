@@ -127,12 +127,26 @@ export function NoticesSide(week: WeekProps) {
   )
 }
 
-function Announcements({ days, notices, categories, comingUp, cholim, yahrzeits, yahrzeitSettings, shiurim: showShiurim }: WeekProps) {
-  const t = useT()
+/** The announcements side's parts in order, each a block that can start a page of its own. */
+function announcementBlocks(
+  {
+    days,
+    notices,
+    categories,
+    comingUp,
+    cholim,
+    yahrzeits,
+    yahrzeitSettings,
+    shiurim: showShiurim,
+  }: WeekProps,
+  t: T,
+): { key: string; node: React.ReactNode }[] {
   const shiurim = days.map((d) => ({ ...d, events: d.events.filter((e) => !notShiur(e)) }))
-  return (
-    <Stack gap="lg">
-      {showShiurim && (
+  const blocks: { key: string; node: React.ReactNode }[] = []
+  if (showShiurim)
+    blocks.push({
+      key: 'shiurim',
+      node: (
         <EventGrid
           days={shiurim}
           notices={notices}
@@ -140,13 +154,42 @@ function Announcements({ days, notices, categories, comingUp, cholim, yahrzeits,
           he={HE.s.shiurimThisWeek}
           details
         />
-      )}
-      {comingUp.length > 0 && <ComingUp items={comingUp} />}
-      {notices.length > 0 && <Notices notices={notices} categories={categories ?? []} />}
-      {yahrzeits.length > 0 && <Yahrzeits items={yahrzeits} settings={yahrzeitSettings} />}
-      {cholim.length > 0 && <Cholim cholim={cholim} />}
+      ),
+    })
+  if (comingUp.length > 0) blocks.push({ key: 'comingUp', node: <ComingUp items={comingUp} /> })
+  if (notices.length > 0)
+    blocks.push({
+      key: 'notices',
+      node: <Notices notices={notices} categories={categories ?? []} />,
+    })
+  if (yahrzeits.length > 0)
+    blocks.push({
+      key: 'yahrzeits',
+      node: <Yahrzeits items={yahrzeits} settings={yahrzeitSettings} />,
+    })
+  if (cholim.length > 0) blocks.push({ key: 'cholim', node: <Cholim cholim={cholim} /> })
+  return blocks
+}
+
+function Announcements(week: WeekProps) {
+  const t = useT()
+  return (
+    <Stack gap="lg">
+      {announcementBlocks(week, t).map((b) => (
+        <React.Fragment key={b.key}>{b.node}</React.Fragment>
+      ))}
     </Stack>
   )
+}
+
+/** The announcements side as a masthead, blocks and footer, for spreading over as many pages as it takes. */
+export function useNoticesParts(week: WeekProps) {
+  const t = useT()
+  return {
+    head: <Masthead {...week} />,
+    blocks: announcementBlocks(week, t),
+    foot: <Footer slug={week.slug} />,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +200,7 @@ function Masthead({ profile, days }: WeekProps) {
   return (
     <Stack gap="sm">
       <Stack direction="row" align="end" gap="lg">
-        <Stack grow gap="none">
+        <Stack grow width={0} gap="none">
           <Text
             variant="pageHeader"
             rtl={t.nameRtl && !!profile.name.he}
@@ -785,7 +828,13 @@ function Notices({ notices, categories }: { notices: Notice[]; categories: Notic
 }
 
 /** The week's yahrzeits, soonest first: the names the shul chose, and the day. */
-function Yahrzeits({ items, settings }: { items: UpcomingYahrzeit[]; settings?: YahrzeitSettings }) {
+function Yahrzeits({
+  items,
+  settings,
+}: {
+  items: UpcomingYahrzeit[]
+  settings?: YahrzeitSettings
+}) {
   const t = useT()
   return (
     <Stack gap="sm">

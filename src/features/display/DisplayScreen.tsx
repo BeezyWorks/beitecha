@@ -3,6 +3,7 @@ import { addDays, yahrzeitsBetween } from '@beitecha/engine'
 import { useLocalSearchParams } from 'expo-router'
 import React from 'react'
 
+import { Blackout } from '@/components/Blackout'
 import { Centered } from '@/components/Centered'
 import { usePageTitle } from '@/components/PageTitle'
 import { ScaleToFit } from '@/components/ScaleToFit'
@@ -11,19 +12,23 @@ import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useDays } from '@/features/luach/useDays'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
-import { Board, H, W } from './Board'
+import { Board, CANVAS } from './Board'
+import { driftFor, findSetup, isAsleep } from './setup'
 import { useDisplayUpkeep } from './useDisplayUpkeep'
 
 const POLL_MS = 5 * 60_000
 
-/** The monitor in the lobby: point a TV's browser here and leave it. */
-export function DisplayScreen({ slug }: { slug: string }) {
+/** The monitor in the lobby: point a TV's browser here and leave it. `setup` is the id in `/<slug>/display/<id>`. */
+export function DisplayScreen({ slug, setup: setupId }: { slug: string; setup?: string }) {
   const params = useLocalSearchParams<{ theme?: string; label?: string }>()
   const { feed, notFound } = useShulFeed(slug, POLL_MS)
   const tz = feed?.schedule.settings.location.timeZone
   const { today, minutes } = useShulClock(tz, 5_000)
-  const days = useDays(feed?.schedule, today, 8)
-  useDisplayUpkeep(slug, today, params.label)
+  // From yesterday: when today is Shabbos, yesterday is the erev its minyanim start from.
+  const [yesterday, ...days] = useDays(feed?.schedule, addDays(today, -1), 9)
+  const displays = feed?.schedule.settings.displays
+  const setup = findSetup(displays, setupId)
+  useDisplayUpkeep(slug, today, params.label ?? (displays?.length ? setup?.id : undefined))
   const t = makeT(
     feed?.schedule.settings.language,
     feed?.schedule.settings.timeFormat,
@@ -37,24 +42,31 @@ export function DisplayScreen({ slug }: { slug: string }) {
     ) : (
       <Centered loading />
     )
+  if (!setup)
+    return <Centered title="No such display" body={`Check the address: /${slug}/display`} />
 
-  const mode = params.theme === 'dark' ? 'dark' : 'light'
-  // Drift a pixel or two each hour so nothing sits still for days.
-  const hour = Math.floor(minutes / 60)
-  const shift = { x: (hour % 3) - 1, y: (Math.floor(hour / 3) % 3) - 1 }
+  // OLED panels burn in, so they default to the dark theme.
+  const mode =
+    params.theme === 'dark' || params.theme === 'light'
+      ? params.theme
+      : (setup.theme ?? (setup.screen === 'oled' ? 'dark' : 'light'))
+  const { width, height } = CANVAS[setup.orientation ?? 'landscape']
   const notices = feed.schedule.notices
     .filter((n) => (n.to ?? n.from) >= today && n.from <= addDays(today, 7))
     .sort((a, b) => a.from.localeCompare(b.from))
+  const asleep = !!days[0] && isAsleep(setup.sleep, days[0], minutes)
 
   return (
     <ThemeRoot brandColor={feed.profile.brandColor} mode={mode}>
       <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
         <Stack fill background={SemanticColor.SurfaceBackground}>
-          <ScaleToFit width={W} height={H} shift={shift}>
-            {days[0] && (
+          <ScaleToFit width={width} height={height} shift={driftFor(setup.screen, minutes)}>
+            {days[0] && !asleep && (
               <Board
                 name={feed.profile.name}
                 slug={slug}
+                setup={setup}
+                yesterday={yesterday}
                 days={days}
                 minutes={minutes}
                 notices={notices}
@@ -66,9 +78,11 @@ export function DisplayScreen({ slug }: { slug: string }) {
                   addDays(days[0].date, (feed.schedule.settings.yahrzeits?.days ?? 7) - 1),
                 )}
                 yahrzeitSettings={feed.schedule.settings.yahrzeits}
+                shabbosZmanim={feed.schedule.settings.print?.shabbosZmanim}
               />
             )}
           </ScaleToFit>
+          {asleep && <Blackout />}
         </Stack>
       </LanguageProvider>
     </ThemeRoot>

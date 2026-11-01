@@ -43,8 +43,9 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   - **Design system = `@beezyworks/design`**, the `packages/design` submodule, same as the siblings. No raw colors or
     style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
     scaled to the screen; a DL candidate), `components/ShrinkToFit.tsx` (one line shrunk to the room it
-    has; same), `components/Select.tsx` (styled like the DL's own web pickers) and `components/Print.tsx` (paper-sized
-    sheets portalled out of the app's clipping root, `@page` CSS, scaled down to fit one sheet).
+    has; same), `components/Select.tsx` (styled like the DL's own web pickers), `components/Print.tsx` (paper-sized
+    sheets portalled out of the app's clipping root, `@page` CSS, scaled to fill one sheet) and
+    `components/Blackout.tsx` (the display's true-black sleep screen).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
   - Headers are in Cardo, whose bold Hebrew is mostly regular weight; `lib/hebrewHeaders.ts` gives Cardo Bold's Hebrew
     range to Frank Ruhl Libre Bold (a `unicode-range` `@font-face`), so set Hebrew headings in the header variants as usual.
@@ -59,9 +60,13 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     else sees, so viewer surfaces never read `adminName`.
 - **Print** (the admin's "Print" under "See it": options, a live preview and a full-screen preview; `/<slug>/print` is
   the published week): A4 or Letter, Shabbos, weekday minyanim and zmanim on the front, sponsorships and
-  announcements behind (or all on one side). `settings.print.pages` (1–5 or `unlimited`, default 2) caps the pages and
-  `textSize` scales the text; content shrinks to fit its pages, and with more than two the announcements' blocks
-  (`PagedSheets`) go whole onto as many sheets as they need, never split.
+  announcements behind (or all on one side when they fit there at 90% of the text size). Shabbos is one list in time
+  order (`luach/shabbosGroups.ts`, shared with the display) in two balanced columns; shiurim are a list; one-time
+  changes (`source: 'exception'`) are boxed with a ◆. Announcements are grouped under a heading per kind and category,
+  each notice's title (the people's names) over its text. `settings.print.pages` (1–5 or `unlimited`, default 2) caps
+  the pages and `textSize` scales the text; content shrinks to fit its pages and grows (up to 1.4×) to fill them, and
+  with more than two the announcements' blocks (`PagedSheets`) go whole onto as many sheets as they need, never split.
+  Nothing carries meaning in color alone: `print.ink` is `color` (the brand on headings and rules) or `mono`.
 - **The Siddur link.** The display's and the printed sheet's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
   the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its
   three web hosts only; the public reads are rate-limited per IP by `PUBLIC_LIMIT`, since CORS doesn't stop non-browsers) and computes with the same engine, so labels, dates and "next up" live in the engine
@@ -74,8 +79,13 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   are listed under a customizable title on the display (`days` ahead) and the printed week, showing the names and dates
   the shul picks. The admin imports and exports CSV or JSON (`aiYahrzeits.ts`), with a prompt for any chat AI to turn a
   spreadsheet into the CSV.
+- **Display setups** (`settings.displays`, `display/setup.ts`): each at `/<slug>/display/<id>` (`/<slug>/display` is the
+  first, or a default landscape one): landscape 1280×720 or portrait 720×1280, blocks on or off (the rest reflow),
+  Shabbos focus (the Shabbos list takes the main place from Thursday night), theme, screen type and sleep (default
+  `auto`: black from an hour after the day's last event to an hour before the next day's first). Today hides past
+  events but one just started, and pages what doesn't fit rather than shrinking it.
 - **Display upkeep** (`useDisplayUpkeep`): heartbeat every 5 min (capped at 20 displays per shul), wake lock, hidden
-  cursor, reload when the shul's day rolls over, hourly 1px drift against burn-in.
+  cursor, reload when the shul's day rolls over, drift against burn-in (hourly 1px; OLED orbits 12px).
 
 ## Conventions
 

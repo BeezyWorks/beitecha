@@ -10,7 +10,14 @@ import {
 import { startOfWeek, type DateString } from '@beitecha/engine'
 import React from 'react'
 
-import { paperFor, PrintRoot, SHEET_PX, SheetStyle, type Paper } from '@/components/Print'
+import {
+  paperFor,
+  PrintRoot,
+  printBrand,
+  SHEET_PX,
+  SheetStyle,
+  type Paper,
+} from '@/components/Print'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { ThemeRoot } from '@/components/ThemeRoot'
@@ -97,9 +104,9 @@ export function PrintSection({ slug }: { slug: string }) {
               />
             </Stack>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
-              The sheet shrinks to fit the pages you allow. Unlimited keeps the text at full size
-              and adds pages as it needs them. The second page is only used when there are
-              announcements.
+              The text shrinks to fit the pages you allow, and grows to fill them when there’s room.
+              Unlimited keeps the text at full size and adds pages as it needs them. The second page
+              is only used when the announcements don’t fit on the front.
             </Text>
           </Stack>
           <Stack gap="xs">
@@ -113,13 +120,31 @@ export function PrintSection({ slug }: { slug: string }) {
               accessibilityLabel="Text size"
             />
             <Text variant="caption" color={SemanticColor.TextSecondary}>
-              Bigger text still shrinks if it won’t fit in{' '}
+              Text can grow up to 40% bigger to fill the page, and still shrinks if it won’t fit in{' '}
               {layout.maxPages === Infinity
                 ? 'the pages'
                 : layout.maxPages === 1
                   ? 'one page'
                   : `${layout.maxPages} pages`}
               .
+            </Text>
+          </Stack>
+          <Stack gap="xs">
+            <Text variant="label" color={SemanticColor.TextSecondary}>
+              Ink
+            </Text>
+            <Segments<'color' | 'mono'>
+              options={[
+                { key: 'color', label: 'Color' },
+                { key: 'mono', label: 'Black and white' },
+              ]}
+              value={layout.ink}
+              onChange={(k) => set({ ink: k === 'mono' ? k : undefined })}
+              accessibilityLabel="Ink"
+            />
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              Color uses your brand color for headings and rules. Black and white is plain black
+              ink, for the copier.
             </Text>
           </Stack>
         </Card>
@@ -216,9 +241,9 @@ function SheetPreview({
     return () => observer.disconnect()
   }, [k, !!sheet])
   if (!sheet) return null
-  const { week, t, profile, maxPages, textSize } = sheet
+  const { week, t, profile, maxPages, textSize, ink } = sheet
   return (
-    <ThemeRoot brandColor={profile.brandColor} mode="light">
+    <ThemeRoot brandColor={printBrand(ink, profile.brandColor)} mode="light">
       <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
         <SheetStyle />
         <div style={{ width, height, overflow: 'hidden' }}>
@@ -267,9 +292,9 @@ function FullScreen({
   const [sunday, setSunday] = React.useState(initialSunday)
   const sheet = useSheet(slug, sunday)
   if (!sheet) return null
-  const { week, t, profile, maxPages, textSize } = sheet
+  const { week, t, profile, maxPages, textSize, ink } = sheet
   return (
-    <ThemeRoot brandColor={profile.brandColor} mode="light">
+    <ThemeRoot brandColor={printBrand(ink, profile.brandColor)} mode="light">
       <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
         <PrintRoot
           paper={paper}

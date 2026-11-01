@@ -142,6 +142,39 @@ export interface ShulSettings {
   print?: PrintSettings
   /** How the upcoming yahrzeits are titled and shown. */
   yahrzeits?: YahrzeitSettings
+  /**
+   * The shul's display setups ("Main lobby", "Upstairs, portrait"), each at `/<slug>/display/<id>`. Absent or empty =
+   * one default landscape setup, which `/<slug>/display` shows; otherwise that address shows the first.
+   */
+  displays?: DisplaySetup[]
+}
+
+/** The parts a display can show or hide; absent from `DisplaySetup.blocks` = shown. */
+export const DISPLAY_BLOCKS = ['next', 'today', 'shabbos', 'zmanim', 'notices', 'yahrzeits', 'cholim', 'qr'] as const
+export type DisplayBlock = (typeof DISPLAY_BLOCKS)[number]
+
+export interface DisplaySetup {
+  /** In the address: `/<slug>/display/<id>`. Lowercase letters, digits and dashes. */
+  id: string
+  /** What the gabbai calls it ("Upstairs, portrait"); never shown on the screen. */
+  name: string
+  /** Default `landscape`. */
+  orientation?: 'landscape' | 'portrait'
+  blocks?: Partial<Record<DisplayBlock, boolean>>
+  /**
+   * When this Shabbos takes the screen's main place: `auto` from Thursday's last Maariv (or erev Yom Tov's eve) to
+   * Havdalah; `always`; or `never` (it stays a small panel). Default `auto`.
+   */
+  shabbosFocus?: 'auto' | 'always' | 'never'
+  /** Default `light`. */
+  theme?: 'light' | 'dark'
+  /** OLED panels burn in: they get a dark theme by default and a wider drift. Default `unknown` (treated as LCD). */
+  screen?: 'lcd' | 'oled' | 'unknown'
+  /**
+   * A black screen while the shul is quiet. `auto` (default): from an hour after the day's last event to an hour
+   * before the next day's first. `off`, or set hours in the shul's time (`from` may be after `to`, past midnight).
+   */
+  sleep?: 'auto' | 'off' | { from: Minutes; to: Minutes }
 }
 
 /** Which of a yahrzeit's names are shown: the Hebrew name ("Menachem ben Maimon"), the display name ("Menachem Kohen"), or both. */
@@ -180,6 +213,8 @@ export interface PrintSettings {
   pages?: number | 'unlimited'
   /** Text size on the sheet as a multiple of normal (1), shrunk anyway where it wouldn't fit the pages. Default 1. */
   textSize?: number
+  /** `color` (default) tints headings and rules with the shul's brand color; `mono` is black ink only, for copiers. */
+  ink?: 'color' | 'mono'
   /**
    * Zmanim listed among Friday night's minyanim and Shabbos day's, each at its time (built-in or custom, shown even
    * when `zmanim.hidden`). Default candle lighting and havdalah.

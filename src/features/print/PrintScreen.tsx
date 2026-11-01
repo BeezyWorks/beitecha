@@ -5,7 +5,7 @@ import React from 'react'
 
 import { Centered } from '@/components/Centered'
 import { usePageTitle } from '@/components/PageTitle'
-import { paperFor, PrintRoot, type Paper } from '@/components/Print'
+import { paperFor, PrintRoot, printBrand, type Paper } from '@/components/Print'
 import { ThemeRoot } from '@/components/ThemeRoot'
 import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useShulClock } from '@/features/luach/useShulClock'
@@ -45,12 +45,12 @@ export function PrintScreen({ slug }: { slug: string }) {
 
   const paper: Paper =
     params.paper === 'a4' || params.paper === 'letter' ? params.paper : paperFor(tz!)
-  const { maxPages, textSize } = printLayout(feed.schedule.settings.print)
+  const { maxPages, textSize, ink } = printLayout(feed.schedule.settings.print)
   // A new layout starts its fit-to-page over.
   const key = `${sunday}|${paper}|${maxPages}|${textSize}`
 
   return (
-    <ThemeRoot brandColor={feed.profile.brandColor} mode="light">
+    <ThemeRoot brandColor={printBrand(ink, feed.profile.brandColor)} mode="light">
       <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
         <PrintRoot
           paper={paper}

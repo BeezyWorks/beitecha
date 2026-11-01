@@ -9,7 +9,9 @@ const HEARTBEAT_MS = 5 * 60_000
 function displayId(): string {
   let id = storage.get('beitecha.displayId')
   if (!id) {
-    id = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('')
+    id = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
+      b.toString(16).padStart(2, '0'),
+    ).join('')
     storage.set('beitecha.displayId', id)
   }
   return id

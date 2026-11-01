@@ -1,5 +1,5 @@
 import { SemanticColor, Stack, useColorResolver } from '@beezyworks/design'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { View } from 'react-native'
 
@@ -20,9 +20,23 @@ export const SHEET_PX: Record<Paper, { width: number; height: number }> = {
 /** The sheet's own margin; the printer's is set to none so screen and paper match. */
 const MARGIN = '11mm'
 
+/** The brand for black-and-white ink: near-black, so headings and rules copy as plain black. */
+const MONO_BRAND = '#1a1a1a'
+
+/** The color the sheet is themed with: the shul's brand, or black ink only. */
+export const printBrand = (ink: 'color' | 'mono', brandColor?: string) =>
+  ink === 'mono' ? MONO_BRAND : brandColor
+
+/** A sheet measured for its fit but never shown or printed (is the whole week one side's worth?). */
 const sheetCss = (resolve: (c: SemanticColor) => string) => `
     .bt-sheet { box-sizing: border-box; padding: ${MARGIN}; display: flex; overflow: hidden; flex-shrink: 0;
-      background: ${resolve(SemanticColor.SurfaceCard)}; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) }`
+      background: ${resolve(SemanticColor.SurfaceCard)}; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) }
+    .bt-sheet-probe { position: absolute; visibility: hidden; pointer-events: none }`
+
+/** Strikes through what's inside (a cancelled minyan); RN's `Text` has no line-through. */
+export function Struck({ children }: { children: React.ReactNode }) {
+  return <span style={{ textDecoration: 'line-through' }}>{children}</span>
+}
 
 /** A sheet's look, for a sheet shown outside `PrintRoot` (the admin's small preview). */
 export function SheetStyle() {
@@ -66,6 +80,7 @@ export function PrintRoot({
       .bt-print-sheets { display: block; padding: 0 }
       .bt-sheet { box-shadow: none; break-after: page }
       .bt-sheet:last-child { break-after: auto }
+      .bt-sheet-probe { display: none !important }
       .bt-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact }
     }
   `
@@ -79,35 +94,90 @@ export function PrintRoot({
   )
 }
 
+/** How much bigger than the text size setting the content may grow to fill a sheet. */
+const MAX_GROW = 1.4
+
 /**
  * One side of paper. `children` lay out at the sheet's width and at least its height (so a
- * spacer can push a footer down); when they run longer, they're scaled down until they fit,
- * so a busy week still prints on one sheet.
+ * spacer can push a footer down), at the biggest scale that fits the sheet: scaled down from
+ * `scale` when they run longer, and with `grow`, up to `MAX_GROW` times it when there's room to
+ * spare, so a lighter week fills the page. `probe` lays it out unseen, for `onFit` alone.
  */
 export function PrintSheet({
   paper,
   rtl,
   scale: base = 1,
+  grow,
+  probe,
+  onFit,
   children,
 }: {
   paper: Paper
   rtl?: boolean
-  /** How big the content starts out (the text size); it's still shrunk until it fits. */
+  /** How big the content starts out (the text size). */
   scale?: number
+  grow?: boolean
+  probe?: boolean
+  /** The scale the content settled at. */
+  onFit?: (scale: number) => void
   children: React.ReactNode
 }) {
   const [room, setRoom] = useState<{ width: number; height: number } | null>(null)
-  const [natural, setNatural] = useState(0)
   const [scale, setScale] = useState(base)
+  const [settled, setSettled] = useState(false)
+  const content = useRef<View>(null)
+  // The bounds of the search for the biggest scale that fits: the biggest known to, the smallest known not to.
+  const bounds = useRef({ fits: 0, over: Infinity, steps: 0 })
+  const fitted = useRef('')
+  const [round, setRound] = useState(0)
+  const cap = grow ? base * MAX_GROW : base
 
-  // Only ever shrink: laid out wider, the content gets shorter and fits with room to spare.
+  // Fonts that arrive late change the text's size: fit again once they have.
   useEffect(() => {
-    if (room && natural * scale > room.height + 0.5) setScale(room.height / natural)
-  }, [room, natural, scale])
+    if (document.fonts?.status === 'loaded') return
+    document.fonts?.ready.then(() => setRound((r) => r + 1))
+  }, [])
+
+  // Laid out without a minimum height, so the height is the content's own; each step is measured before paint.
+  useLayoutEffect(() => {
+    const el = content.current as unknown as HTMLElement | null
+    if (!room || !el) return
+    const key = `${base}|${cap}|${room.width}|${room.height}|${round}`
+    const b = bounds.current
+    if (fitted.current !== key) {
+      fitted.current = key
+      bounds.current = { fits: 0, over: Infinity, steps: 0 }
+      if (settled || scale !== base) {
+        setSettled(false)
+        setScale(base)
+        return
+      }
+    } else if (settled) return
+    const h = el.offsetHeight * scale
+    if (h <= room.height + 0.5) b.fits = Math.max(b.fits, scale)
+    else b.over = Math.min(b.over, scale)
+    b.steps++
+    const ratio = h > 0 ? room.height / h : 1
+    let next: number | null
+    if (b.fits === 0)
+      next = b.steps > 24 || scale <= MIN_SCALE ? null : scale * Math.min(0.97, Math.sqrt(ratio))
+    else if (b.over < Infinity)
+      next = b.over / b.fits < 1.01 || b.steps > 24 ? null : (b.fits + b.over) / 2
+    else
+      next =
+        b.fits >= cap - 0.001 || ratio < 1.02
+          ? null
+          : Math.min(cap, scale * Math.max(1.02, Math.sqrt(ratio)))
+    if (next !== null) return setScale(next)
+    const final = b.fits || scale
+    if (final !== scale) setScale(final)
+    setSettled(true)
+    onFit?.(final)
+  }, [room, scale, settled, base, cap, round])
 
   return (
     <div
-      className="bt-sheet"
+      className={probe ? 'bt-sheet bt-sheet-probe' : 'bt-sheet'}
       dir={rtl ? 'rtl' : 'ltr'}
       style={{ width: PAPER[paper].width, height: PAPER[paper].height }}
     >
@@ -116,22 +186,22 @@ export function PrintSheet({
         onLayout={(e) => {
           const { width, height } = e.nativeEvent.layout
           setRoom({ width, height })
-          setScale(base)
         }}
       >
         {room && (
           <View
+            ref={content}
             style={{
               position: 'absolute',
               top: 0,
               ...(rtl ? { right: 0 } : { left: 0 }),
               // A pixel short: the sheet's mm size lands on a fraction and would clip a right-hand border.
               width: room.width / scale - 1,
-              minHeight: room.height / scale,
+              minHeight: settled ? room.height / scale : undefined,
+              opacity: settled ? 1 : 0,
               transform: [{ scale }],
               transformOrigin: rtl ? 'top right' : 'top left',
             }}
-            onLayout={(e) => setNatural(e.nativeEvent.layout.height)}
           >
             {children}
           </View>
@@ -164,7 +234,8 @@ interface Measured {
 /**
  * A masthead, blocks and a footer spread over as many sheets as the blocks take: each block goes whole on
  * the sheet it fits, the masthead first and the footer last. With `maxPages`, the content shrinks until
- * it fits in that many; without, it stays at `scale`. Blocks are measured laid out off-screen first.
+ * it fits in that many, then grows (up to `MAX_GROW` times `scale`) until one more would not; without, it
+ * stays at `scale`. Blocks are measured laid out off-screen first.
  */
 export function PagedSheets({
   paper,
@@ -186,7 +257,12 @@ export function PagedSheets({
   const [s, setS] = useState(base)
   const [sizes, setSizes] = useState<Measured | null>(null)
   const got = useRef<Measured>({ key: '', list: [] })
-  useEffect(() => setS(base), [base])
+  // The biggest scale known to fit `maxPages`, and whether growing is over.
+  const grown = useRef({ fits: 0, done: false })
+  useEffect(() => {
+    grown.current = { fits: 0, done: false }
+    setS(base)
+  }, [base, maxPages])
 
   const room = roomFor(paper)
   const key = `${s}|${paper}|${blocks.map((b) => b.key).join()}`
@@ -214,7 +290,18 @@ export function PagedSheets({
   }, [sizes, key])
 
   useEffect(() => {
-    if (pages && maxPages && pages.length > maxPages && s > MIN_SCALE) setS(s * 0.93)
+    if (!pages || !maxPages) return
+    const g = grown.current
+    if (pages.length > maxPages) {
+      if (g.fits) {
+        g.done = true
+        setS(g.fits)
+      } else if (s > MIN_SCALE) setS(s * 0.93)
+    } else if (!g.done) {
+      g.fits = s
+      if (s >= base * MAX_GROW - 0.001) g.done = true
+      else setS(Math.min(base * MAX_GROW, s * 1.06))
+    }
   }, [pages, maxPages, s])
 
   const measured =

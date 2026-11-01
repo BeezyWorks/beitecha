@@ -14,7 +14,8 @@ import {
 import { useMemo } from 'react'
 
 import { useDays } from '@/features/luach/useDays'
-import type { InlineZman, WeekProps } from './WeekSheet'
+import type { InlineZman } from '@/features/luach/shabbosGroups'
+import type { WeekProps } from './WeekSheet'
 
 /** The week starting `sunday`, as the sheet shows it: the shul's print settings decide what's left out. */
 export function useWeek(

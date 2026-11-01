@@ -1,5 +1,16 @@
 import { Button, Card, Chip, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { addDays, civilDateShort, guessCategory, noticeCategory, noticeLastDay, type DateString, type Notice, type NoticeCategory, type NoticeKind, type NoticeLink } from '@beitecha/engine'
+import {
+  addDays,
+  civilDateShort,
+  guessCategory,
+  noticeCategory,
+  noticeLastDay,
+  type DateString,
+  type Notice,
+  type NoticeCategory,
+  type NoticeKind,
+  type NoticeLink,
+} from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
@@ -26,7 +37,10 @@ import { SectionPage } from './SectionPage'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-export const KIND: Record<NoticeKind, { label: string; title: string; titleHint: string; text: string; textHint: string }> = {
+export const KIND: Record<
+  NoticeKind,
+  { label: string; title: string; titleHint: string; text: string; textHint: string }
+> = {
   sponsor: {
     label: 'Sponsorship',
     title: 'What’s sponsored',
@@ -34,7 +48,13 @@ export const KIND: Record<NoticeKind, { label: string; title: string; titleHint:
     text: 'Sponsored by / dedication',
     textHint: 'The Cohen family, in honor of Sarah’s bas mitzvah',
   },
-  announcement: { label: 'Announcement', title: 'Title (optional)', titleHint: '', text: 'Text', textHint: '' },
+  announcement: {
+    label: 'Announcement',
+    title: 'Title (optional)',
+    titleHint: '',
+    text: 'Text',
+    textHint: '',
+  },
   reminder: {
     label: 'Reminder',
     title: 'What’s coming up',
@@ -44,17 +64,17 @@ export const KIND: Record<NoticeKind, { label: string; title: string; titleHint:
   },
   simcha: {
     label: 'Mazal tov',
-    title: 'Title (optional)',
-    titleHint: '',
-    text: 'Mazal tov to…',
-    textHint: 'Dovid and Rivka Levy on the birth of a daughter',
+    title: 'Names (optional)',
+    titleHint: 'Dovid and Rivka Levy',
+    text: 'Mazal tov on…',
+    textHint: 'the birth of a daughter',
   },
   condolence: {
     label: 'Condolence',
-    title: 'Title (optional)',
-    titleHint: 'Shiva, Yahrzeit',
+    title: 'Names (optional)',
+    titleHint: 'Yaakov Klein',
     text: 'Text',
-    textHint: 'Yaakov Klein is sitting shiva for his father at 12 Oak St.',
+    textHint: 'is sitting shiva for his father at 12 Oak St.',
   },
 }
 
@@ -75,7 +95,9 @@ function useEventOptions(today: DateString, oneTimeOnly: boolean) {
   const schedule = useAdmin((s) => s.schedule)
   if (!schedule) return []
   const oneTime = schedule.exceptions.flatMap((x) =>
-    x.type === 'add' && x.date >= today ? [{ value: x.event.id, label: `${x.event.name.en} (${civilDateShort(x.date)})` }] : [],
+    x.type === 'add' && x.date >= today
+      ? [{ value: x.event.id, label: `${x.event.name.en} (${civilDateShort(x.date)})` }]
+      : [],
   )
   if (oneTimeOnly) return oneTime
   const weekly = schedule.events
@@ -85,7 +107,15 @@ function useEventOptions(today: DateString, oneTimeOnly: boolean) {
 }
 
 /** One notice's form; Save puts it in the schedule at once, Cancel just closes. */
-export function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateString; onDone: () => void }) {
+export function NoticeForm({
+  initial,
+  today,
+  onDone,
+}: {
+  initial: Notice
+  today: DateString
+  onDone: () => void
+}) {
   const upsertNotice = useAdmin((s) => s.upsertNotice)
   const categories = useAdmin((s) => s.schedule?.settings.noticeCategories) ?? []
   const [n, setN] = useState(initial)
@@ -95,7 +125,12 @@ export function NoticeForm({ initial, today, onDone }: { initial: Notice; today:
   const copy = KIND[n.kind]
   const category = noticeCategory({ noticeCategories: categories }, n)
   const kindChip = (k: NoticeKind) => (
-    <Chip key={k} label={KIND[k].label} selected={n.kind === k && !category} onPress={() => setN(withNoticeKind(n, k))} />
+    <Chip
+      key={k}
+      label={KIND[k].label}
+      selected={n.kind === k && !category}
+      onPress={() => setN(withNoticeKind(n, k))}
+    />
   )
   const valid =
     (n.text.en.trim() || (n.kind === 'sponsor' && n.sponsoredBy?.en.trim())) &&
@@ -135,7 +170,14 @@ export function NoticeForm({ initial, today, onDone }: { initial: Notice; today:
                 label={t.label}
                 selected={target.kind === t.kind}
                 onPress={() =>
-                  setN(withSponsorTarget(n, t.kind === 'event' ? { kind: 'event', eventId: events[0]?.value ?? '' } : { kind: t.kind }))
+                  setN(
+                    withSponsorTarget(
+                      n,
+                      t.kind === 'event'
+                        ? { kind: 'event', eventId: events[0]?.value ?? '' }
+                        : { kind: t.kind },
+                    ),
+                  )
                 }
               />
             ))}
@@ -196,7 +238,13 @@ export function NoticeForm({ initial, today, onDone }: { initial: Notice; today:
       )}
       {/* A sponsorship from before "Sponsored by" keeps its own line until one is named. */}
       {(n.kind !== 'sponsor' || (!n.sponsoredBy && !!initial.text.en)) && (
-        <Field label={copy.text} placeholder={copy.textHint} value={n.text.en} onChangeText={(en) => setN({ ...n, text: { ...n.text, en } })} multiline />
+        <Field
+          label={copy.text}
+          placeholder={copy.textHint}
+          value={n.text.en}
+          onChangeText={(en) => setN({ ...n, text: { ...n.text, en } })}
+          multiline
+        />
       )}
       <Field
         label="Hebrew line (optional)"
@@ -207,7 +255,11 @@ export function NoticeForm({ initial, today, onDone }: { initial: Notice; today:
       <LinksEditor links={links} onChange={setLinks} />
       <Stack direction="row" gap="md" wrap>
         <Stack grow>
-          <DateField label="Show from" value={n.from} onChange={(from) => from && setN({ ...n, from })} />
+          <DateField
+            label="Show from"
+            value={n.from}
+            onChange={(from) => from && setN({ ...n, from })}
+          />
         </Stack>
         <Stack grow>
           <DateField
@@ -216,7 +268,13 @@ export function NoticeForm({ initial, today, onDone }: { initial: Notice; today:
             unsetLabel="Show it longer"
             initial={addDays(n.from, 6)}
             onChange={(to) => setN({ ...n, to })}
-            help={n.to ? undefined : n.kind === 'reminder' && n.eventId ? 'Until the event' : 'Just that day'}
+            help={
+              n.to
+                ? undefined
+                : n.kind === 'reminder' && n.eventId
+                  ? 'Until the event'
+                  : 'Just that day'
+            }
           />
         </Stack>
       </Stack>
@@ -225,7 +283,12 @@ export function NoticeForm({ initial, today, onDone }: { initial: Notice; today:
           title="Save"
           disabled={!valid}
           onPress={() => {
-            upsertNotice(withNoticeLinks(withSponsorText({ ...n, text: { ...n.text, en: n.text.en.trim() } }), links))
+            upsertNotice(
+              withNoticeLinks(
+                withSponsorText({ ...n, text: { ...n.text, en: n.text.en.trim() } }),
+                links,
+              ),
+            )
             onDone()
           }}
         />
@@ -250,7 +313,14 @@ function NewCategoryChip({ onAdd }: { onAdd: (c: NoticeCategory) => void }) {
   return (
     <Stack direction="row" gap="sm" align="end" wrap>
       <Stack width={220}>
-        <Field label="New category" placeholder="Community, School…" value={name} onChangeText={setName} autoFocus onSubmitEditing={() => name.trim() && add()} />
+        <Field
+          label="New category"
+          placeholder="Community, School…"
+          value={name}
+          onChangeText={setName}
+          autoFocus
+          onSubmitEditing={() => name.trim() && add()}
+        />
       </Stack>
       <Button size="sm" title="Add" disabled={!name.trim()} onPress={add} />
       <Button variant="ghost" size="sm" title="Cancel" onPress={() => setName(null)} />
@@ -265,15 +335,17 @@ function NewCategoryChip({ onAdd }: { onAdd: (c: NoticeCategory) => void }) {
 function CategoriesCard({ notices }: { notices: Notice[] }) {
   const categories = useAdmin((s) => s.schedule?.settings.noticeCategories) ?? []
   const setNoticeCategories = useAdmin((s) => s.setNoticeCategories)
-  const set = (i: number, c: NoticeCategory) => setNoticeCategories(categories.map((x, j) => (j === i ? c : x)))
+  const set = (i: number, c: NoticeCategory) =>
+    setNoticeCategories(categories.map((x, j) => (j === i ? c : x)))
   const [name, setName] = useState('')
   return (
     <Card gap="md">
       <Stack gap="xs">
         <Text variant="sectionHeader">Categories</Text>
         <Text variant="caption" color={SemanticColor.TextSecondary}>
-          Mazal tovs and condolences have their own; add your own for announcements (Community, School…). The printed week
-          groups announcements under them, and the display and the Siddur tag each one with its category.
+          Mazal tovs and condolences have their own; add your own for announcements (Community,
+          School…). The printed week groups announcements under them, and the display and the Siddur
+          tag each one with its category.
         </Text>
       </Stack>
       {categories.map((c, i) => {
@@ -281,7 +353,11 @@ function CategoriesCard({ notices }: { notices: Notice[] }) {
         return (
           <Stack key={c.id} direction="row" gap="sm" wrap align="end">
             <Stack grow width={180}>
-              <Field label="Name" value={c.name.en} onChangeText={(en) => set(i, { ...c, name: { ...c.name, en } })} />
+              <Field
+                label="Name"
+                value={c.name.en}
+                onChangeText={(en) => set(i, { ...c, name: { ...c.name, en } })}
+              />
             </Stack>
             <Stack grow width={180}>
               <Field
@@ -294,7 +370,11 @@ function CategoriesCard({ notices }: { notices: Notice[] }) {
               variant="ghost"
               size="sm"
               icon="delete"
-              title={used ? `Remove (${used === 1 ? 'its announcement becomes a plain one' : `its ${used} announcements become plain ones`})` : 'Remove'}
+              title={
+                used
+                  ? `Remove (${used === 1 ? 'its announcement becomes a plain one' : `its ${used} announcements become plain ones`})`
+                  : 'Remove'
+              }
               onPress={() => setNoticeCategories(categories.filter((x) => x.id !== c.id))}
             />
           </Stack>
@@ -302,7 +382,12 @@ function CategoriesCard({ notices }: { notices: Notice[] }) {
       })}
       <Stack direction="row" gap="sm" align="end" wrap>
         <Stack grow width={180}>
-          <Field label="Add a category" placeholder="Community, School…" value={name} onChangeText={setName} />
+          <Field
+            label="Add a category"
+            placeholder="Community, School…"
+            value={name}
+            onChangeText={setName}
+          />
         </Stack>
         <Button
           variant="secondary"
@@ -321,7 +406,13 @@ function CategoriesCard({ notices }: { notices: Notice[] }) {
 }
 
 /** A notice's links, each printed as a QR code under what scanning it does. */
-function LinksEditor({ links, onChange }: { links: NoticeLink[]; onChange: (links: NoticeLink[]) => void }) {
+function LinksEditor({
+  links,
+  onChange,
+}: {
+  links: NoticeLink[]
+  onChange: (links: NoticeLink[]) => void
+}) {
   const set = (i: number, l: NoticeLink) => onChange(links.map((x, j) => (j === i ? l : x)))
   return (
     <Stack gap="sm">
@@ -330,7 +421,8 @@ function LinksEditor({ links, onChange }: { links: NoticeLink[]; onChange: (link
           Links and QR codes (optional)
         </Text>
         <Text variant="caption" color={SemanticColor.TextSecondary}>
-          The printed week shows each as a QR code with its title; the first is the notice’s link in the Siddur.
+          The printed week shows each as a QR code with its title; the first is the notice’s link in
+          the Siddur.
         </Text>
       </Stack>
       {links.map((l, i) => (
@@ -353,7 +445,13 @@ function LinksEditor({ links, onChange }: { links: NoticeLink[]; onChange: (link
               onChangeText={(url) => set(i, { ...l, url })}
             />
           </Stack>
-          <Button variant="ghost" size="sm" icon="delete" title="Remove" onPress={() => onChange(links.filter((_, j) => j !== i))} />
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="delete"
+            title="Remove"
+            onPress={() => onChange(links.filter((_, j) => j !== i))}
+          />
         </Stack>
       ))}
       <Stack direction="row">
@@ -407,13 +505,20 @@ export function NoticesAi({ today, onClose }: { today: DateString; onClose: () =
       title="Sponsorships and notices with AI"
       example="Paste the message you got, e.g. “Kiddush this Shabbos is sponsored by the Cohen family in honor of Sarah’s bas mitzvah. Mazal tov to the Levys on the birth of a daughter!”"
       prompt={(r) => noticePrompt(schedule, profile, today, r)}
-      parse={(text) => parseNotices(text, eventIds, (schedule.settings.noticeCategories ?? []).map((c) => c.id))}
+      parse={(text) =>
+        parseNotices(
+          text,
+          eventIds,
+          (schedule.settings.noticeCategories ?? []).map((c) => c.id),
+        )
+      }
       preview={(list) => (
         <Stack gap="sm">
           {list.map((n, i) => (
             <Stack key={i} gap="xs">
               <Text variant="caption" color={SemanticColor.TextSecondary}>
-                {noticeCategory(schedule.settings, n)?.name.en ?? KIND[n.kind].label} · {civilDateShort(n.from)}
+                {noticeCategory(schedule.settings, n)?.name.en ?? KIND[n.kind].label} ·{' '}
+                {civilDateShort(n.from)}
                 {n.to ? ` – ${civilDateShort(n.to)}` : ''}
               </Text>
               <NoticeCard notice={n} categories={schedule.settings.noticeCategories} />
@@ -440,8 +545,12 @@ export function NoticesTab({ today }: { today: DateString }) {
   if (!notices || !exceptions || !schedule) return null
   const lastDay = (n: Notice) => noticeLastDay(n, exceptions)
 
-  const current = notices.filter((n) => lastDay(n) >= today).sort((a, b) => a.from.localeCompare(b.from))
-  const past = notices.filter((n) => lastDay(n) < today).sort((a, b) => b.from.localeCompare(a.from))
+  const current = notices
+    .filter((n) => lastDay(n) >= today)
+    .sort((a, b) => a.from.localeCompare(b.from))
+  const past = notices
+    .filter((n) => lastDay(n) < today)
+    .sort((a, b) => b.from.localeCompare(a.from))
 
   return (
     <SectionPage
@@ -449,8 +558,17 @@ export function NoticesTab({ today }: { today: DateString }) {
       actions={
         !editing && (
           <Stack direction="row" gap="sm" wrap>
-            <Button icon="add" title="Add a sponsorship" onPress={() => setEditing(fresh.sponsorship())} />
-            <Button variant="secondary" icon="add" title="Add a notice" onPress={() => setEditing(fresh.announcement())} />
+            <Button
+              icon="add"
+              title="Add a sponsorship"
+              onPress={() => setEditing(fresh.sponsorship())}
+            />
+            <Button
+              variant="secondary"
+              icon="add"
+              title="Add a notice"
+              onPress={() => setEditing(fresh.announcement())}
+            />
             <Button variant="ghost" title="Paste with AI" onPress={() => setAi(!ai)} />
           </Stack>
         )
@@ -460,16 +578,28 @@ export function NoticesTab({ today }: { today: DateString }) {
       {ai && !editing && <NoticesAi today={today} onClose={() => setAi(false)} />}
       {!current.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>
-          Nothing coming up. Sponsorships, announcements, reminders, mazal tovs and condolences show on the display, the printed
-          week and in the Siddur from the day you choose.
+          Nothing coming up. Sponsorships, announcements, reminders, mazal tovs and condolences show
+          on the display, the printed week and in the Siddur from the day you choose.
         </Text>
       )}
       {current.map((n) => (
         <Stack key={n.id} gap="xs">
           <NoticeCard notice={n} categories={schedule.settings.noticeCategories} />
           <Stack direction="row" gap="sm">
-            <Button variant="ghost" size="sm" icon="edit" title="Edit" onPress={() => setEditing(n)} />
-            <Button variant="ghost" size="sm" icon="delete" title="Delete" onPress={() => removeNotice(n.id)} />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="edit"
+              title="Edit"
+              onPress={() => setEditing(n)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="delete"
+              title="Delete"
+              onPress={() => removeNotice(n.id)}
+            />
           </Stack>
         </Stack>
       ))}

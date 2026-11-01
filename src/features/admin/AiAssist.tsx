@@ -18,6 +18,8 @@ export function AiAssist<T>({
   applyLabel,
   onApply,
   onClose,
+  initialAnswer = '',
+  answerHint = 'Paste the whole answer; Beitecha finds the JSON in it.',
 }: {
   title: string
   /** What a gabbai might ask for, as the placeholder. */
@@ -31,14 +33,18 @@ export function AiAssist<T>({
   applyLabel: string
   onApply: (value: T) => void
   onClose: () => void
+  /** An answer already in hand (a file the gabbai loaded), checked at once. */
+  initialAnswer?: string
+  /** What the answer box says when empty. */
+  answerHint?: string
 }) {
   const [request, setRequest] = useState('')
   const [copied, setCopied] = useState<'prompt' | 'problems' | null>(null)
-  const [answer, setAnswer] = useState('')
+  const [answer, setAnswer] = useState(initialAnswer)
 
   const parsed = answer.trim() ? parse(answer) : null
   const problems = parsed ? (parsed.ok ? (check?.(parsed.value) ?? []) : parsed.errors) : []
-  const forAi = `Beitecha found these problems in your JSON. Please fix them and send the whole JSON again:\n${problems
+  const forAi = `Beitecha found these problems in your answer. Please fix them and send the whole answer again:\n${problems
     .map((p) => `- ${p}`)
     .join('\n')}`
 
@@ -84,7 +90,7 @@ export function AiAssist<T>({
           multiline
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder="Paste the whole answer; Beitecha finds the JSON in it."
+          placeholder={answerHint}
           value={answer}
           onChangeText={(t) => {
             setAnswer(t)

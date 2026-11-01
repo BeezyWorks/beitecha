@@ -16,6 +16,16 @@ import {
 } from '@beitecha/engine'
 import React, { useState } from 'react'
 
+import { AiAssist } from './AiAssist'
+import { download, pickTextFile } from './aiClipboard'
+import {
+  hebrewDateWords,
+  parseYahrzeits,
+  sameYahrzeit,
+  yahrzeitPrompt,
+  yahrzeitsToCsv,
+  yahrzeitsToJson,
+} from './aiYahrzeits'
 import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
@@ -169,6 +179,8 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
   const settings = useAdmin((s) => s.schedule?.settings.yahrzeits) ?? {}
   const setYahrzeits = useAdmin((s) => s.setYahrzeits)
   const [editing, setEditing] = useState<string | null>(null)
+  const [importing, setImporting] = useState<{ answer: string; n: number } | null>(null)
+  const profile = useAdmin((s) => s.profile)
   const t = makeT('en')
 
   const setSettings = (patch: Partial<YahrzeitSettings>) =>
@@ -187,6 +199,13 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
     setYahrzeits(
       list.some((x) => x.id === y.id) ? list.map((x) => (x.id === y.id ? y : x)) : [...list, y],
     )
+  const addAll = (people: Yahrzeit[]) =>
+    setYahrzeits([
+      ...list,
+      ...people
+        .filter((p) => !list.some((x) => sameYahrzeit(x, p)))
+        .map((p) => ({ ...p, id: newId() })),
+    ])
   const next = (y: Yahrzeit) => yahrzeitsBetween([y], today, addDays(today, 400))[0]?.date
 
   return (
@@ -254,6 +273,73 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
             if (n) setSettings({ days: n === 7 ? undefined : n })
           }}
         />
+      </Card>
+      <Card gap="md">
+        <Text variant="sectionHeader">Import & export</Text>
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          Have a spreadsheet already? Use “Import with AI”: copy the prompt into ChatGPT, Claude or
+          Gemini along with your list, and paste back the CSV it gives you. A CSV or JSON file, or
+          this tab’s own export, can also be loaded as is. Anyone already on the list is skipped.
+        </Text>
+        <Stack direction="row" gap="sm" wrap>
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Import with AI"
+            onPress={() => setImporting({ answer: '', n: (importing?.n ?? 0) + 1 })}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Import a file"
+            onPress={() =>
+              pickTextFile((answer) => setImporting({ answer, n: (importing?.n ?? 0) + 1 }))
+            }
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Export CSV"
+            disabled={!list.length}
+            onPress={() => download('yahrzeits.csv', yahrzeitsToCsv(list), 'text/csv')}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Export JSON"
+            disabled={!list.length}
+            onPress={() => download('yahrzeits.json', yahrzeitsToJson(list), 'application/json')}
+          />
+        </Stack>
+        {importing && profile && (
+          <AiAssist<Yahrzeit[]>
+            key={importing.n}
+            title="Import yahrzeits"
+            example={
+              'Paste your spreadsheet’s rows here (names and dates), or say “my spreadsheet is attached”.'
+            }
+            answerHint="Paste the CSV (or JSON) the AI gave you, or a CSV straight from a spreadsheet."
+            initialAnswer={importing.answer}
+            prompt={(request) => yahrzeitPrompt(profile, request)}
+            parse={parseYahrzeits}
+            preview={(people) => (
+              <Stack gap="xs">
+                {people.map((p, i) => (
+                  <Text key={i} variant="body">
+                    {t.yahrzeitNames(p).join(' · ')} · {hebrewDateWords(p.hebrew)} · {p.gregorian}
+                  </Text>
+                ))}
+                <Text variant="caption" color={SemanticColor.TextSecondary}>
+                  {people.filter((p) => list.some((x) => sameYahrzeit(x, p))).length} already on the
+                  list will be skipped.
+                </Text>
+              </Stack>
+            )}
+            applyLabel="Add to the list"
+            onApply={addAll}
+            onClose={() => setImporting(null)}
+          />
+        )}
       </Card>
       {!list.length && editing === null && (
         <Text variant="body" color={SemanticColor.TextSecondary}>

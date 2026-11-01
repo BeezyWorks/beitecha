@@ -67,6 +67,11 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
 - **Refuah shleimah** (`schedule.cholim`): names for the Mi Shebeirach, in English, Hebrew or both (`t.choleh()` picks
   one). The admin's tab takes them one per line and asks about any over a month old; the display gives them pages in
   the notice rotation, the printed week a list at the end of the announcements. They're public with the schedule.
+- **Yahrzeits** (`schedule.yahrzeits`, `settings.yahrzeits`): a Hebrew name and a display name (English and Hebrew) per
+  person, the date of passing kept as both a Hebrew and a civil date (either one entered, the other derived). The week's
+  are listed under a customizable title on the display (`days` ahead) and the printed week, showing the names and dates
+  the shul picks. The admin imports and exports CSV or JSON (`aiYahrzeits.ts`), with a prompt for any chat AI to turn a
+  spreadsheet into the CSV.
 - **Display upkeep** (`useDisplayUpkeep`): heartbeat every 5 min (capped at 20 displays per shul), wake lock, hidden
   cursor, reload when the shul's day rolls over, hourly 1px drift against burn-in.
 

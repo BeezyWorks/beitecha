@@ -20,6 +20,13 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   - **Day tags come from the morning's Hebrew date** (Friday is `erevShabbos`; Shabbos is also `motzeiShabbos` unless
     Yom Tov follows). `fast` = public fasts only (not BeHaB, Bechoros, Erev Tish'a B'Av, Yom Kippur).
   - **Zmanim round the safe way**: deadlines down, start times up (`ROUND_UP` in `day.ts`).
+  - **Custom zmanim** (`settings.zmanim.custom`, `custom.ts`): a shul's own, by sun angle or clock/zmani minutes
+    from sunrise, sunset or an angle; the zmani day runs from sunrise or an alos to sunset or a tzeis. They count
+    from (or bound the day by) only another custom zman taken straight from the sun, so there's no recursion. Each
+    sees sunrise/sunset from the shul's elevation or sea level (`elevation`, default `useElevation`); a referenced
+    zman keeps its own. Rules
+    use them as `{ zman: id }`; a day carries their names in `zmanNames`, and `zmanimList(day)` lists all shown
+    zmanim in time order (old Siddur builds use `zmanimForDay` and simply don't show them).
   - **Event details for the Siddur's Shul tab** are set once, never weekly: `category` (program/meal) and `audience`
     sit beside `kind` (old clients only know `kind`) and are guessed from the name when unset (`categories.ts`);
     a time hung on a minyan is said by it ("after Maariv", `Occurrence.relative`) unless the rule says otherwise.

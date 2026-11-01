@@ -3,6 +3,8 @@ import {
   guessCategory,
   type Audience,
   type Condition,
+  type CustomZman,
+  customZmanName,
   type DayTag,
   type EventCategory,
   type EventDef,
@@ -12,7 +14,9 @@ import {
   type Rule,
   type TimeExpr,
   type Weekday,
+  ZMAN_LABELS,
   type ZmanId,
+  type ZmanKey,
 } from '@beitecha/engine'
 
 // ---------------------------------------------------------------------------
@@ -129,7 +133,7 @@ export const sameAtom = (a: Atom, b: Atom) => JSON.stringify(a) === JSON.stringi
 
 export type Source =
   | { type: 'clock'; clock: string }
-  | { type: 'zman'; zman: ZmanId; offset: number }
+  | { type: 'zman'; zman: ZmanKey; offset: number }
   | { type: 'event'; event: string; offset: number }
 
 export interface TimeForm {
@@ -210,6 +214,12 @@ export function formToTime(form: TimeForm): TimeExpr {
 
 // ---------------------------------------------------------------------------
 // Names.
+
+/** A zman's name in the admin: a built-in's, else the shul's own (its English, else its Hebrew), else its id. */
+export function zmanLabel(id: ZmanKey, custom: CustomZman[] = []): string {
+  const own = custom.find((c) => c.id === id)
+  return ZMAN_LABELS[id as ZmanId]?.en ?? (own ? customZmanName(own).en : id)
+}
 
 /** What the admin calls an event: the gabbai's own name for it ("Shabbos Mincha"), else the name everyone sees. */
 export const adminLabel = (e: Pick<EventDef, 'name' | 'adminName'>) => e.adminName?.trim() || e.name.en

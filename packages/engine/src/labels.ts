@@ -1,4 +1,17 @@
-import type { Audience, DayTag, EventCategory, EventKind, Localized, NoticeKind, TefilaType, Weekday, ZmanId } from './types'
+import type {
+  Audience,
+  DaySchedule,
+  DayTag,
+  EventCategory,
+  EventKind,
+  Localized,
+  Minutes,
+  NoticeKind,
+  TefilaType,
+  Weekday,
+  ZmanId,
+  ZmanKey,
+} from './types'
 
 export const ZMAN_LABELS: Record<ZmanId, Localized> = {
   alos: { en: 'Alos HaShachar', he: 'עלות השחר' },
@@ -38,6 +51,23 @@ export function zmanimForDay(tags: DayTag[]): ZmanId[] {
   if (tags.includes('erevShabbos') || tags.includes('erevYomTov')) list.splice(list.indexOf('sunset'), 0, 'candleLighting')
   if (tags.includes('motzeiShabbos') || tags.includes('motzeiYomTov')) list.push('havdalah')
   return list
+}
+
+/**
+ * A day's zmanim to show, in order: the built-ins `zmanimForDay` picks and the shul's custom ones, by time (a
+ * built-in first on a tie), each with its name. Ones the shul hides, or that the day doesn't have, are left out.
+ */
+export function zmanimList(day: Pick<DaySchedule, 'tags' | 'zmanim' | 'zmanNames'>): { id: ZmanKey; name: Localized; minutes: Minutes }[] {
+  const out: { id: ZmanKey; name: Localized; minutes: Minutes }[] = []
+  for (const id of zmanimForDay(day.tags)) {
+    const minutes = day.zmanim[id]
+    if (minutes !== undefined) out.push({ id, name: ZMAN_LABELS[id], minutes })
+  }
+  for (const [id, name] of Object.entries(day.zmanNames ?? {})) {
+    const minutes = day.zmanim[id]
+    if (minutes !== undefined) out.push({ id, name, minutes })
+  }
+  return out.sort((a, b) => a.minutes - b.minutes)
 }
 
 export const TAG_LABELS: Record<DayTag, Localized> = {

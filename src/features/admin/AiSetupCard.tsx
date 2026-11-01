@@ -3,7 +3,7 @@ import { todayIn, validate, type EventDef, type Issue } from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { copy, download, pickTextFile } from './aiClipboard'
-import { applyImport, buildAiPrompt, parseAiImport } from './aiSetup'
+import { applyImport, buildAiPrompt, parseAiImport, zmanIds } from './aiSetup'
 import { useAdmin } from './store'
 
 type Checked = { ok: true; events: EventDef[]; issues: Issue[] } | { ok: false; errors: string[] }
@@ -28,7 +28,7 @@ export function AiSetupCard() {
 
   const check = (text: string) => {
     setApplied(false)
-    const result = parseAiImport(text)
+    const result = parseAiImport(text, zmanIds(schedule))
     if (!result.ok) return setChecked(result)
     const issues = validate(
       { ...schedule, events: result.events },

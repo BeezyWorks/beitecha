@@ -28,8 +28,9 @@ import {
   sampleSchedule,
   starterSchedule,
   validate,
+  zmanimList,
 } from '../index'
-import type { EventDef, LocalHoliday, Schedule, ShulSettings, TimeExpr } from '../types'
+import type { CustomZman, EventDef, LocalHoliday, Schedule, ShulSettings, TimeExpr } from '../types'
 
 const settings = sampleSchedule.settings
 const tags = (date: string, s: ShulSettings = settings) => [...dayInfo(date, s).tags]
@@ -830,5 +831,155 @@ describe('validate details', () => {
         'warning: The announcement "Hm" isn\'t a sponsorship',
       ]),
     )
+  })
+})
+
+describe('custom zmanim', () => {
+  const custom: CustomZman[] = [
+    { id: 'alos16', name: { he: 'עלות השחר', en: 'Alos 16.1°' }, from: { degrees: 16.1, at: 'morning' } },
+    { id: 'alos72', name: { he: 'עלות ע״ב' }, from: 'sunrise', minutes: -72 },
+    { id: 'tzeis72', name: { he: 'צאת ע״ב' }, from: 'sunset', minutes: 72 },
+    {
+      id: 'shmaGra',
+      name: { he: 'סוף זמן ק״ש' },
+      from: 'sunrise',
+      minutes: 180,
+      zmani: { start: 'sunrise', end: 'sunset' },
+      deadline: true,
+    },
+    {
+      id: 'shma72',
+      name: { he: 'סוף זמן ק״ש מג״א' },
+      from: { zman: 'alos72' },
+      minutes: 180,
+      zmani: { start: { zman: 'alos72' }, end: { zman: 'tzeis72' } },
+      deadline: true,
+    },
+    { id: 'plagGra', name: { he: 'פלג' }, from: 'sunset', minutes: -75, zmani: { start: 'sunrise', end: 'sunset' } },
+    { id: 'tzeis85', name: { he: 'צאה״כ' }, from: { degrees: 8.5, at: 'evening' } },
+    { id: 'sunAbove', name: { he: 'שמש' }, from: { degrees: -2, at: 'evening' } },
+  ]
+  const withCustom = (extra: Partial<NonNullable<ShulSettings['zmanim']>> = {}): Schedule => ({
+    ...sampleSchedule,
+    settings: { ...sampleSchedule.settings, zmanim: { ...sampleSchedule.settings.zmanim, custom, ...extra } },
+  })
+
+  it.each(['2026-03-20', '2026-06-21', '2026-12-21'])('matches the built-ins they restate (%s)', (date) => {
+    const z = computeDay(withCustom(), date).zmanim
+    expect(z.alos16).toBe(z.alos)
+    expect(z.shmaGra).toBe(z.sofZmanShma)
+    expect(z.shma72).toBe(z.sofZmanShmaMga)
+    expect(z.plagGra).toBe(z.plag)
+    expect(z.tzeis85).toBe(z.tzeis)
+    expect(z.alos72).toBe(z.sunrise! - 72)
+    expect(z.sunAbove).toBeLessThan(z.sunset!)
+  })
+
+  it('rounds deadlines down and the rest up', () => {
+    const cal = new Calendar(withCustom())
+    const late = { ...custom[3], id: 'shmaUp', deadline: false }
+    const up = new Calendar(withCustom({ custom: [...custom, late] })).zmanimOn('2026-10-21')
+    expect(up.shmaUp! - cal.zmanimOn('2026-10-21').shmaGra!).toBeLessThanOrEqual(1)
+    expect(up.shmaUp).toBeGreaterThanOrEqual(cal.zmanimOn('2026-10-21').shmaGra!)
+  })
+
+  it('lets rules anchor on them, hidden or not', () => {
+    const schedule: Schedule = {
+      ...withCustom({ hidden: ['tzeis72'] }),
+      events: [{ id: 'maariv', name: { en: 'Maariv' }, kind: 'tefila', tefila: 'maariv', rules: [{ time: { zman: 'tzeis72' } }] }],
+      exceptions: [],
+      notices: [],
+    }
+    const day = computeDay(schedule, '2026-10-21')
+    expect(day.zmanim.tzeis72).toBeUndefined()
+    expect(day.zmanNames?.tzeis72).toBeUndefined()
+    const sunset = new Calendar(schedule).zmanimOn('2026-10-21').sunset!
+    expect(day.events[0].minutes! - sunset - 72).toBeOneOf([0, 1])
+  })
+
+  it('lists them by time among the built-ins, with their names', () => {
+    const day = computeDay(withCustom(), '2026-10-21')
+    const list = zmanimList(day)
+    const minutes = list.map((z) => z.minutes)
+    expect(minutes).toEqual([...minutes].sort((a, b) => a - b))
+    const at = (id: string) => list.findIndex((z) => z.id === id)
+    expect(at('alos72')).toBeGreaterThan(at('alos'))
+    expect(at('alos72')).toBeLessThan(at('sunrise'))
+    expect(list.find((z) => z.id === 'alos72')?.name).toEqual({ en: 'עלות ע״ב', he: 'עלות ע״ב' })
+    // A tie puts the built-in first.
+    expect(list.findIndex((z) => z.id === 'alos')).toBeLessThan(list.findIndex((z) => z.id === 'alos16'))
+    expect(makeT('en').zman('alos16', day.zmanNames)).toBe('Alos 16.1°')
+    expect(makeT('he', undefined, 'he').zman('alos16', day.zmanNames)).toBe('עלות השחר')
+  })
+
+  it('skips them where the sun never gets there', () => {
+    const north: Schedule = {
+      ...withCustom(),
+      settings: { ...withCustom().settings, location: { latitude: 59.9, longitude: 10.75, timeZone: 'Europe/Oslo', israel: false } },
+    }
+    expect(computeDay(north, '2026-06-21').zmanim.alos16).toBeUndefined()
+    expect(computeDay(north, '2026-06-21').zmanim.alos72).toBeDefined()
+  })
+
+  it('see sunrise and sunset from the shul’s height, or sea level, as each says', () => {
+    const own: CustomZman[] = [
+      { id: 'netz', name: { he: 'נץ' }, from: 'sunrise' },
+      { id: 'netzHigh', name: { he: 'נץ' }, from: 'sunrise', elevation: true },
+      { id: 'shkiaSea', name: { he: 'שקיעה' }, from: 'sunset', elevation: false, deadline: true },
+      { id: 'alosSea', name: { he: 'עלות' }, from: 'sunrise', minutes: -72, elevation: false },
+      // Counts from a sea-level alos, but its own sunset is from the height.
+      { id: 'plagMixed', name: { he: 'פלג' }, from: 'sunset', minutes: -75, zmani: { start: { zman: 'alosSea' }, end: 'sunset' }, elevation: true },
+      { id: 'alos16', name: { he: 'עלות' }, from: { degrees: 16.1, at: 'morning' }, elevation: true },
+    ]
+    const jerusalem = (useElevation: boolean): Schedule => ({
+      ...sampleSchedule,
+      settings: {
+        location: { latitude: 31.778, longitude: 35.235, elevation: 800, timeZone: 'Asia/Jerusalem', israel: true },
+        zmanim: { useElevation, custom: own },
+      },
+    })
+    const sea = new Calendar(jerusalem(false)).zmanimOn('2026-06-21')
+    const high = new Calendar(jerusalem(true)).zmanimOn('2026-06-21')
+    // Absent follows the shul.
+    expect(sea.netz).toBe(sea.sunrise)
+    expect(high.netz).toBe(high.sunrise)
+    expect(high.sunrise).toBeLessThan(sea.sunrise!)
+    // Set, it holds either way.
+    expect(sea.netzHigh).toBe(high.sunrise)
+    expect(high.netzHigh).toBe(high.sunrise)
+    expect(high.shkiaSea).toBe(sea.sunset)
+    expect(high.alosSea).toBe(sea.sunrise! - 72)
+    expect(sea.plagMixed).toBe(high.plagMixed)
+    expect(sea.plagMixed).toBeLessThan(sea.plag!) // a longer day, so longer zmani minutes
+    // Angles don't move.
+    expect(sea.alos16).toBe(sea.alos)
+  })
+
+  it('validates them', () => {
+    const bad: CustomZman[] = [
+      { id: 'sunrise', name: { he: 'נץ' }, from: 'sunrise' },
+      { id: 'x1', name: { he: '' }, from: 'sunrise' },
+      { id: 'a', name: { he: 'א' }, from: { zman: 'shmaGra' } },
+      { id: 'b', name: { he: 'ב' }, from: 'sunrise', zmani: { start: { zman: 'nope' }, end: 'sunset' } },
+      { id: 'c', name: { he: 'ג' }, from: { degrees: 95, at: 'morning' } },
+    ]
+    const schedule: Schedule = {
+      ...withCustom({ custom: [...custom, ...bad] }),
+      events: [{ id: 'm', name: { en: 'Mincha' }, kind: 'tefila', tefila: 'mincha', rules: [{ time: { zman: 'plagMga' } }] }],
+      exceptions: [],
+      notices: [],
+    }
+    const messages = validate(schedule, '2026-10-21', 3).map((i) => i.message)
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        '"sunrise" is a built-in zman\'s id',
+        '"x1" needs a Hebrew name',
+        '"a" counts from "shmaGra", which needs to be counted straight from the sun in plain minutes',
+        '"b" counts from "nope", which isn\'t one of the shul\'s zmanim',
+        '"c" puts the sun at 95°, which it doesn\'t reach',
+        'Rule 1 uses unknown zman "plagMga"',
+      ]),
+    )
+    expect(validate(withCustom(), '2026-10-21', 3)).toEqual([])
   })
 })

@@ -84,13 +84,13 @@ ${request(ask)}`
 }
 
 /** One or more events from an AI's answer. A bare event object is taken as a list of one. */
-export function parseEvents(text: string): Parsed<EventDef[]> {
+export function parseEvents(text: string, zmanim?: ReadonlySet<string>): Parsed<EventDef[]> {
   const data = json(text)
   if (!data.ok) return data
   const v = data.value
   const list = Array.isArray(v) ? v : isObj(v) && Array.isArray(v.events) ? v.events : isObj(v) && 'rules' in v ? [v] : null
   if (!list) return { ok: false, errors: ['Expected { "events": [ … ] }.'] }
-  const result = parseEventList(list)
+  const result = parseEventList(list, zmanim)
   return result.ok ? { ok: true, value: result.events } : result
 }
 
@@ -118,14 +118,14 @@ ${index !== null ? `\nThe rule to rewrite (rule ${index + 1}):\n\n${JSON.stringi
 ${request(ask)}`
 }
 
-export function parseRule(text: string): Parsed<Rule> {
+export function parseRule(text: string, zmanim?: ReadonlySet<string>): Parsed<Rule> {
   const data = json(text)
   if (!data.ok) return data
   const v = data.value
   const rule = isObj(v) && isObj(v.rule) ? v.rule : isObj(v) && Array.isArray(v.rules) && v.rules.length === 1 ? v.rules[0] : v
   if (!isObj(rule) || !('time' in rule)) return { ok: false, errors: ['Expected { "rule": { "when": …, "time": … } }.'] }
   const errors: string[] = []
-  checkRule(rule, 'The rule', errors)
+  checkRule(rule, 'The rule', errors, zmanim)
   return errors.length ? { ok: false, errors } : { ok: true, value: rule as unknown as Rule }
 }
 

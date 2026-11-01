@@ -1,5 +1,6 @@
 export * from './types'
 export { Calendar, computeDay, computeRange, derivedRelative, noticeLastDay } from './schedule'
+export { customZmanName, customZmanProblem, isSunBased } from './custom'
 export { guessAudience, guessCategory } from './categories'
 export { sampleSchedule } from './sample'
 export { starterSchedule, type StarterOptions } from './starter'
@@ -51,6 +52,7 @@ export {
   ZMAN_LABELS,
   weekdayShort,
   zmanimForDay,
+  zmanimList,
 } from './labels'
 export { nextUp, type NextUp } from './nextUp'
 export { ampm, civilDate, civilDateShort, clock, clockFull, makeT, untilText, type Wording } from './wording'

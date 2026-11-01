@@ -24,6 +24,7 @@ import { Select } from '@/components/Select'
 import { makeT } from '@/features/luach/language'
 import { AiAssist } from './AiAssist'
 import { eventPrompt, parseEvents, parseRule, rulePrompt } from './aiItems'
+import { zmanIds } from './aiSetup'
 import { AiSetupCard } from './AiSetupCard'
 import { ConditionEditor, describeCondition } from './ConditionEditor'
 import { DateField } from './DateField'
@@ -432,7 +433,7 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
           title={`Change ${name} with AI`}
           example={`e.g. “6:15 on Rosh Chodesh and fasts too, and no ${event.name.en || 'minyan'} on Tish’a B’Av”`}
           prompt={(r) => eventPrompt(schedule, profile, event, r)}
-          parse={parseEvents}
+          parse={(text) => parseEvents(text, zmanIds(schedule))}
           check={(list) => (list.length === 1 ? issuesWith({ ...list[0], id: event.id }) : [`Expected one event, got ${list.length}.`])}
           preview={([e]) => <RulesSummary event={e} events={others} />}
           applyLabel={`Use these times for ${name}`}
@@ -541,7 +542,7 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
                     title="Rewrite this line with AI"
                     example="e.g. “On fast days and Rosh Chodesh, 10 minutes earlier than usual”"
                     prompt={(r) => rulePrompt(schedule, profile, event, i, r)}
-                    parse={parseRule}
+                    parse={(text) => parseRule(text, zmanIds(schedule))}
                     check={(r) => issuesWith({ ...event, rules: event.rules.map((x, j) => (j === i ? r : x)) })}
                     preview={(r) => <RulesSummary event={{ ...event, rules: [r] }} events={others} />}
                     applyLabel="Use this line"
@@ -569,7 +570,7 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
             title="Add a line with AI"
             example="e.g. “8:00 on Sundays and legal holidays”"
             prompt={(r) => rulePrompt(schedule, profile, event, null, r)}
-            parse={parseRule}
+            parse={(text) => parseRule(text, zmanIds(schedule))}
             check={(r) => {
               const i = firstCatchAll >= 0 ? firstCatchAll : event.rules.length
               return issuesWith({ ...event, rules: [...event.rules.slice(0, i), r, ...event.rules.slice(i)] })
@@ -780,7 +781,7 @@ export function EventsTab({ today }: { today: DateString }) {
                       : 'e.g. “Kiddush after Shacharis every Shabbos”'
                 }
                 prompt={(r) => eventPrompt(schedule, profile, null, `(${title.toLowerCase()}) ${r}`)}
-                parse={parseEvents}
+                parse={(text) => parseEvents(text, zmanIds(schedule))}
                 check={(list) =>
                   validate({ ...schedule, events: [...events, ...list] }, today, 370)
                     .filter((i) => i.level === 'error' && list.some((e) => e.id === i.eventId))

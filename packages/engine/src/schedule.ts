@@ -1,3 +1,4 @@
+import { customZmanName } from './custom'
 import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zmanimFor, type DayInfo } from './day'
 import { addDays, parseClock, startOfWeek, utcOffset } from './dates'
 import { LocalHolidays } from './local'
@@ -18,7 +19,7 @@ import type {
   RelativeTo,
   Schedule,
   TimeExpr,
-  ZmanId,
+  ZmanTimes,
 } from './types'
 
 /** Thrown inside evaluation; caught per occurrence and reported as its `error`. */
@@ -68,7 +69,7 @@ export class Calendar {
   private readonly exceptionsByDate = new Map<DateString, Exception[]>()
   private readonly local: LocalHolidays
   private readonly infos = new Map<DateString, DayInfo>()
-  private readonly zmanim = new Map<DateString, Partial<Record<ZmanId, Minutes>>>()
+  private readonly zmanim = new Map<DateString, ZmanTimes>()
   private readonly resolved = new Map<string, Resolved>()
   private readonly inProgress = new Set<string>()
 
@@ -92,7 +93,7 @@ export class Calendar {
     return i
   }
 
-  zmanimOn(date: DateString): Partial<Record<ZmanId, Minutes>> {
+  zmanimOn(date: DateString): ZmanTimes {
     let z = this.zmanim.get(date)
     if (!z) {
       z = zmanimFor(date, this.schedule.settings)
@@ -365,7 +366,7 @@ export class Calendar {
   }
 
   /** The zmanim to display: all but the ones the shul hides. Rules can still anchor on a hidden one. */
-  private shownZmanim(date: DateString): Partial<Record<ZmanId, Minutes>> {
+  private shownZmanim(date: DateString): ZmanTimes {
     const hidden = this.schedule.settings.zmanim?.hidden
     if (!hidden?.length) return this.zmanimOn(date)
     const out = { ...this.zmanimOn(date) }
@@ -373,8 +374,16 @@ export class Calendar {
     return out
   }
 
+  /** The names of the custom zmanim shown on a day. */
+  private zmanNames(zmanim: ZmanTimes): DaySchedule['zmanNames'] {
+    const shown = (this.schedule.settings.zmanim?.custom ?? []).filter((c) => zmanim[c.id] !== undefined)
+    return shown.length ? Object.fromEntries(shown.map((c) => [c.id, customZmanName(c)])) : undefined
+  }
+
   day(date: DateString, opts?: { includeInternal?: boolean }): DaySchedule {
     const info = this.info(date)
+    const zmanim = this.shownZmanim(date)
+    const zmanNames = this.zmanNames(zmanim)
     return {
       date,
       weekday: info.weekday,
@@ -382,7 +391,8 @@ export class Calendar {
       holidays: displayHolidays(info),
       parsha: parshaFor(date, this.schedule.settings),
       tags: [...info.tags],
-      zmanim: this.shownZmanim(date),
+      zmanim,
+      ...(zmanNames && { zmanNames }),
       events: this.occurrences(date, opts),
       notices: this.notices(date),
     }

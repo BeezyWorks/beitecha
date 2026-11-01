@@ -7,7 +7,7 @@ import {
   WEEKDAY_SHORT,
   ZMAN_IDS,
   ZMAN_LABELS,
-  type ZmanId,
+  type ZmanKey,
 } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
@@ -21,8 +21,10 @@ import {
   timeToForm,
   type Source,
   type TimeForm,
+  zmanLabel,
 } from './forms'
 import { JsonEditor } from './JsonEditor'
+import { useAdmin } from './store'
 
 /** A clock time typed loosely ("6:30pm") and stored as `HH:MM`. */
 export function ClockField({
@@ -100,7 +102,14 @@ function OffsetField({ value, onChange }: { value: number; onChange: (n: number)
   )
 }
 
-const zmanOptions = ZMAN_IDS.map((id) => ({ value: id, label: ZMAN_LABELS[id].en }))
+/** The built-in zmanim, then the shul's own. */
+function useZmanOptions(): { value: ZmanKey; label: string }[] {
+  const custom = useAdmin((s) => s.schedule?.settings.zmanim?.custom)
+  return [
+    ...ZMAN_IDS.map((id) => ({ value: id, label: ZMAN_LABELS[id].en })),
+    ...(custom ?? []).map((c) => ({ value: c.id, label: zmanLabel(c.id, custom) })),
+  ]
+}
 
 function SourceRow({
   source,
@@ -113,6 +122,7 @@ function SourceRow({
   onChange: (s: Source) => void
   onRemove?: () => void
 }) {
+  const zmanOptions = useZmanOptions()
   const setType = (type: Source['type']) => {
     if (type === source.type) return
     if (type === 'clock') onChange({ type, clock: '06:30' })
@@ -156,7 +166,7 @@ function SourceRow({
           />
         )}
         {source.type === 'zman' && (
-          <Select<ZmanId>
+          <Select<ZmanKey>
             value={source.zman}
             options={zmanOptions}
             onChange={(zman) => onChange({ ...source, zman })}
@@ -394,7 +404,10 @@ export function describeTime(t: TimeExpr | null, events: EventDef[]): string {
   const src = (s: Source) => {
     if (s.type === 'clock') return clockLabel(s.clock)
     const anchor = s.type === 'event' ? events.find((e) => e.id === s.event) : undefined
-    const name = s.type === 'zman' ? ZMAN_LABELS[s.zman].en : anchor ? adminLabel(anchor) : s.event
+    // The shul's own zmanim as they are in the draft right now.
+    const custom = useAdmin.getState().schedule?.settings.zmanim?.custom
+    const name =
+      s.type === 'zman' ? zmanLabel(s.zman, custom) : anchor ? adminLabel(anchor) : s.event
     if (!s.offset) return name
     return `${Math.abs(s.offset)} min ${s.offset < 0 ? 'before' : 'after'} ${name}`
   }

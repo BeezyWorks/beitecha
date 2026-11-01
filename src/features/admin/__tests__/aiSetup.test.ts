@@ -1,6 +1,6 @@
 import { Calendar, sampleSchedule, validate, type EventDef } from '@beitecha/engine'
 
-import { applyImport, buildAiPrompt, parseAiImport } from '../aiSetup'
+import { applyImport, buildAiPrompt, parseAiImport, zmanIds } from '../aiSetup'
 
 const profile = { name: { en: 'Test Shul' } }
 
@@ -122,5 +122,24 @@ describe('applyImport', () => {
   it('merges by id, keeping order and appending new ones', () => {
     const out = applyImport([ev('a'), ev('b')], [ev('b', 'B2'), ev('c')], 'merge')
     expect(out.map((e) => e.name.en)).toEqual(['a', 'B2', 'c'])
+  })
+})
+
+describe('custom zmanim', () => {
+  const schedule = {
+    ...sampleSchedule,
+    settings: {
+      ...sampleSchedule.settings,
+      zmanim: { custom: [{ id: 'tzeis72', name: { he: 'צאת ע״ב', en: 'Tzeis 72' }, from: 'sunset' as const, minutes: 72 }] },
+    },
+  }
+  const maariv = JSON.stringify([
+    { id: 'maariv', name: { en: 'Maariv' }, kind: 'tefila', rules: [{ time: { zman: 'tzeis72' } }] },
+  ])
+
+  it('lists the shul’s own in the prompt and accepts them in an answer', () => {
+    expect(buildAiPrompt(schedule, profile)).toContain("tzeis72: Tzeis 72 (this shul's own)")
+    expect(parseAiImport(maariv, zmanIds(schedule)).ok).toBe(true)
+    expect(parseAiImport(maariv)).toEqual({ ok: false, errors: ['"Maariv" rule 1: unknown zman "tzeis72"'] })
   })
 })

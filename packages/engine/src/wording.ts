@@ -16,6 +16,7 @@ import type {
   Relative,
   Weekday,
   ZmanId,
+  ZmanKey,
 } from './types'
 
 /** `6:30` (no AM/PM) — shul schedules read better without it. */
@@ -156,7 +157,9 @@ function build(lang: Language, timeFormat: string | undefined, names: NameStyle)
     weekday: (d: Weekday) => label(WEEKDAYS[d]),
     /** `Mon` / `ב׳` */
     weekdayShort: (d: Weekday) => (he ? HE_WEEKDAYS_SHORT[d] : WEEKDAY_SHORT[d]),
-    zman: (id: ZmanId) => text(ZMAN_LABELS[id]),
+    /** A built-in zman's name, or a custom one's from the day's `zmanNames`. */
+    zman: (id: ZmanKey, names?: Record<string, Localized>) =>
+      text(ZMAN_LABELS[id as ZmanId] ?? names?.[id] ?? { en: id }),
     category: (c: EventCategory) => label(CATEGORY_LABELS[c]),
     audience: (a: Audience) => label(AUDIENCE_LABELS[a]),
     /** "Mazal tov", "Reminder"… */

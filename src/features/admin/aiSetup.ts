@@ -11,6 +11,7 @@ import {
   STANDARD_TEFILOS,
   TEFILA_TYPES,
   type TefilaType,
+  customZmanName,
   ZMAN_IDS,
   ZMAN_LABELS,
   type ZmanId,
@@ -87,7 +88,7 @@ type Condition =
 
 type TimeExpr =
   | { clock: 'HH:MM' } // 24-hour, e.g. "06:30", "19:15"
-  | { zman: ZmanId }
+  | { zman: ZmanId | string } // or one of this shul's own zmanim, by id
   | { event: string } // another event's time that same day, by id
   | { offset: number; of: TimeExpr } // minutes after (negative = before)
   | { earliest: TimeExpr[] }
@@ -161,7 +162,12 @@ const HOLIDAY_NAMES =
  */
 export function aiReference(schedule: Schedule): string {
   const local = effectiveHolidays(schedule.settings)
-  const zmanim = ZMAN_IDS.map((id: ZmanId) => `  ${id}: ${ZMAN_LABELS[id].en}`).join('\n')
+  const zmanim = [
+    ...ZMAN_IDS.map((id: ZmanId) => `  ${id}: ${ZMAN_LABELS[id].en}`),
+    ...(schedule.settings.zmanim?.custom ?? []).map(
+      (c) => `  ${c.id}: ${customZmanName(c).en} (this shul's own)`,
+    ),
+  ].join('\n')
   const tags = DAY_TAGS.map((t) => `  ${t}: ${TAG_MEANINGS[t]}`).join('\n')
   const holidays = local.length
     ? local.map((h) => `  ${h.id}: ${h.name.en}`).join('\n')
@@ -283,54 +289,58 @@ export function checkCondition(c: unknown, at: string, errors: string[]) {
   } else bad(`unknown condition "${k}"`)
 }
 
-export function checkTime(t: unknown, at: string, errors: string[]) {
+/** The zman ids a rule can use: the built-ins and the shul's own. */
+export const zmanIds = (schedule?: Schedule): ReadonlySet<string> =>
+  new Set([...ZMAN_IDS, ...(schedule?.settings.zmanim?.custom ?? []).map((c) => c.id)])
+
+export function checkTime(t: unknown, at: string, errors: string[], zmanim = zmanIds()) {
   const bad = (why: string) => errors.push(`${at}: ${why}`)
   if (!isObj(t)) return bad('a time must be an object')
   if ('clock' in t) {
     if (typeof t.clock !== 'string' || !CLOCK.test(t.clock))
       bad(`clock "${t.clock}" must be "HH:MM", 24-hour`)
   } else if ('zman' in t) {
-    if (!(ZMAN_IDS as readonly unknown[]).includes(t.zman)) bad(`unknown zman "${t.zman}"`)
+    if (!zmanim.has(t.zman as string)) bad(`unknown zman "${t.zman}"`)
   } else if ('event' in t) {
     if (typeof t.event !== 'string') bad('"event" must be an event id')
   } else if ('offset' in t) {
     if (typeof t.offset !== 'number') bad('"offset" must be a number of minutes')
-    checkTime(t.of, `${at} › of`, errors)
+    checkTime(t.of, `${at} › of`, errors, zmanim)
   } else if ('earliest' in t || 'latest' in t) {
     const list = t.earliest ?? t.latest
     if (!Array.isArray(list) || !list.length) bad('"earliest"/"latest" must be a non-empty list')
-    else list.forEach((x, i) => checkTime(x, `${at} › [${i}]`, errors))
+    else list.forEach((x, i) => checkTime(x, `${at} › [${i}]`, errors, zmanim))
   } else if ('clamp' in t) {
-    checkTime(t.clamp, `${at} › clamp`, errors)
-    if (t.min !== undefined) checkTime(t.min, `${at} › min`, errors)
-    if (t.max !== undefined) checkTime(t.max, `${at} › max`, errors)
+    checkTime(t.clamp, `${at} › clamp`, errors, zmanim)
+    if (t.min !== undefined) checkTime(t.min, `${at} › min`, errors, zmanim)
+    if (t.max !== undefined) checkTime(t.max, `${at} › max`, errors, zmanim)
   } else if ('round' in t) {
-    checkTime(t.round, `${at} › round`, errors)
+    checkTime(t.round, `${at} › round`, errors, zmanim)
     if (typeof t.to !== 'number' || t.to <= 0) bad('"to" must be a positive number of minutes')
     if (!['down', 'up', 'nearest', 'withTrend', 'againstTrend'].includes(t.mode as string))
       bad('"mode" must be "down", "up", "nearest", "withTrend" or "againstTrend"')
   } else if ('weekly' in t) {
-    checkTime(t.weekly, `${at} › weekly`, errors)
+    checkTime(t.weekly, `${at} › weekly`, errors, zmanim)
     if (t.pick !== 'earliest' && t.pick !== 'latest') bad('"pick" must be "earliest" or "latest"')
   } else if ('if' in t) {
     if (!isObj(t.if)) bad('"if" must have left, is and right')
     else {
-      checkTime(t.if.left, `${at} › if.left`, errors)
-      checkTime(t.if.right, `${at} › if.right`, errors)
+      checkTime(t.if.left, `${at} › if.left`, errors, zmanim)
+      checkTime(t.if.right, `${at} › if.right`, errors, zmanim)
       if (!['before', 'atOrBefore', 'after', 'atOrAfter'].includes(t.if.is as string))
         bad('"is" must be "before", "atOrBefore", "after" or "atOrAfter"')
     }
-    checkTime(t.then, `${at} › then`, errors)
-    if (t.otherwise !== undefined) checkTime(t.otherwise, `${at} › otherwise`, errors)
+    checkTime(t.then, `${at} › then`, errors, zmanim)
+    if (t.otherwise !== undefined) checkTime(t.otherwise, `${at} › otherwise`, errors, zmanim)
   } else bad(`unknown time ${JSON.stringify(t)}`)
 }
 
-export function checkRule(r: unknown, at: string, errors: string[]) {
+export function checkRule(r: unknown, at: string, errors: string[], zmanim = zmanIds()) {
   if (!isObj(r)) return errors.push(`${at}: must be an object`)
   if (r.when !== undefined) checkCondition(r.when, at, errors)
   if (!('time' in r)) errors.push(`${at}: needs "time" (or null for "not on these days")`)
-  else if (r.time !== null) checkTime(r.time, at, errors)
-  if (r.end !== undefined) checkTime(r.end, `${at} › end`, errors)
+  else if (r.time !== null) checkTime(r.time, at, errors, zmanim)
+  if (r.end !== undefined) checkTime(r.end, `${at} › end`, errors, zmanim)
   for (const k of ['from', 'to'] as const)
     if (r[k] !== undefined && (typeof r[k] !== 'string' || !DATE.test(r[k] as string)))
       errors.push(`${at}: "${k}" must be "YYYY-MM-DD"`)
@@ -374,7 +384,7 @@ export function extractJson(text: string): unknown {
 }
 
 /** Parses and checks what an AI sent back. Accepts `{ events }`, a bare list, or a whole schedule. */
-export function parseAiImport(text: string): ImportResult {
+export function parseAiImport(text: string, zmanim = zmanIds()): ImportResult {
   let data: unknown
   try {
     data = extractJson(text)
@@ -387,11 +397,11 @@ export function parseAiImport(text: string): ImportResult {
       ? data.events
       : null
   if (!list) return { ok: false, errors: ['Expected { "events": [ … ] }.'] }
-  return parseEventList(list)
+  return parseEventList(list, zmanim)
 }
 
 /** Checks a list of events as an AI wrote them, filling in what a minyan's name already says. */
-export function parseEventList(list: unknown[]): ImportResult {
+export function parseEventList(list: unknown[], zmanim = zmanIds()): ImportResult {
   if (!list.length) return { ok: false, errors: ['The list of events is empty.'] }
 
   const errors: string[] = []
@@ -423,7 +433,7 @@ export function parseEventList(list: unknown[]): ImportResult {
       errors.push(`${label}: a minyan needs "tefila": shacharis, mincha, maariv or minchaMaariv`)
     if (!Array.isArray(e.rules)) errors.push(`${label}: needs a "rules" list`)
     const rules = Array.isArray(e.rules) ? e.rules : []
-    rules.forEach((r: unknown, j: number) => checkRule(r, `${label} rule ${j + 1}`, errors))
+    rules.forEach((r: unknown, j: number) => checkRule(r, `${label} rule ${j + 1}`, errors, zmanim))
     return {
       ...(e as object),
       id: id ?? '',

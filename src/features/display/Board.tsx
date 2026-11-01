@@ -15,7 +15,7 @@ import {
   type NextUp,
   type Notice,
   type Occurrence,
-  zmanimForDay,
+  zmanimList,
 } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
@@ -276,9 +276,7 @@ function Zmanim({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
       <Stack padding="lg" gap="sm">
         <PanelHeading en={t.s.zmanim} he="זמני היום" />
         <Stack gap="none">
-          {zmanimForDay(day.tags).map((id) => {
-            const m = day.zmanim[id]
-            if (m === undefined) return null
+          {zmanimList(day).map(({ id, name, minutes: m }) => {
             const lit = id === 'candleLighting' || id === 'havdalah'
             return (
               <Stack
@@ -293,7 +291,7 @@ function Zmanim({ day, minutes }: { day: DaySchedule; minutes: Minutes }) {
                   variant="headline"
                   color={lit ? SemanticColor.TextAccent : SemanticColor.TextSecondary}
                 >
-                  {t.zman(id)}
+                  {t.text(name)}
                 </Text>
                 <Stack grow />
                 <Text variant="titleLarge" color={lit ? SemanticColor.TextAccent : undefined}>

@@ -40,8 +40,42 @@ export interface ZmanimSettings {
   /** Motzei Shabbos/Yom Tov: a sun angle, or fixed minutes after sunset. Default 8.5°. */
   havdalah?: { angle: number } | { minutes: number }
   useElevation?: boolean
-  /** Zmanim the shul doesn't show on the display, public page or ICS. Rules can still use them. */
-  hidden?: ZmanId[]
+  /** Zmanim the shul doesn't show on the display, public page or ICS (built-in or custom). Rules can still use them. */
+  hidden?: ZmanKey[]
+  /** The shul's own zmanim, beside the built-in ones. */
+  custom?: CustomZman[]
+}
+
+/**
+ * Where the sun is: rising, setting, or `degrees` below the horizon (negative = above) in the morning or evening.
+ * Sunrise and sunset follow the zman's `elevation`; angles are always from sea level.
+ */
+export type SunPosition = 'sunrise' | 'sunset' | { degrees: number; at: 'morning' | 'evening' }
+
+/** Another custom zman, by id. Only one counted straight from the sun in fixed minutes (an alos or a tzeis). */
+export type ZmanRef = { zman: string }
+
+/**
+ * A zman the shul defines: `minutes` from a sun position (or from another custom zman), in clock minutes or, with
+ * `zmani`, in minutes of a sha'a zmanis (1/720 of the day from `zmani.start` to `zmani.end`). Sof zman Shema of the
+ * Magen Avraham by 16.1° is 180 zmani minutes from alos 16.1°, the day running from alos 16.1° to tzeis 16.1°.
+ */
+export interface CustomZman {
+  /** What rules say (`{ zman: id }`): a letter, then letters and digits; never a built-in id. */
+  id: string
+  name: { he: string; en?: string }
+  from: SunPosition | ZmanRef
+  /** After `from`; negative = before. Default 0. */
+  minutes?: number
+  /** Count `minutes` as zmani minutes of the day from `start` (sunrise or an alos) to `end` (sunset or a tzeis). */
+  zmani?: { start: 'sunrise' | ZmanRef; end: 'sunset' | ZmanRef }
+  /** A time to act by (a sof zman): rounds down. Otherwise it rounds up, like alos or tzeis. */
+  deadline?: boolean
+  /**
+   * Its sunrise and sunset (in `from` and its zmani day) as seen from the shul's `location.elevation`, or from sea
+   * level. Absent: the shul's `useElevation`. Sun angles are always from sea level.
+   */
+  elevation?: boolean
 }
 
 export type SelichosMinhag = 'ashkenaz' | 'sefard' | 'none'
@@ -121,6 +155,12 @@ export const ZMAN_IDS = [
 ] as const
 export type ZmanId = (typeof ZMAN_IDS)[number]
 
+/** A built-in zman, or the id of one of the shul's `settings.zmanim.custom`. */
+export type ZmanKey = ZmanId | (string & {})
+
+/** A day's zmanim by id, built-in and custom. */
+export type ZmanTimes = Partial<Record<ZmanId, Minutes>> & { [id: string]: Minutes | undefined }
+
 // ---------------------------------------------------------------------------
 // Day conditions
 
@@ -183,7 +223,7 @@ export type TimeTest = 'before' | 'atOrBefore' | 'after' | 'atOrAfter'
 export type TimeExpr =
   /** A fixed clock time, `HH:MM` 24-hour. */
   | { clock: string }
-  | { zman: ZmanId }
+  | { zman: ZmanKey }
   /** Another event's time on the same day. */
   | { event: string }
   /** `of` plus `minutes` (negative = before). */
@@ -397,7 +437,9 @@ export interface DaySchedule {
   /** The coming (or current) Shabbos's parsha. */
   parsha?: Localized
   tags: DayTag[]
-  zmanim: Partial<Record<ZmanId, Minutes>>
+  zmanim: ZmanTimes
+  /** Names of the shul's custom zmanim in `zmanim` (the built-ins' are `ZMAN_LABELS`). Use `zmanimList` to show them. */
+  zmanNames?: Record<string, Localized>
   /** Public occurrences sorted by time; cancelled ones keep their place. */
   events: Occurrence[]
   notices: Notice[]

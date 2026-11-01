@@ -10,8 +10,9 @@ import {
   type HolidayEvent,
 } from '@hebcal/core'
 
+import { customInstants } from './custom'
 import { addDays, hostDate, isDst, minutesInZone, startOfWeek, weekdayOf } from './dates'
-import type { DateString, DayTag, LocalHoliday, Localized, Minutes, ShulSettings, Weekday, ZmanId } from './types'
+import type { DateString, DayTag, LocalHoliday, Localized, ShulSettings, Weekday, ZmanId, ZmanTimes } from './types'
 
 export interface DayInfo {
   date: DateString
@@ -164,11 +165,13 @@ const ROUND_UP: ReadonlySet<ZmanId> = new Set([
   'havdalah',
 ])
 
-export function zmanimFor(date: DateString, settings: ShulSettings): Partial<Record<ZmanId, Minutes>> {
+export function zmanimFor(date: DateString, settings: ShulSettings): ZmanTimes {
   const { latitude, longitude, elevation, timeZone, israel } = settings.location
   const opts = settings.zmanim ?? {}
   const loc = new Location(latitude, longitude, israel, timeZone, undefined, undefined, undefined, elevation ?? 0)
-  const z = new Zmanim(loc, new HDate(hostDate(date)), opts.useElevation ?? false)
+  const hdate = new HDate(hostDate(date))
+  const useElevation = opts.useElevation ?? false
+  const z = new Zmanim(loc, hdate, useElevation)
   const tzeisAngle = opts.tzeisAngle ?? 8.5
   const havdalah = opts.havdalah ?? { angle: 8.5 }
   const candleMinutes = opts.candleLightingMinutes ?? 18
@@ -194,13 +197,18 @@ export function zmanimFor(date: DateString, settings: ShulSettings): Partial<Rec
         : z.tzeit(havdalah.angle),
   }
 
-  const out: Partial<Record<ZmanId, Minutes>> = {}
-  for (const id of Object.keys(raw) as ZmanId[]) {
-    const instant = raw[id]()
+  const out: ZmanTimes = {}
+  const put = (id: string, instant: number, up: boolean) => {
     // Polar days have no sunrise/sunset; hebcal returns an invalid Date.
-    if (Number.isNaN(instant.getTime())) continue
-    const exact = minutesInZone(instant, date, timeZone)
-    out[id] = ROUND_UP.has(id) ? Math.ceil(exact - 1e-9) : Math.floor(exact)
+    if (Number.isNaN(instant)) return
+    const exact = minutesInZone(new Date(instant), date, timeZone)
+    out[id] = up ? Math.ceil(exact - 1e-9) : Math.floor(exact)
   }
+  for (const id of Object.keys(raw) as ZmanId[]) put(id, raw[id]().getTime(), ROUND_UP.has(id))
+  const custom = opts.custom ?? []
+  // A custom zman may see sunrise and sunset from the other height than the shul's built-ins.
+  const other = custom.length ? new Zmanim(loc, hdate, !useElevation) : z
+  const instants = customInstants((elevation) => (elevation === useElevation ? z : other), custom, useElevation)
+  for (const c of custom) put(c.id, instants.get(c.id)!, !c.deadline)
   return out
 }

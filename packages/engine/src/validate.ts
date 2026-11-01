@@ -1,3 +1,4 @@
+import { customZmanProblem } from './custom'
 import { addDays, parseDate } from './dates'
 import { localHolidayDates } from './local'
 import { effectiveHolidays } from './localPresets'
@@ -7,6 +8,7 @@ import {
   EVENT_CATEGORIES,
   NOTICE_KINDS,
   TEFILA_TYPES,
+  ZMAN_IDS,
   type Condition,
   type DateString,
   type EventDef,
@@ -24,15 +26,18 @@ export interface Issue {
   date?: DateString
 }
 
-function eventRefs(expr: TimeExpr, out: string[] = []): string[] {
-  if ('event' in expr) out.push(expr.event)
-  else if ('offset' in expr) eventRefs(expr.of, out)
-  else if ('earliest' in expr) expr.earliest.forEach((e) => eventRefs(e, out))
-  else if ('latest' in expr) expr.latest.forEach((e) => eventRefs(e, out))
-  else if ('clamp' in expr) [expr.clamp, expr.min, expr.max].forEach((e) => e && eventRefs(e, out))
-  else if ('round' in expr) eventRefs(expr.round, out)
-  else if ('weekly' in expr) eventRefs(expr.weekly, out)
-  else if ('if' in expr) [expr.if.left, expr.if.right, expr.then, expr.otherwise].forEach((e) => e && eventRefs(e, out))
+/** The events (or, with `'zman'`, the zmanim) an expression uses. */
+function eventRefs(expr: TimeExpr, out: string[] = [], key: 'event' | 'zman' = 'event'): string[] {
+  const walk = (e: TimeExpr | undefined) => e && eventRefs(e, out, key)
+  if (key === 'event' && 'event' in expr) out.push(expr.event)
+  else if (key === 'zman' && 'zman' in expr) out.push(expr.zman)
+  else if ('offset' in expr) walk(expr.of)
+  else if ('earliest' in expr) expr.earliest.forEach(walk)
+  else if ('latest' in expr) expr.latest.forEach(walk)
+  else if ('clamp' in expr) [expr.clamp, expr.min, expr.max].forEach(walk)
+  else if ('round' in expr) walk(expr.round)
+  else if ('weekly' in expr) walk(expr.weekly)
+  else if ('if' in expr) [expr.if.left, expr.if.right, expr.then, expr.otherwise].forEach(walk)
   return out
 }
 
@@ -95,6 +100,12 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
       issues.push({ level: 'warning', message: `Local holiday "${h.name.en}" never lands on a date` })
     }
   }
+  const custom = schedule.settings.zmanim?.custom ?? []
+  for (const c of custom) {
+    const problem = customZmanProblem(c, custom)
+    if (problem) issues.push({ level: 'error', message: problem })
+  }
+  const zmanim = new Set<string>([...ZMAN_IDS, ...custom.map((c) => c.id)])
   const known = new Set([...ids, ...schedule.exceptions.flatMap((x) => (x.type === 'add' ? [x.event.id] : []))])
 
   for (const e of schedule.events) {
@@ -119,6 +130,9 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
       }
       for (const ref of [...(rule.time ? eventRefs(rule.time) : []), ...(rule.end ? eventRefs(rule.end) : [])]) {
         if (!known.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown event "${ref}"` })
+      }
+      for (const ref of [...(rule.time ? eventRefs(rule.time, [], 'zman') : []), ...(rule.end ? eventRefs(rule.end, [], 'zman') : [])]) {
+        if (!zmanim.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown zman "${ref}"` })
       }
       if (rule.untimed && (!rule.relative || 'between' in rule.relative)) {
         issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} has no time, so it needs to be "after" or "before" a minyan` })

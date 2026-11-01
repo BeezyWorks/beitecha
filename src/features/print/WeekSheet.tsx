@@ -10,7 +10,8 @@ import {
   type ShulProfile,
   ZMAN_LABELS,
   type ZmanId,
-  zmanimForDay,
+  zmanimList,
+  type ZmanKey,
 } from '@beitecha/engine'
 import React from 'react'
 
@@ -365,11 +366,9 @@ function WeekdayGrid({ days }: { days: DaySchedule[] }) {
 
 function ZmanimGrid({ days }: { days: DaySchedule[] }) {
   const t = useT()
-  const shown = days.map((d) => zmanimForDay(d.tags))
-  const ids = [...DAILY_ZMANIM, 'candleLighting', 'havdalah'].filter((id) =>
-    days.some((d, i) => shown[i].includes(id as ZmanId) && d.zmanim[id as ZmanId] !== undefined),
-  ) as ZmanId[]
-  ids.sort((a, b) => zmanOrder(a) - zmanOrder(b))
+  const shown = days.map((d) => zmanimList(d))
+  const ids = weekOrder(shown)
+  const names = Object.assign({}, ...days.map((d) => d.zmanNames))
   return (
     <Stack gap="xs">
       <Heading en={t.s.zmanimThisWeek} he={HE.s.zmanimThisWeek} />
@@ -387,12 +386,12 @@ function ZmanimGrid({ days }: { days: DaySchedule[] }) {
                   rtl={t.nameRtl}
                   color={lit ? SemanticColor.TextAccent : SemanticColor.TextSecondary}
                 >
-                  {t.zman(id)}
+                  {t.zman(id, names)}
                 </Text>
               }
             >
               {days.map((d, i) => {
-                const m = shown[i].includes(id) ? d.zmanim[id] : undefined
+                const m = shown[i].find((z) => z.id === id)?.minutes
                 return (
                   <Cell key={d.date} day={d}>
                     <Text variant="bodyStrong" color={lit ? SemanticColor.TextAccent : undefined}>
@@ -407,6 +406,27 @@ function ZmanimGrid({ days }: { days: DaySchedule[] }) {
       </Stack>
     </Stack>
   )
+}
+
+/**
+ * The week's zmanim in one order: the built-ins by `zmanOrder`, each of the shul's own just after the built-in
+ * before it on the first day it shows.
+ */
+function weekOrder(shown: ReturnType<typeof zmanimList>[]): ZmanKey[] {
+  const rank = new Map<ZmanKey, number>()
+  for (const list of shown) {
+    let prev = -1
+    let k = 0
+    for (const { id } of list) {
+      if (id in ZMAN_LABELS) {
+        prev = zmanOrder(id as ZmanId)
+        k = 0
+        rank.set(id, prev)
+      } else if (!rank.has(id)) rank.set(id, prev + 0.01 * ++k)
+      else k++
+    }
+  }
+  return [...rank.keys()].sort((a, b) => rank.get(a)! - rank.get(b)!)
 }
 
 /** Candle lighting before sunset, havdalah at the end. */

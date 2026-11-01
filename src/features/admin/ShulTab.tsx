@@ -5,14 +5,15 @@ import {
   type SelichosMinhag,
   type ShulSettings,
   ZMAN_IDS,
-  ZMAN_LABELS,
-  type ZmanId,
+  type ZmanKey,
 } from '@beitecha/engine'
 import React from 'react'
 
 import { Segments } from '@/components/Segments'
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
+import { CustomZmanimCard } from './CustomZmanimCard'
+import { zmanLabel } from './forms'
 import { LocalHolidaysCard } from './LocalHolidaysCard'
 import { TimeFormatCard } from './TimeFormatCard'
 import { useAdmin } from './store'
@@ -207,7 +208,8 @@ export function ShulTab() {
             accessibilityLabel="Use elevation"
           />
         </Stack>
-        {zmanim.useElevation && (
+        {/* A custom zman can see sunrise and sunset from the shul's height on its own. */}
+        {(zmanim.useElevation || zmanim.custom?.some((c) => c.elevation)) && (
           <NumberField
             label="Elevation (meters)"
             value={location.elevation ?? 0}
@@ -218,17 +220,17 @@ export function ShulTab() {
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Show these zmanim
           </Text>
-          {ZMAN_IDS.map((id: ZmanId) => (
+          {[...ZMAN_IDS, ...(zmanim.custom ?? []).map((c) => c.id)].map((id: ZmanKey) => (
             <Stack key={id} direction="row" align="center" gap="md">
               <Stack grow>
-                <Text variant="body">{ZMAN_LABELS[id].en}</Text>
+                <Text variant="body">{zmanLabel(id, zmanim.custom)}</Text>
               </Stack>
               <ToggleSwitch
                 value={!hidden.includes(id)}
                 onValueChange={(on) =>
                   setZmanim({ hidden: on ? hidden.filter((h) => h !== id) : [...hidden, id] })
                 }
-                accessibilityLabel={`Show ${ZMAN_LABELS[id].en}`}
+                accessibilityLabel={`Show ${zmanLabel(id, zmanim.custom)}`}
               />
             </Stack>
           ))}
@@ -248,6 +250,8 @@ export function ShulTab() {
           />
         </Stack>
       </Card>
+
+      <CustomZmanimCard schedule={schedule} onChange={setSettings} />
 
       <LocalHolidaysCard settings={schedule.settings} onChange={setSettings} />
     </Stack>

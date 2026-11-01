@@ -998,7 +998,31 @@ function Remembrance({
   )
 }
 
-/** The week's yahrzeits, soonest first: the names the shul chose, and the day. */
+/** A box of items in three columns, filled top to bottom, so a short list still reads in order. */
+function ColumnBox<T>({ items, render }: { items: T[]; render: (item: T) => ReactNode }) {
+  const size = Math.ceil(items.length / 3)
+  const columns = [0, 1, 2].map((i) => items.slice(i * size, (i + 1) * size))
+  return (
+    <Stack
+      direction="row"
+      gap="md"
+      padding="sm"
+      radius="md"
+      borderWidth={1}
+      borderColor={SemanticColor.BorderStrong}
+    >
+      {columns
+        .filter((column) => column.length > 0)
+        .map((column, i) => (
+          <Stack key={i} grow width={0} gap="xs">
+            {column.map(render)}
+          </Stack>
+        ))}
+    </Stack>
+  )
+}
+
+/** The week's yahrzeits, soonest first: the names the shul chose, and the day, in a box of their own. */
 function Yahrzeits({
   items,
   settings,
@@ -1013,52 +1037,40 @@ function Yahrzeits({
         en={settings?.title ? settings.title.en : t.s.yahrzeits}
         he={settings?.title ? settings.title.he : HE.s.yahrzeits}
       />
-      {items.map(({ date, yahrzeit }) => (
-        <Stack key={`${yahrzeit.id}-${date}`} gap="none">
-          <Stack direction="row" gap="md" wrap>
+      <ColumnBox
+        items={items}
+        render={({ date, yahrzeit }) => (
+          <Stack key={`${yahrzeit.id}-${date}`} gap="none">
             {t.yahrzeitNames(yahrzeit, settings?.names).map((n) => (
               <Text key={n} variant="bodySerifLarge" rtl={HEBREW.test(n)}>
                 {n}
               </Text>
             ))}
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              {t.yahrzeitDate(date, settings?.dates)}
+            </Text>
           </Stack>
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            {t.yahrzeitDate(date, settings?.dates)}
-          </Text>
-        </Stack>
-      ))}
+        )}
+      />
     </Stack>
   )
 }
 
-/** The names to daven for, in two columns in a box of their own, like a Mi Shebeirach list. */
+/** The names to daven for, in three columns in a box of their own, like a Mi Shebeirach list. */
 function Cholim({ cholim }: { cholim: Choleh[] }) {
   const t = useT()
   const names = cholim.map((c) => ({ id: c.id, name: t.choleh(c) }))
-  const half = Math.ceil(names.length / 2)
   return (
     <Stack gap="sm">
       <Heading en={t.s.refuahShleimah} he={HE.s.refuahShleimah} />
-      <Stack
-        direction="row"
-        gap="md"
-        padding="sm"
-        radius="md"
-        borderWidth={1}
-        borderColor={SemanticColor.BorderStrong}
-      >
-        {[names.slice(0, half), names.slice(half)]
-          .filter((column) => column.length > 0)
-          .map((column, i) => (
-            <Stack key={i} grow width={0} gap="xs">
-              {column.map(({ id, name }) => (
-                <Text key={id} variant="bodySerifLarge" rtl={HEBREW.test(name)}>
-                  {name}
-                </Text>
-              ))}
-            </Stack>
-          ))}
-      </Stack>
+      <ColumnBox
+        items={names}
+        render={({ id, name }) => (
+          <Text key={id} variant="bodySerifLarge" rtl={HEBREW.test(name)}>
+            {name}
+          </Text>
+        )}
+      />
     </Stack>
   )
 }

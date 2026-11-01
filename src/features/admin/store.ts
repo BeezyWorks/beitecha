@@ -1,4 +1,4 @@
-import { guessTefila, type Choleh, type EventDef, type Exception, type Notice, type NoticeCategory, type Schedule, type ShulProfile } from '@beitecha/engine'
+import { guessTefila, type Choleh, type EventDef, type Exception, type Notice, type NoticeCategory, type Schedule, type ShulProfile, type Yahrzeit, type YahrzeitSettings } from '@beitecha/engine'
 import { create } from 'zustand'
 
 import { api, ApiError, type ShulAdmin } from '@/lib/api'
@@ -44,6 +44,8 @@ interface AdminState {
   upsertNotice: (n: Notice) => void
   removeNotice: (id: string) => void
   setCholim: (list: Choleh[]) => void
+  /** The yahrzeit list and how it's shown; saves at once. */
+  setYahrzeits: (list: Yahrzeit[], settings?: YahrzeitSettings) => void
   /** The shul's announcement categories; announcements under one that's gone become plain ones. */
   setNoticeCategories: (list: NoticeCategory[]) => void
   /** Saves the whole document. On a conflict, `overwrite` saves on top of the newer revision. */
@@ -150,6 +152,12 @@ export const useAdmin = create<AdminState>((set, get) => {
     upsertNotice: (n) => commit((s) => ({ ...s, notices: replaceIn(s.notices, n) })),
     removeNotice: (id) => commit((s) => ({ ...s, notices: s.notices.filter((x) => x.id !== id) })),
     setCholim: (cholim) => commit((s) => ({ ...s, cholim })),
+    setYahrzeits: (yahrzeits, settings) =>
+      commit((s) => ({
+        ...s,
+        yahrzeits,
+        settings: settings ? { ...s.settings, yahrzeits: settings } : s.settings,
+      })),
     setNoticeCategories: (noticeCategories) =>
       commit((s) => ({
         ...s,

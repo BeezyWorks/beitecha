@@ -1,12 +1,17 @@
 import { noticeCategory } from './categories'
-import { parseDate } from './dates'
+import { parseDate, weekdayOf } from './dates'
 import { AUDIENCE_LABELS, CATEGORY_LABELS, NOTICE_LABELS, WEEKDAYS, WEEKDAY_SHORT, ZMAN_LABELS } from './labels'
 import { cholehName, localize, nameStyle } from './localize'
+import { hebrewDateText, yahrzeitNameParts } from './yahrzeits'
 import { formatTime } from './timeFormat'
 import type {
   Anchor,
   Audience,
   Choleh,
+  Yahrzeit,
+  YahrzeitDates,
+  YahrzeitNames,
+  YahrzeitSettings,
   DateString,
   DaySchedule,
   EventCategory,
@@ -86,6 +91,7 @@ const STRINGS = {
     sponsorships: 'Sponsorships',
     announcements: 'Announcements',
     refuahShleimah: 'Refuah Shleimah',
+    yahrzeits: 'Upcoming yahrzeits',
     upToDate: 'Always up to date: scan for this week’s times in the Siddur.',
   },
   he: {
@@ -118,6 +124,7 @@ const STRINGS = {
     sponsorships: 'הקדשות',
     announcements: 'הודעות',
     refuahShleimah: 'רפואה שלמה',
+    yahrzeits: 'יארצייט בקרוב',
     upToDate: 'סרקו לזמנים המעודכנים של השבוע בסידור.',
   },
 } as const satisfies Record<Language, Record<string, string>>
@@ -163,6 +170,21 @@ function build(lang: Language, timeFormat: string | undefined, names: NameStyle)
     text,
     /** A choleh's name in the names language, else the one it's written in. */
     choleh: (c: Choleh) => cholehName(c, nameLang),
+    /** The heading over the yahrzeits: the shul's own title, else "Upcoming yahrzeits". */
+    yahrzeitTitle: (settings?: YahrzeitSettings) => (settings?.title ? text(settings.title) : s.yahrzeits),
+    /** A yahrzeit's name lines (display name, Hebrew name) as the shul chose to show them. */
+    yahrzeitNames: (y: Yahrzeit, show: YahrzeitNames = 'both') =>
+      yahrzeitNameParts(y, show, y.displayName ? text(y.displayName) : ''),
+    /** The day a yahrzeit is kept: `Wed Nov 5 · 18 Cheshvan` / `יום ד׳ · י״ח חשון`, per the shul's choice. */
+    yahrzeitDate: (date: DateString, show: YahrzeitDates = 'both') => {
+      const wd = weekdayOf(date)
+      const { month, day } = parseDate(date)
+      const civil = he
+        ? `${HE_WEEKDAYS_SHORT[wd]} ${day} ב${HE_MONTHS[month - 1].slice(0, 3)}׳`
+        : `${WEEKDAY_SHORT[wd]} ${civilDateShort(date)}`
+      const hebrew = hebrewDateText(date, lang)
+      return show === 'hebrew' ? hebrew : show === 'english' ? civil : `${civil} · ${hebrew}`
+    },
     /** The shul's time format, or plain `3:05` when it hasn't picked one. */
     customTimeFormat: timeFormat,
     clock: (minutes: number) => (timeFormat ? formatTime(minutes, timeFormat) : clock(minutes)),

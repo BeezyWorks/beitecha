@@ -56,3 +56,13 @@ export {
 } from './labels'
 export { nextUp, type NextUp } from './nextUp'
 export { ampm, civilDate, civilDateShort, clock, clockFull, makeT, untilText, type Wording } from './wording'
+export {
+  gregorianToHebrew,
+  hebrewDateText,
+  hebrewMonths,
+  hebrewToGregorian,
+  isRealHebrewDate,
+  yahrzeitNameParts,
+  yahrzeitsBetween,
+  type UpcomingYahrzeit,
+} from './yahrzeits'

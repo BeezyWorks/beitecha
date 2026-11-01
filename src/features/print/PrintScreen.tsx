@@ -11,6 +11,7 @@ import {
   ZMAN_LABELS,
   type ZmanId,
   type ZmanKey,
+  yahrzeitsBetween,
 } from '@beitecha/engine'
 import { router, useLocalSearchParams } from 'expo-router'
 import React, { useMemo } from 'react'
@@ -72,6 +73,8 @@ export function PrintScreen({ slug }: { slug: string }) {
     categories: feed.schedule.settings.noticeCategories,
     comingUp,
     cholim: feed.schedule.cholim ?? [],
+    yahrzeits: yahrzeitsBetween(feed.schedule.yahrzeits, sunday, shabbos),
+    yahrzeitSettings: feed.schedule.settings.yahrzeits,
     zmanimTable: feed.schedule.settings.print?.zmanimTable !== false,
     shabbosZmanim: shabbosZmanim(feed.schedule, addDays(sunday, 5)),
   }

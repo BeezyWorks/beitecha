@@ -13,7 +13,9 @@ import {
   type Occurrence,
   parseDate,
   type ShulProfile,
+  type UpcomingYahrzeit,
   weekdayOf,
+  type YahrzeitSettings,
   ZMAN_LABELS,
   type ZmanId,
   zmanimList,
@@ -47,6 +49,9 @@ export interface WeekProps {
   comingUp: { date: DateString; event: Occurrence }[]
   /** The refuah shleimah list. */
   cholim: Choleh[]
+  /** The yahrzeits kept this week, and how to show them. */
+  yahrzeits: UpcomingYahrzeit[]
+  yahrzeitSettings?: YahrzeitSettings
   /** The week's zmanim table on the front. */
   zmanimTable: boolean
   /** Zmanim listed among Friday night's and Shabbos day's minyanim (`settings.print.shabbosZmanim`). */
@@ -69,10 +74,12 @@ export const hasAnnouncements = ({
   notices,
   comingUp,
   cholim,
-}: Pick<WeekProps, 'days' | 'notices' | 'comingUp' | 'cholim'>) =>
+  yahrzeits,
+}: Pick<WeekProps, 'days' | 'notices' | 'comingUp' | 'cholim' | 'yahrzeits'>) =>
   notices.length > 0 ||
   comingUp.length > 0 ||
   cholim.length > 0 ||
+  yahrzeits.length > 0 ||
   days.some((d) => d.events.some((e) => !notShiur(e)))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
@@ -117,7 +124,7 @@ export function NoticesSide(week: WeekProps) {
   )
 }
 
-function Announcements({ days, notices, categories, comingUp, cholim }: WeekProps) {
+function Announcements({ days, notices, categories, comingUp, cholim, yahrzeits, yahrzeitSettings }: WeekProps) {
   const t = useT()
   const shiurim = days.map((d) => ({ ...d, events: d.events.filter((e) => !notShiur(e)) }))
   return (
@@ -131,6 +138,7 @@ function Announcements({ days, notices, categories, comingUp, cholim }: WeekProp
       />
       {comingUp.length > 0 && <ComingUp items={comingUp} />}
       {notices.length > 0 && <Notices notices={notices} categories={categories ?? []} />}
+      {yahrzeits.length > 0 && <Yahrzeits items={yahrzeits} settings={yahrzeitSettings} />}
       {cholim.length > 0 && <Cholim cholim={cholim} />}
     </Stack>
   )
@@ -767,6 +775,33 @@ function Notices({ notices, categories }: { notices: Notice[]; categories: Notic
             ))}
           </Stack>
         ))}
+    </Stack>
+  )
+}
+
+/** The week's yahrzeits, soonest first: the names the shul chose, and the day. */
+function Yahrzeits({ items, settings }: { items: UpcomingYahrzeit[]; settings?: YahrzeitSettings }) {
+  const t = useT()
+  return (
+    <Stack gap="sm">
+      <Heading
+        en={settings?.title ? settings.title.en : t.s.yahrzeits}
+        he={settings?.title ? settings.title.he : HE.s.yahrzeits}
+      />
+      {items.map(({ date, yahrzeit }) => (
+        <Stack key={`${yahrzeit.id}-${date}`} direction="row" align="center" gap="md" wrap>
+          <Stack grow width={0} direction="row" gap="md" wrap>
+            {t.yahrzeitNames(yahrzeit, settings?.names).map((n) => (
+              <Text key={n} variant="bodySerifLarge" rtl={HEBREW.test(n)}>
+                {n}
+              </Text>
+            ))}
+          </Stack>
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            {t.yahrzeitDate(date, settings?.dates)}
+          </Text>
+        </Stack>
+      ))}
     </Stack>
   )
 }

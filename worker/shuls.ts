@@ -1,11 +1,13 @@
 import {
   addDays,
+  isRealHebrewDate,
   NOTICE_KINDS,
   noticeLastDay,
   starterSchedule,
   TEFILA_TYPES,
   timeFormatProblem,
   todayIn,
+  type HebrewDate,
   type NoticeKind,
   type Schedule,
   type ShulProfile,
@@ -112,6 +114,15 @@ export function scheduleProblem(s: unknown): string | null {
     if (!Array.isArray(s.cholim)) return 'cholim must be a list'
     for (const c of s.cholim as unknown[])
       if (!isObject(c) || typeof c.id !== 'string' || !isObject(c.name) || !(c.name.en || c.name.he)) return 'every choleh needs a name'
+  }
+  if (s.yahrzeits !== undefined) {
+    if (!Array.isArray(s.yahrzeits)) return 'yahrzeits must be a list'
+    for (const y of s.yahrzeits as unknown[]) {
+      if (!isObject(y) || typeof y.id !== 'string' || !isObject(y.hebrew)) return 'every yahrzeit needs an id and a Hebrew date'
+      const dn = isObject(y.displayName) ? (y.displayName.en || y.displayName.he) : ''
+      if (!(typeof y.hebrewName === 'string' && y.hebrewName.trim()) && !dn) return 'every yahrzeit needs a name'
+      if (!isRealHebrewDate(y.hebrew as unknown as HebrewDate)) return 'every yahrzeit needs a real Hebrew date'
+    }
   }
   return null
 }

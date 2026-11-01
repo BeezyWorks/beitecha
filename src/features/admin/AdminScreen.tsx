@@ -13,6 +13,7 @@ import { useShulClock } from '@/features/luach/useShulClock'
 import { siddurShulUrl } from '@/lib/config'
 import { CalendarTab } from './CalendarTab'
 import { CholimTab } from './CholimTab'
+import { YahrzeitsTab } from './YahrzeitsTab'
 import { EventsSection } from './EventsSection'
 import { NoticesTab } from './NoticesTab'
 import { isSection, SECTIONS, type SectionKey } from './sections'
@@ -85,6 +86,7 @@ export function AdminScreen({ slug }: { slug: string }) {
       {section === 'zmanim' && <ZmanimSection />}
       {section === 'notices' && <NoticesTab today={today} />}
       {section === 'cholim' && <CholimTab today={today} />}
+      {section === 'yahrzeits' && <YahrzeitsTab today={today} />}
       {section === 'shul' && <ShulTab />}
       {section === 'team' && <TeamTab />}
     </>

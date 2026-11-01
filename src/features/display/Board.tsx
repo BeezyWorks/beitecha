@@ -17,6 +17,8 @@ import {
   type Notice,
   type NoticeCategory,
   type Occurrence,
+  type UpcomingYahrzeit,
+  type YahrzeitSettings,
   zmanimList,
 } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
@@ -45,6 +47,8 @@ const HE = makeT('he')
 const HEBREW = /[\u0590-\u05FF]/
 /** Refuah shleimah names on one page of the notice panel. */
 const CHOLIM_PER_PAGE = 12
+/** Yahrzeits on one page of the notice panel. */
+const YAHRZEITS_PER_PAGE = 4
 
 export interface BoardProps {
   name: { en: string; he?: string }
@@ -55,9 +59,22 @@ export interface BoardProps {
   /** The shul's announcement categories, for each notice's tag. */
   categories?: NoticeCategory[]
   cholim: Choleh[]
+  /** The yahrzeits kept in the days ahead, soonest first. */
+  yahrzeits: UpcomingYahrzeit[]
+  yahrzeitSettings?: YahrzeitSettings
 }
 
-export function Board({ name, slug, days, minutes, notices, categories, cholim }: BoardProps) {
+export function Board({
+  name,
+  slug,
+  days,
+  minutes,
+  notices,
+  categories,
+  cholim,
+  yahrzeits,
+  yahrzeitSettings,
+}: BoardProps) {
   const [day, tomorrow] = days
   const next = nextUp(day, tomorrow, minutes)
   return (
@@ -67,7 +84,13 @@ export function Board({ name, slug, days, minutes, notices, categories, cholim }
       </Stack>
       <Stack width={TODAY_W} gap={GAP}>
         <Today day={day} minutes={minutes} next={next?.today ? next.event : undefined} />
-        <NoticeRotator notices={notices} categories={categories} cholim={cholim} />
+        <NoticeRotator
+          notices={notices}
+          categories={categories}
+          cholim={cholim}
+          yahrzeits={yahrzeits}
+          yahrzeitSettings={yahrzeitSettings}
+        />
       </Stack>
       <Stack width={SIDE_W} gap={GAP}>
         <Zmanim day={day} minutes={minutes} />
@@ -388,24 +411,32 @@ function upcomingDays(days: DaySchedule[]): DaySchedule[] {
 // ---------------------------------------------------------------------------
 // Sponsors, announcements and the refuah shleimah list
 
-type Page = { notice: Notice } | { cholim: Choleh[]; key: string }
+type Page = { notice: Notice } | { cholim: Choleh[]; key: string } | { yahrzeits: UpcomingYahrzeit[]; key: string }
 
 function NoticeRotator({
   notices,
   categories,
   cholim,
+  yahrzeits,
+  yahrzeitSettings,
 }: {
   notices: Notice[]
   categories?: NoticeCategory[]
   cholim: Choleh[]
+  yahrzeits: UpcomingYahrzeit[]
+  yahrzeitSettings?: YahrzeitSettings
 }) {
   const pages: Page[] = notices.map((notice) => ({ notice }))
+  for (let at = 0; at < yahrzeits.length; at += YAHRZEITS_PER_PAGE)
+    pages.push({ yahrzeits: yahrzeits.slice(at, at + YAHRZEITS_PER_PAGE), key: `yahrzeits-${at}` })
   for (let at = 0; at < cholim.length; at += CHOLIM_PER_PAGE)
     pages.push({ cholim: cholim.slice(at, at + CHOLIM_PER_PAGE), key: `cholim-${at}` })
   const i = useRotation(pages.length)
   if (!pages.length) return null
   const page = pages[i % pages.length]
   const dots = pages.length > 1 && <PageDots count={pages.length} index={i % pages.length} />
+  if ('yahrzeits' in page)
+    return <YahrzeitsPage key={page.key} items={page.yahrzeits} settings={yahrzeitSettings} dots={dots} />
   return 'notice' in page ? (
     <NoticePage n={page.notice} categories={categories} dots={dots} />
   ) : (
@@ -455,6 +486,60 @@ function NoticePage({
           {n.text.he}
         </Text>
       )}
+      <Stack grow />
+      {dots}
+    </Stack>
+  )
+}
+
+function YahrzeitsPage({
+  items,
+  settings,
+  dots,
+}: {
+  items: UpcomingYahrzeit[]
+  settings?: YahrzeitSettings
+  dots: React.ReactNode
+}) {
+  const t = useT()
+  const hebrew = t.rtl || t.nameRtl
+  const he = settings?.title ? settings.title.he : HE.s.yahrzeits
+  const title = settings?.title ? t.text(settings.title) : hebrew ? HE.s.yahrzeits : t.s.yahrzeits
+  return (
+    <Stack
+      height={NOTICE_H}
+      radius="xl"
+      padding="lg"
+      gap="sm"
+      background={SemanticColor.SurfaceCard}
+      borderWidth={1}
+      borderColor={SemanticColor.BorderDefault}
+    >
+      <Stack direction="row" align="center" gap="sm">
+        <Text variant="title" rtl={hebrew && HEBREW.test(title)} color={SemanticColor.TextAccent}>
+          {title}
+        </Text>
+        <Stack grow />
+        {!hebrew && t.bothNames && !!he && he !== title && (
+          <Text variant="title" rtl color={SemanticColor.TextSecondary}>
+            {he}
+          </Text>
+        )}
+      </Stack>
+      {items.map(({ date, yahrzeit }) => (
+        <Stack key={`${yahrzeit.id}-${date}`} direction="row" align="center" gap="md">
+          <Stack grow width={0} direction="row" gap="md">
+            {t.yahrzeitNames(yahrzeit, settings?.names).map((n) => (
+              <Text key={n} variant="headline" numberOfLines={1} rtl={HEBREW.test(n)}>
+                {n}
+              </Text>
+            ))}
+          </Stack>
+          <Text variant="headline" color={SemanticColor.TextSecondary}>
+            {t.yahrzeitDate(date, settings?.dates)}
+          </Text>
+        </Stack>
+      ))}
       <Stack grow />
       {dots}
     </Stack>

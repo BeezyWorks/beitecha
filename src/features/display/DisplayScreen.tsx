@@ -1,5 +1,5 @@
 import { SemanticColor, Stack } from '@beezyworks/design'
-import { addDays } from '@beitecha/engine'
+import { addDays, yahrzeitsBetween } from '@beitecha/engine'
 import { useLocalSearchParams } from 'expo-router'
 import React from 'react'
 
@@ -60,6 +60,12 @@ export function DisplayScreen({ slug }: { slug: string }) {
                 notices={notices}
                 categories={feed.schedule.settings.noticeCategories}
                 cholim={feed.schedule.cholim ?? []}
+                yahrzeits={yahrzeitsBetween(
+                  feed.schedule.yahrzeits,
+                  days[0].date,
+                  addDays(days[0].date, (feed.schedule.settings.yahrzeits?.days ?? 7) - 1),
+                )}
+                yahrzeitSettings={feed.schedule.settings.yahrzeits}
               />
             )}
           </ScaleToFit>

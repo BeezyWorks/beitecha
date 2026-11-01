@@ -25,7 +25,8 @@ import React from 'react'
 
 import { Struck } from '@/components/Print'
 import { makeT, useT } from '@/features/luach/language'
-import { SponsorName, sponsorsNotices } from '@/features/luach/SponsorName'
+import { SponsorName } from '@/features/luach/SponsorName'
+import { hasSponsor, sponsorGroups } from '@/features/luach/sponsorGroups'
 import {
   erevShabbosEvents,
   type InlineZman,
@@ -152,7 +153,7 @@ function announcementBlocks({
   if (notices.length > 0)
     blocks.push({
       key: 'notices',
-      node: <Notices notices={notices} categories={categories ?? []} />,
+      node: <Notices notices={notices} categories={categories ?? []} days={days} />,
     })
   if (yahrzeits.length > 0 || cholim.length > 0)
     blocks.push({
@@ -915,12 +916,30 @@ function ComingUp({ items }: { items: WeekProps['comingUp'] }) {
  * categories, then plain announcements and reminders. A notice's title (the people's names) is its sub-heading and
  * its text sits under it; the sections flow in two columns.
  */
-function Notices({ notices, categories }: { notices: Notice[]; categories: NoticeCategory[] }) {
+function Notices({
+  notices,
+  categories,
+  days,
+}: {
+  notices: Notice[]
+  categories: NoticeCategory[]
+  days: DaySchedule[]
+}) {
   const t = useT()
   const of = (kind: Notice['kind']) => notices.filter((n) => n.kind === kind)
   const filed = (n: Notice) => noticeCategory({ noticeCategories: categories }, n)
   const sections: { key: string; en: string; he?: string; notices: Notice[] }[] = [
-    { key: 'sponsor', en: t.s.sponsorships, he: HE.s.sponsorships, notices: of('sponsor') },
+    ...sponsorGroups(t, notices, days).map((g) => ({
+      key: g.key,
+      en: g.title,
+      notices: g.sponsors,
+    })),
+    {
+      key: 'sponsor',
+      en: t.s.sponsorships,
+      he: HE.s.sponsorships,
+      notices: of('sponsor').filter((n) => !hasSponsor(n)),
+    },
     ...(['simcha', 'condolence'] as const).map((k) => ({
       key: k,
       en: t.noticeKind(k),
@@ -1102,9 +1121,7 @@ function NoticeBlock({ notice: n }: { notice: Notice }) {
           )}
         </Stack>
       )}
-      {sponsorsNotices(n) && (
-        <SponsorName notice={n} variant="bodySerif" strongVariant={strong(t)} />
-      )}
+      {hasSponsor(n) && <SponsorName notice={n} variant={strong(t)} />}
       {!!t.text(n.text) && (
         <Text variant="bodySerif" rtl={t.nameRtl && !!n.text.he}>
           {t.text(n.text)}

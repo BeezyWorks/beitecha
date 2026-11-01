@@ -328,7 +328,7 @@ export function withSponsorTarget(n: Notice, t: SponsorTarget): Notice {
 }
 
 /**
- * A sponsorship's whole line from who and why, "Sponsored by the Greenblats, in honor of…", into `text.en` (the
+ * A sponsorship's dedication into `text.en` (the
  * Hebrew line stays the gabbai's own). Without a sponsor named, `text` is left as written.
  */
 export function withSponsorText(n: Notice): Notice {
@@ -338,12 +338,8 @@ export function withSponsorText(n: Notice): Notice {
   const by = n.sponsoredBy?.en.trim()
   if (!by) return n
   const honor = n.inHonorOf?.en.trim()
-  // The announcements' sponsor is shown as a name with the dedication under it, as written.
-  if (n.sponsors === 'notices' && !n.eventId) return { ...n, text: { ...n.text, en: honor ?? '' } }
-  return {
-    ...n,
-    text: { ...n.text, en: `Sponsored by ${by}${honor ? `, in honor of ${honor}` : ''}` },
-  }
+  // Shown as the name with the dedication under it, as written; other clients get the dedication as the text.
+  return { ...n, text: { ...n.text, en: honor ?? '' } }
 }
 
 /**

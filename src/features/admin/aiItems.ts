@@ -285,9 +285,8 @@ const NOTICE_SCHEMA = `{ "notices": [
     "sponsors"?: "day" | "notices", // a sponsorship of no event: the day's learning ("day", the default) or the notices
     "title"?: { "en": string, "he"?: string }, // not for a sponsorship (its event says what is sponsored)
     "sponsoredBy"?: { "en": string }, // for a sponsorship: who, "the Cohen family"
-    "inHonorOf"?: { "en": string }, // for a sponsorship: why, the words after "in honor of": "Sarah's bas mitzvah"
-    "text": { "en": string, "he"?: string }, // the notice itself; for a sponsorship the whole line:
-      // "Sponsored by the Cohen family, in honor of Sarah's bas mitzvah". A Hebrew dedication (לע"נ…) goes in "he".
+    "inHonorOf"?: { "en": string }, // for a sponsorship: the dedication, printed under the name as written ("To celebrate Sarah's bas mitzvah"); omit if none is given
+    "text": { "en": string, "he"?: string }, // the notice itself; for a sponsorship leave it out (the dedication is "inHonorOf"). A Hebrew dedication (לע"נ…) goes in "he".
     "links"?: [{ "title": { "en": string, "he"?: string }, "url": "https://…" }]
       // printed as QR codes; the title says what scanning it does: "To sponsor a kiddush", "Download the shiur"
   }

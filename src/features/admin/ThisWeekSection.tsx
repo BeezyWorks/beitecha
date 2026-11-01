@@ -36,9 +36,7 @@ const weekdayName = (date: DateString) => WEEKDAYS[weekdayOf(date)].en
 /** A notice as one line: what it's for, then who and why. */
 function noticeLine(n: Notice) {
   const what = n.title?.en || (n.kind === 'sponsor' ? '' : n.text.en)
-  const who = [n.sponsoredBy?.en, n.inHonorOf?.en && `in honor of ${n.inHonorOf.en}`]
-    .filter(Boolean)
-    .join(' ')
+  const who = [n.sponsoredBy?.en, n.inHonorOf?.en].filter(Boolean).join(' ')
   const rest = n.kind === 'sponsor' ? who || n.text.en : n.title?.en ? n.text.en : ''
   return { what: what || KIND[n.kind].label, rest }
 }

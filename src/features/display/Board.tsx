@@ -118,6 +118,7 @@ export function Board({
     hasNotices && (
       <NoticeRotator
         height={height}
+        days={[yesterday, ...days]}
         notices={on('notices') ? notices : []}
         categories={categories}
         cholim={on('cholim') ? cholim : []}

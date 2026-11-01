@@ -225,13 +225,13 @@ export function NoticeForm({
           <Field
             label="Sponsored by"
             placeholder="the Greenblat family"
-            help="The printed week shows this beside what’s sponsored"
+            help="Shown in bold under the heading for what’s sponsored"
             value={n.sponsoredBy?.en ?? ''}
             onChangeText={(en) => setN({ ...n, sponsoredBy: en ? { en } : undefined })}
           />
           <Field
-            label={target.kind === 'notices' ? 'Dedication (optional)' : 'In honor of (optional)'}
-            placeholder="Mrs. Greenblat’s mother’s third yahrzeit"
+            label="Dedication (optional)"
+            placeholder="To celebrate Sarah’s bas mitzvah"
             value={n.inHonorOf?.en ?? ''}
             onChangeText={(en) => setN({ ...n, inHonorOf: en ? { en } : undefined })}
           />

@@ -3,7 +3,8 @@ import type { Notice, NoticeCategory } from '@beitecha/engine'
 import React from 'react'
 
 import { useT } from './language'
-import { SponsorName, sponsorsNotices } from './SponsorName'
+import { SponsorName } from './SponsorName'
+import { hasSponsor } from './sponsorGroups'
 
 /** A sponsorship, announcement, reminder, mazal tov or condolence. */
 export function NoticeCard({
@@ -48,12 +49,8 @@ export function NoticeCard({
           {when}
         </Text>
       </Stack>
-      {sponsorsNotices(notice) && (
-        <SponsorName
-          notice={notice}
-          variant={big ? 'titleLarge' : 'bodySerif'}
-          strongVariant={big ? 'headerTitleWide' : 'bodyStrong'}
-        />
+      {hasSponsor(notice) && (
+        <SponsorName notice={notice} variant={big ? 'headerTitleWide' : 'bodyStrong'} />
       )}
       {!!text(notice.text) && (
         <Text

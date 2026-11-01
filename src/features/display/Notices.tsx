@@ -1,6 +1,7 @@
 import { PageDots, SemanticColor, Stack, Text } from '@beezyworks/design'
 import type {
   Choleh,
+  DaySchedule,
   Notice,
   NoticeCategory,
   UpcomingYahrzeit,
@@ -9,7 +10,8 @@ import type {
 import React from 'react'
 
 import { makeT, useT } from '@/features/luach/language'
-import { SponsorName, sponsorsNotices } from '@/features/luach/SponsorName'
+import { SponsorName } from '@/features/luach/SponsorName'
+import { hasSponsor, sponsorGroups, type SponsorGroup } from '@/features/luach/sponsorGroups'
 import { useRotation } from './Panels'
 
 /** The refuah shleimah heading is in Hebrew whenever the page or its names are. */
@@ -22,6 +24,7 @@ const YAHRZEITS_PER_PAGE = 4
 
 type Page =
   | { notice: Notice }
+  | { group: SponsorGroup }
   | { cholim: Choleh[]; key: string }
   | { yahrzeits: UpcomingYahrzeit[]; key: string }
 
@@ -33,15 +36,23 @@ export function NoticeRotator({
   cholim,
   yahrzeits,
   yahrzeitSettings,
+  days,
 }: {
   height?: number
+  /** The days the sponsored events are looked up in. */
+  days: DaySchedule[]
   notices: Notice[]
   categories?: NoticeCategory[]
   cholim: Choleh[]
   yahrzeits: UpcomingYahrzeit[]
   yahrzeitSettings?: YahrzeitSettings
 }) {
-  const pages: Page[] = notices.map((notice) => ({ notice }))
+  const t = useT()
+  const groups = sponsorGroups(t, notices, days)
+  const pages: Page[] = [
+    ...groups.map((group) => ({ group })),
+    ...notices.filter((n) => !hasSponsor(n)).map((notice) => ({ notice })),
+  ]
   for (let at = 0; at < yahrzeits.length; at += YAHRZEITS_PER_PAGE)
     pages.push({ yahrzeits: yahrzeits.slice(at, at + YAHRZEITS_PER_PAGE), key: `yahrzeits-${at}` })
   for (let at = 0; at < cholim.length; at += CHOLIM_PER_PAGE)
@@ -60,6 +71,7 @@ export function NoticeRotator({
         dots={dots}
       />
     )
+  if ('group' in page) return <SponsorsPage height={height} group={page.group} dots={dots} />
   return 'notice' in page ? (
     <NoticePage height={height} n={page.notice} categories={categories} dots={dots} />
   ) : (
@@ -104,14 +116,6 @@ function NoticePage({
           {when}
         </Text>
       </Stack>
-      {sponsorsNotices(n) && (
-        <SponsorName
-          notice={n}
-          variant="titleLarge"
-          strongVariant="headerTitleWide"
-          color={SemanticColor.TextPrimary}
-        />
-      )}
       {!!t.text(n.text) && (
         <Text variant="headerTitleWide" numberOfLines={3} color={SemanticColor.TextPrimary}>
           {t.text(n.text)}
@@ -122,6 +126,47 @@ function NoticePage({
           {n.text.he}
         </Text>
       )}
+      <Stack grow />
+      {dots}
+    </Stack>
+  )
+}
+
+/** Everyone sponsoring the same thing on one page: their names in bold, each dedication under its name. */
+function SponsorsPage({
+  height,
+  group,
+  dots,
+}: {
+  height?: number
+  group: SponsorGroup
+  dots: React.ReactNode
+}) {
+  const t = useT()
+  return (
+    <Stack
+      height={height}
+      grow={!height}
+      radius="xl"
+      padding="lg"
+      gap="sm"
+      background={SemanticColor.AccentTint}
+      borderWidth={1}
+      borderColor={SemanticColor.AccentTintSelected}
+    >
+      <Text variant="title" color={SemanticColor.TextAccent}>
+        {group.title}
+      </Text>
+      {group.sponsors.map((n) => (
+        <Stack key={n.id} gap="none">
+          <SponsorName notice={n} variant="headerTitleWide" color={SemanticColor.TextPrimary} />
+          {!!t.text(n.text) && (
+            <Text variant="titleLarge" numberOfLines={2} color={SemanticColor.TextPrimary}>
+              {t.text(n.text)}
+            </Text>
+          )}
+        </Stack>
+      ))}
       <Stack grow />
       {dots}
     </Stack>

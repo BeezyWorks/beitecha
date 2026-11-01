@@ -227,6 +227,10 @@ export type RelativeTo = { after: string } | { before: string } | { between: [st
 export interface Rule {
   /** Absent = every day. */
   when?: Condition
+  /** First day the rule is in force, `YYYY-MM-DD` inclusive. Absent = no start. Applies on top of `when`. */
+  from?: DateString
+  /** Last day the rule is in force, `YYYY-MM-DD` inclusive. Absent = no end. */
+  to?: DateString
   /** `null` = the event doesn't happen on matching days. */
   time: TimeExpr | null
   /** When it ends on these days, e.g. Seudas Shlishis until shkia. Overrides the event's `duration`. */

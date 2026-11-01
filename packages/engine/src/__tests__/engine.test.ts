@@ -124,6 +124,26 @@ describe('rules', () => {
     expect(timeOf(sampleSchedule, 'shacharis', '2027-09-26')).toBe('06:00') // Selichos
   })
 
+  it('keeps a rule to its start and end dates, inclusive, on top of its days', () => {
+    const winter = withEvents([
+      {
+        id: 'e',
+        name: { en: 'E' },
+        kind: 'other',
+        rules: [
+          { from: '2026-11-01', to: '2027-03-15', when: { weekday: [1, 2] }, time: { clock: '06:00' } },
+          { from: '2026-11-01', time: { clock: '07:00' } }, // open-ended
+          { time: { clock: '08:00' } },
+        ],
+      },
+    ])
+    expect(timeOf(winter, 'e', '2026-10-26')).toBe('08:00') // Monday before it starts
+    expect(timeOf(winter, 'e', '2026-11-02')).toBe('06:00') // Monday
+    expect(timeOf(winter, 'e', '2026-11-04')).toBe('07:00') // Wednesday: not a rule-1 day
+    expect(timeOf(winter, 'e', '2027-03-15')).toBe('06:00') // last day
+    expect(timeOf(winter, 'e', '2027-03-22')).toBe('07:00') // after it ends
+  })
+
   it('reports which rule matched', () => {
     const o = computeDay(sampleSchedule, '2026-10-19').events.find((e) => e.eventId === 'shacharis')
     expect(o?.ruleIndex).toBe(2)
@@ -282,6 +302,11 @@ describe('validate', () => {
     expect(issues.some((i) => i.eventId === 'x' && /unknown event "nope"/.test(i.message))).toBe(true)
     expect(issues.some((i) => i.exceptionId === 'tue' && /does nothing/.test(i.message))).toBe(true)
     expect(issues.some((i) => i.exceptionId === 'gone' && /deleted event/.test(i.message))).toBe(true)
+  })
+
+  it('flags a rule that ends before it starts', () => {
+    const s = withEvents([{ id: 'e', name: { en: 'E' }, kind: 'other', rules: [{ from: '2026-12-01', to: '2026-11-01', time: { clock: '06:00' } }] }])
+    expect(validate(s, '2026-10-18', 1).some((i) => i.eventId === 'e' && /ends before it starts/.test(i.message))).toBe(true)
   })
 
   it('wants every minyan to say which tefila it is', () => {

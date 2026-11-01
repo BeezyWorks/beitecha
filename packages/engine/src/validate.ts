@@ -104,6 +104,12 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
       issues.push({ level: 'warning', eventId: e.id, message: `"${e.name.en}" isn't a minyan but has a tefila` })
     }
     e.rules.forEach((rule, i) => {
+      const bad = (d?: string) => d !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(d)
+      if (bad(rule.from) || bad(rule.to)) {
+        issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} has a start or end that isn't a date (YYYY-MM-DD)` })
+      } else if (rule.from && rule.to && rule.from > rule.to) {
+        issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} ends before it starts` })
+      }
       if (rule.when && conditionIsEmpty(rule.when)) {
         issues.push({ level: 'warning', eventId: e.id, message: `Rule ${i + 1} never applies` })
       }

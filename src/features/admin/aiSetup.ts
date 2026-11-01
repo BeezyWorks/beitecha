@@ -65,6 +65,8 @@ interface EventDef {
 interface Rule {
   when?: Condition // omit = every day (use as the last, catch-all rule)
   time: TimeExpr | null // null = the event does NOT happen on matching days
+  from?: string // first day the rule is in force, "YYYY-MM-DD" inclusive; omit = no start (e.g. winter hours)
+  to?: string // last day, "YYYY-MM-DD" inclusive; omit = no end. Applies together with "when"
   end?: TimeExpr // when it ends on these days, if the schedule says, e.g. { "zman": "sunset" }
   relative?: { between: [string, string] } // a shiur "between Mincha and Maariv": those minyanim's ids
   note?: { en: string; he?: string } // short note shown with the time, e.g. "Selichos first"

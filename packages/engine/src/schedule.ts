@@ -192,7 +192,9 @@ export class Calendar {
 
   /** Which rule of `event` applies on `date`, or -1. */
   matchingRule(event: EventDef, date: DateString): number {
-    return event.rules.findIndex((r) => !r.when || this.matches(r.when, date))
+    return event.rules.findIndex(
+      (r) => (!r.from || date >= r.from) && (!r.to || date <= r.to) && (!r.when || this.matches(r.when, date)),
+    )
   }
 
   /** An event on a date: its rule, then that day's exceptions on top. */

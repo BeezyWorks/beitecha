@@ -1,5 +1,6 @@
 import { Button, Card, Chip, IconButton, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
+  civilDateShort,
   derivedRelative,
   KIND_LABELS,
   STANDARD_TEFILOS,
@@ -98,6 +99,48 @@ function EndEditor({ rule, events, onChange }: { rule: Rule; events: EventDef[];
   )
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** "from Nov 1 until Mar 15", or '' when the rule has no start or end. */
+function describeRange(rule: Rule): string {
+  const day = (d: string) => (DATE_RE.test(d) ? civilDateShort(d) : d)
+  if (rule.from && rule.to) return `${day(rule.from)} – ${day(rule.to)}`
+  if (rule.from) return `from ${day(rule.from)}`
+  if (rule.to) return `until ${day(rule.to)}`
+  return ''
+}
+
+/** The dates a rule is in force between, either end optional (winter hours, a summer schedule). */
+function RangeEditor({ rule, onChange }: { rule: Rule; onChange: (r: Rule) => void }) {
+  const set = (key: 'from' | 'to', value: string) => {
+    const { [key]: _, ...rest } = rule
+    onChange(value ? { ...rest, [key]: value } : rest)
+  }
+  const bad = (d?: string) => !!d && !DATE_RE.test(d)
+  return (
+    <Stack direction="row" gap="sm" wrap>
+      <Stack grow>
+        <Field
+          label="Starts (optional)"
+          value={rule.from ?? ''}
+          onChangeText={(v) => set('from', v.trim())}
+          placeholder="2026-11-01"
+          help={bad(rule.from) ? 'Use YYYY-MM-DD' : 'First day, YYYY-MM-DD'}
+        />
+      </Stack>
+      <Stack grow>
+        <Field
+          label="Ends (optional)"
+          value={rule.to ?? ''}
+          onChangeText={(v) => set('to', v.trim())}
+          placeholder="2027-03-15"
+          help={bad(rule.to) ? 'Use YYYY-MM-DD' : 'Last day, YYYY-MM-DD'}
+        />
+      </Stack>
+    </Stack>
+  )
+}
+
 /** "after Maariv", "between Mincha and Maariv", or just the time. */
 function SaidEditor({ rule, events, onChange }: { rule: Rule; events: EventDef[]; onChange: (r: Rule) => void }) {
   const form = saidToForm(rule.relative)
@@ -181,6 +224,7 @@ function RuleCard({
       <Stack gap="none">
         <Text variant="bodyStrong">
           {index + 1}. {!rule.when && index > 0 ? 'Any other day' : describeCondition(rule.when)}
+          {describeRange(rule) ? ` · ${describeRange(rule)}` : ''}
         </Text>
         <Text variant="body" color={rule.time === null ? SemanticColor.TextSecondary : SemanticColor.TextAccent}>
           {describeTime(rule.time, events)}
@@ -200,6 +244,7 @@ function RuleCard({
       {open && (
         <Stack gap="md">
           <ConditionEditor value={rule.when} onChange={(when) => onChange({ ...rule, when })} />
+          <RangeEditor rule={rule} onChange={onChange} />
           <SegmentedControl
             options={[
               { key: 'at', label: 'At a time' },

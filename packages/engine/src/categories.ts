@@ -1,4 +1,5 @@
-import type { Audience, EventCategory, EventDef } from './types'
+import { NOTICE_LABELS } from './labels'
+import type { Audience, EventCategory, EventDef, Localized, Notice, NoticeCategory, ShulSettings } from './types'
 
 type Named = Pick<EventDef, 'name' | 'kind' | 'category' | 'audience'>
 
@@ -30,3 +31,13 @@ export function guessAudience(e: Named): Audience | undefined {
   if (MEN.test(t)) return 'men'
   return undefined
 }
+
+/** An announcement's own category, if the shul still has it. Other kinds are their own (`NOTICE_LABELS`). */
+export function noticeCategory(settings: Pick<ShulSettings, 'noticeCategories'>, n: Notice): NoticeCategory | undefined {
+  if (n.kind !== 'announcement' || !n.category) return undefined
+  return settings.noticeCategories?.find((c) => c.id === n.category)
+}
+
+/** What a notice is tagged with: its category's name, else its kind's ("Mazal tov"). */
+export const noticeTag = (settings: Pick<ShulSettings, 'noticeCategories'>, n: Notice): Localized =>
+  noticeCategory(settings, n)?.name ?? NOTICE_LABELS[n.kind]

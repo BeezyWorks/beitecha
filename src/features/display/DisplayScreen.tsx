@@ -58,6 +58,7 @@ export function DisplayScreen({ slug }: { slug: string }) {
                 days={days}
                 minutes={minutes}
                 notices={notices}
+                categories={feed.schedule.settings.noticeCategories}
                 cholim={feed.schedule.cholim ?? []}
               />
             )}

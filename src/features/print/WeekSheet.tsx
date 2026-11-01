@@ -7,6 +7,9 @@ import {
   type Localized,
   type Minutes,
   type Notice,
+  type NoticeCategory,
+  noticeCategory,
+  NOTICE_LABELS,
   type Occurrence,
   parseDate,
   type ShulProfile,
@@ -38,6 +41,8 @@ export interface WeekProps {
   /** Sunday to Shabbos. */
   days: DaySchedule[]
   notices: Notice[]
+  /** The shul's announcement categories, each its own heading. */
+  categories?: NoticeCategory[]
   /** Starred events from this week to their lead time (`Calendar.announced`). */
   comingUp: { date: DateString; event: Occurrence }[]
   /** The refuah shleimah list. */
@@ -56,7 +61,8 @@ export const hasAnnouncements = ({
 }: Omit<WeekProps, 'slug' | 'profile'>) =>
   notices.length > 0 ||
   comingUp.length > 0 ||
-  cholim.length > 0 || days.some((d) => d.events.some((e) => !notShiur(e)))
+  cholim.length > 0 ||
+  days.some((d) => d.events.some((e) => !notShiur(e)))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
 export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: boolean }) {
@@ -94,7 +100,7 @@ export function NoticesSide(week: WeekProps) {
   )
 }
 
-function Announcements({ days, notices, comingUp, cholim }: WeekProps) {
+function Announcements({ days, notices, categories, comingUp, cholim }: WeekProps) {
   const t = useT()
   const shiurim = days.map((d) => ({ ...d, events: d.events.filter((e) => !notShiur(e)) }))
   return (
@@ -107,7 +113,7 @@ function Announcements({ days, notices, comingUp, cholim }: WeekProps) {
         details
       />
       {comingUp.length > 0 && <ComingUp items={comingUp} />}
-      {notices.length > 0 && <Notices notices={notices} />}
+      {notices.length > 0 && <Notices notices={notices} categories={categories ?? []} />}
       {cholim.length > 0 && <Cholim cholim={cholim} />}
     </Stack>
   )
@@ -250,15 +256,16 @@ function ColumnHeading({
 }
 
 /** In Hebrew when the page or its names are; with the Hebrew beside it when names show in both. */
-function Heading({ en, he }: { en: string; he: string }) {
+/** `he` can be missing for a shul's own heading (a category it only named in English). */
+function Heading({ en, he }: { en: string; he?: string }) {
   const t = useT()
   const hebrew = t.rtl || t.nameRtl
   return (
     <Stack direction="row" align="center" gap="sm">
-      <Text variant="sectionHeader" rtl={hebrew} color={SemanticColor.TextAccent}>
-        {hebrew ? he : en}
+      <Text variant="sectionHeader" rtl={hebrew && !!he} color={SemanticColor.TextAccent}>
+        {hebrew ? (he ?? en) : en}
       </Text>
-      {!hebrew && t.bothNames && (
+      {!hebrew && t.bothNames && !!he && (
         <Text variant="sectionHeader" rtl color={SemanticColor.TextSecondary}>
           {he}
         </Text>
@@ -705,31 +712,49 @@ function ComingUp({ items }: { items: WeekProps['comingUp'] }) {
   )
 }
 
-/** Sponsorships first (the kiddush is what people look for), then everything else, condolences last. */
-function Notices({ notices }: { notices: Notice[] }) {
+/**
+ * Sponsorships first (the kiddush is what people look for), then plain announcements and reminders, then each of the
+ * shul's own categories, then mazal tovs, condolences last.
+ */
+function Notices({ notices, categories }: { notices: Notice[]; categories: NoticeCategory[] }) {
   const t = useT()
-  const sponsors = notices.filter((n) => n.kind === 'sponsor')
-  const announcements = notices
-    .filter((n) => n.kind !== 'sponsor')
-    .sort((a, b) => Number(a.kind === 'condolence') - Number(b.kind === 'condolence'))
+  const of = (kind: Notice['kind']) => notices.filter((n) => n.kind === kind)
+  const filed = (n: Notice) => noticeCategory({ noticeCategories: categories }, n)
+  const groups: { key: string; en: string; he?: string; notices: Notice[] }[] = [
+    { key: 'sponsor', en: t.s.sponsorships, he: HE.s.sponsorships, notices: of('sponsor') },
+    {
+      key: 'announcement',
+      en: t.s.announcements,
+      he: HE.s.announcements,
+      notices: notices.filter(
+        (n) => n.kind === 'reminder' || (n.kind === 'announcement' && !filed(n)),
+      ),
+    },
+    ...categories.map((c) => ({
+      key: c.id,
+      en: c.name.en,
+      he: c.name.he,
+      notices: notices.filter((n) => filed(n)?.id === c.id),
+    })),
+    ...(['simcha', 'condolence'] as const).map((k) => ({
+      key: k,
+      en: t.noticeKind(k),
+      he: NOTICE_LABELS[k].he,
+      notices: of(k),
+    })),
+  ]
   return (
     <Stack gap="lg">
-      {sponsors.length > 0 && (
-        <Stack gap="sm">
-          <Heading en={t.s.sponsorships} he={HE.s.sponsorships} />
-          {sponsors.map((n) => (
-            <NoticeBlock key={n.id} notice={n} />
-          ))}
-        </Stack>
-      )}
-      {announcements.length > 0 && (
-        <Stack gap="sm">
-          <Heading en={t.s.announcements} he={HE.s.announcements} />
-          {announcements.map((n) => (
-            <NoticeBlock key={n.id} notice={n} />
-          ))}
-        </Stack>
-      )}
+      {groups
+        .filter((g) => g.notices.length > 0)
+        .map((g) => (
+          <Stack key={g.key} gap="sm">
+            <Heading en={g.en} he={g.he} />
+            {g.notices.map((n) => (
+              <NoticeBlock key={n.id} notice={n} />
+            ))}
+          </Stack>
+        ))}
     </Stack>
   )
 }

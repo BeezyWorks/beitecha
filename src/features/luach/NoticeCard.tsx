@@ -1,5 +1,5 @@
 import { Badge, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
-import type { Notice } from '@beitecha/engine'
+import type { Notice, NoticeCategory } from '@beitecha/engine'
 import React from 'react'
 
 import { useT } from './language'
@@ -7,13 +7,16 @@ import { useT } from './language'
 /** A sponsorship, announcement, reminder, mazal tov or condolence. */
 export function NoticeCard({
   notice,
+  categories,
   size = 'page',
 }: {
   notice: Notice
+  /** The shul's announcement categories, for the notice's tag. */
+  categories?: NoticeCategory[]
   size?: 'page' | 'display'
 }) {
   const big = size === 'display'
-  const { bothNames, noticeKind, text, dateShort } = useT()
+  const { bothNames, noticeTag, text, dateShort } = useT()
   const when =
     notice.to && notice.to !== notice.from
       ? `${dateShort(notice.from)} – ${dateShort(notice.to)}`
@@ -31,7 +34,7 @@ export function NoticeCard({
     >
       <Stack direction="row" align="center" gap="sm">
         <Badge
-          label={noticeKind(notice.kind)}
+          label={noticeTag(notice, categories)}
           tone={notice.kind === 'sponsor' ? 'accent' : notice.kind === 'simcha' ? 'success' : 'neutral'}
         />
         {!!notice.title && (

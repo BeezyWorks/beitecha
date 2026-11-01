@@ -149,6 +149,14 @@ describe('notices', () => {
     expect(withNoticeKind(s, 'reminder')).toEqual({ ...base, kind: 'reminder', eventId: 'bbq' })
     expect(withNoticeKind(s, 'simcha')).toEqual({ ...base, kind: 'simcha' })
   })
+
+  it('files an announcement under a category, and nothing else', () => {
+    const school = withNoticeKind(base, 'announcement', 'school')
+    expect(school).toMatchObject({ kind: 'announcement', category: 'school' })
+    expect(withNoticeKind(school, 'announcement')).not.toHaveProperty('category')
+    expect(withNoticeKind(school, 'simcha')).not.toHaveProperty('category')
+    expect(withNoticeKind(school, 'sponsor')).not.toHaveProperty('category')
+  })
 })
 
 describe('notice links', () => {

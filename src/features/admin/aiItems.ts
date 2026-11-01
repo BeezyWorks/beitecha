@@ -226,6 +226,7 @@ const NOTICE_SCHEMA = `{ "notices": [
       // condolence = shiva, a petira, a yahrzeit; reminder = something coming up; announcement = anything else
     "from": "YYYY-MM-DD", // first day it shows
     "to"?: "YYYY-MM-DD", // last day; omit for one day (a sponsorship shows on its day)
+    "category"?: string, // an announcement's category: an id from the list below (omit for a general announcement)
     "eventId"?: string, // what a sponsorship is for, or what a reminder is about: an id from the list below
     "sponsors"?: "day" | "notices", // a sponsorship of no event: the day's learning ("day", the default) or the notices
     "title"?: { "en": string, "he"?: string }, // for a sponsorship: what's sponsored ("Kiddush")
@@ -242,6 +243,7 @@ export function noticePrompt(schedule: Schedule, profile: ShulProfile, today: Da
   const weekly = schedule.events.filter((e) => e.kind !== 'tefila' && e.visibility !== 'internal')
   const oneTime = schedule.exceptions.flatMap((x) => (x.type === 'add' && x.date >= today ? [`  ${x.event.id}: ${x.event.name.en} (on ${x.date})`] : []))
   const events = [...weekly.map((e) => `  ${e.id}: ${e.name.en} (every week)`), ...oneTime]
+  const categories = schedule.settings.noticeCategories ?? []
   return `You are helping the gabbai of ${profile.name.en} put sponsorships and notices on their shul's display, printed week and Siddur page in Beitecha. The gabbai may paste a message, an email or a list; take each sponsorship or notice from it, keeping the wording warm and short.
 
 ${HOW_TO_ANSWER('{ "notices": [ … ] } in the format below')}
@@ -253,6 +255,9 @@ ${NOTICE_SCHEMA}
 Events a notice can be about (eventId):
 ${events.length ? events.join('\n') : '  (none)'}
 
+The shul's categories for announcements (category):
+${categories.length ? categories.map((c) => `  ${c.id}: ${c.name.en}`).join('\n') : '  (none)'}
+
 A sponsorship "this Shabbos" or of a weekly event (the Kiddush) is on that day: "from" is the Shabbos's date. A mazal tov or announcement usually shows for a week.
 
 Today is ${today}. The coming weeks, with Hebrew dates and holidays:
@@ -261,8 +266,11 @@ ${comingDays(schedule, today, 70)}
 ${request(ask)}`
 }
 
-/** Notices from an AI's answer, ready for the schedule once each gets an id. `eventIds` are the ones it may name. */
-export function parseNotices(text: string, eventIds: string[]): Parsed<Notice[]> {
+/**
+ * Notices from an AI's answer, ready for the schedule once each gets an id. `eventIds` and `categoryIds` are the ones
+ * it may name.
+ */
+export function parseNotices(text: string, eventIds: string[], categoryIds: string[] = []): Parsed<Notice[]> {
   const data = json(text)
   if (!data.ok) return data
   const v = data.value
@@ -282,6 +290,8 @@ export function parseNotices(text: string, eventIds: string[]): Parsed<Notice[]>
     if (n.to !== undefined && (!str(n.to) || !DATE.test(n.to as string) || (n.to as string) < (n.from as string)))
       errors.push(`${at}: "to" must be "YYYY-MM-DD", on or after "from"`)
     if (n.eventId !== undefined && !eventIds.includes(n.eventId as string)) errors.push(`${at}: no event "${n.eventId}"; use an id from the list`)
+    if (n.category !== undefined && !categoryIds.includes(n.category as string)) errors.push(`${at}: no category "${n.category}"; use an id from the list`)
+    else if (n.category !== undefined && n.kind !== 'announcement') errors.push(`${at}: only an announcement has a "category"`)
     if (n.sponsors !== undefined && n.sponsors !== 'day' && n.sponsors !== 'notices') errors.push(`${at}: "sponsors" must be "day" or "notices"`)
     if (n.link !== undefined && !/^https:\/\/\S+$/.test(String(n.link))) errors.push(`${at}: "link" must start https://`)
     const links = (Array.isArray(n.links) ? n.links : []).map((raw: unknown) => {
@@ -297,6 +307,7 @@ export function parseNotices(text: string, eventIds: string[]): Parsed<Notice[]>
       kind: n.kind as Notice['kind'],
       from: n.from as DateString,
       ...(str(n.to) && n.to !== n.from && { to: n.to as DateString }),
+      ...(str(n.category) && { category: n.category as string }),
       ...(str(n.eventId) && { eventId: n.eventId as string }),
       ...(n.kind === 'sponsor' && !n.eventId && n.sponsors === 'notices' && { sponsors: 'notices' as const }),
       ...(title && { title }),

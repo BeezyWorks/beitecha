@@ -15,6 +15,7 @@ import {
   nextUp,
   type NextUp,
   type Notice,
+  type NoticeCategory,
   type Occurrence,
   zmanimList,
 } from '@beitecha/engine'
@@ -51,10 +52,12 @@ export interface BoardProps {
   days: DaySchedule[]
   minutes: Minutes
   notices: Notice[]
+  /** The shul's announcement categories, for each notice's tag. */
+  categories?: NoticeCategory[]
   cholim: Choleh[]
 }
 
-export function Board({ name, slug, days, minutes, notices, cholim }: BoardProps) {
+export function Board({ name, slug, days, minutes, notices, categories, cholim }: BoardProps) {
   const [day, tomorrow] = days
   const next = nextUp(day, tomorrow, minutes)
   return (
@@ -64,7 +67,7 @@ export function Board({ name, slug, days, minutes, notices, cholim }: BoardProps
       </Stack>
       <Stack width={TODAY_W} gap={GAP}>
         <Today day={day} minutes={minutes} next={next?.today ? next.event : undefined} />
-        <NoticeRotator notices={notices} cholim={cholim} />
+        <NoticeRotator notices={notices} categories={categories} cholim={cholim} />
       </Stack>
       <Stack width={SIDE_W} gap={GAP}>
         <Zmanim day={day} minutes={minutes} />
@@ -358,7 +361,11 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
               </Text>
               <Stack grow />
               <Text variant="title" color={e.cancelled ? SemanticColor.TextDanger : undefined}>
-                {e.cancelled ? t.s.cancelled : e.untimed && e.relative ? t.relative(e.relative) : t.clock(e.minutes!)}
+                {e.cancelled
+                  ? t.s.cancelled
+                  : e.untimed && e.relative
+                    ? t.relative(e.relative)
+                    : t.clock(e.minutes!)}
               </Text>
             </Stack>
           ))}
@@ -383,7 +390,15 @@ function upcomingDays(days: DaySchedule[]): DaySchedule[] {
 
 type Page = { notice: Notice } | { cholim: Choleh[]; key: string }
 
-function NoticeRotator({ notices, cholim }: { notices: Notice[]; cholim: Choleh[] }) {
+function NoticeRotator({
+  notices,
+  categories,
+  cholim,
+}: {
+  notices: Notice[]
+  categories?: NoticeCategory[]
+  cholim: Choleh[]
+}) {
   const pages: Page[] = notices.map((notice) => ({ notice }))
   for (let at = 0; at < cholim.length; at += CHOLIM_PER_PAGE)
     pages.push({ cholim: cholim.slice(at, at + CHOLIM_PER_PAGE), key: `cholim-${at}` })
@@ -391,10 +406,22 @@ function NoticeRotator({ notices, cholim }: { notices: Notice[]; cholim: Choleh[
   if (!pages.length) return null
   const page = pages[i % pages.length]
   const dots = pages.length > 1 && <PageDots count={pages.length} index={i % pages.length} />
-  return 'notice' in page ? <NoticePage n={page.notice} dots={dots} /> : <CholimPage key={page.key} cholim={page.cholim} dots={dots} />
+  return 'notice' in page ? (
+    <NoticePage n={page.notice} categories={categories} dots={dots} />
+  ) : (
+    <CholimPage key={page.key} cholim={page.cholim} dots={dots} />
+  )
 }
 
-function NoticePage({ n, dots }: { n: Notice; dots: React.ReactNode }) {
+function NoticePage({
+  n,
+  categories,
+  dots,
+}: {
+  n: Notice
+  categories?: NoticeCategory[]
+  dots: React.ReactNode
+}) {
   const t = useT()
   const sponsor = n.kind === 'sponsor'
   const when =
@@ -412,7 +439,7 @@ function NoticePage({ n, dots }: { n: Notice; dots: React.ReactNode }) {
     >
       <Stack direction="row" align="center" gap="sm">
         <Text variant="title" color={SemanticColor.TextAccent}>
-          {t.noticeKind(n.kind)}
+          {t.noticeTag(n, categories)}
           {n.title ? ` · ${t.text(n.title)}` : ''}
         </Text>
         <Stack grow />

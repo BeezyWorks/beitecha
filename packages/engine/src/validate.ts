@@ -161,6 +161,10 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
     if (n.eventId && !known.has(n.eventId)) {
       issues.push({ level: 'warning', date: n.from, message: `The ${what} is for an event that doesn't exist ("${n.eventId}")` })
     }
+    if (n.category && n.kind !== 'announcement') issues.push({ level: 'warning', date: n.from, message: `The ${what} isn't an announcement, so it has no category` })
+    else if (n.category && !schedule.settings.noticeCategories?.some((c) => c.id === n.category)) {
+      issues.push({ level: 'warning', date: n.from, message: `The ${what} is filed under a category that doesn't exist ("${n.category}")` })
+    }
     if (n.sponsors && n.kind !== 'sponsor') issues.push({ level: 'warning', date: n.from, message: `The ${what} isn't a sponsorship` })
     if (n.sponsors && n.eventId) issues.push({ level: 'warning', date: n.from, message: `The ${what} sponsors an event and the ${n.sponsors} both` })
     const event = n.eventId ? added.get(n.eventId) : undefined

@@ -52,7 +52,15 @@ export function PrintScreen({ slug }: { slug: string }) {
   const notices = feed.schedule.notices
     .filter((n) => (n.to ?? n.from) >= sunday && n.from <= shabbos)
     .sort((a, b) => a.from.localeCompare(b.from))
-  const week = { slug, profile: feed.profile, days, notices, comingUp, cholim: feed.schedule.cholim ?? [] }
+  const week = {
+    slug,
+    profile: feed.profile,
+    days,
+    notices,
+    categories: feed.schedule.settings.noticeCategories,
+    comingUp,
+    cholim: feed.schedule.cholim ?? [],
+  }
   const hasBack = hasAnnouncements(week)
   const twoSided = hasBack && params.sides !== '1'
   // A new layout starts its fit-to-page over.

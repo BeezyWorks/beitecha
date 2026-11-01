@@ -1,4 +1,4 @@
-import { guessTefila, type Choleh, type EventDef, type Exception, type Notice, type Schedule, type ShulProfile } from '@beitecha/engine'
+import { guessTefila, type Choleh, type EventDef, type Exception, type Notice, type NoticeCategory, type Schedule, type ShulProfile } from '@beitecha/engine'
 import { create } from 'zustand'
 
 import { api, ApiError, type ShulAdmin } from '@/lib/api'
@@ -26,6 +26,8 @@ interface AdminState {
   upsertNotice: (n: Notice) => void
   removeNotice: (id: string) => void
   setCholim: (list: Choleh[]) => void
+  /** The shul's announcement categories; announcements under one that's gone become plain ones. */
+  setNoticeCategories: (list: NoticeCategory[]) => void
   /** Saves the draft. On a conflict, `overwrite` saves on top of the newer revision. */
   saveDraft: (overwrite?: boolean) => Promise<void>
   discard: () => void
@@ -91,6 +93,14 @@ export const useAdmin = create<AdminState>((set, get) => {
     upsertNotice: (n) => edit((s) => ({ ...s, notices: replaceIn(s.notices, n) })),
     removeNotice: (id) => edit((s) => ({ ...s, notices: s.notices.filter((x) => x.id !== id) })),
     setCholim: (cholim) => edit((s) => ({ ...s, cholim })),
+    setNoticeCategories: (noticeCategories) =>
+      edit((s) => ({
+        ...s,
+        settings: { ...s.settings, noticeCategories },
+        notices: s.notices.map(({ category, ...n }) =>
+          category && noticeCategories.some((c) => c.id === category) ? { ...n, category } : n,
+        ),
+      })),
 
     saveDraft: async (overwrite = false) => {
       const { slug, loaded, profile, schedule } = get()

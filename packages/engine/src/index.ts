@@ -1,7 +1,7 @@
 export * from './types'
 export { Calendar, MAX_ANNOUNCE_WEEKS, computeDay, computeRange, derivedRelative, noticeLastDay } from './schedule'
 export { customZmanName, customZmanProblem, isSunBased } from './custom'
-export { guessAudience, guessCategory } from './categories'
+export { guessAudience, guessCategory, noticeCategory, noticeTag } from './categories'
 export { sampleSchedule } from './sample'
 export { starterSchedule, type StarterOptions } from './starter'
 export { STANDARD_TEFILOS, guessTefila, tefilaName } from './tefilos'

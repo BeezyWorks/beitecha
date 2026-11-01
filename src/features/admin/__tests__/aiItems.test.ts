@@ -75,4 +75,11 @@ describe('parseNotices', () => {
     const bad = parseNotices('[{ "kind": "sponsor", "from": "2026-11-07", "eventId": "melava", "text": "x" }]', ['kiddush'])
     expect(!bad.ok && bad.errors.join()).toContain('no event "melava"')
   })
+
+  it('files announcements under the shul’s categories', () => {
+    const r = parseNotices('[{ "kind": "announcement", "category": "school", "from": "2026-11-07", "text": { "en": "PTA tonight" } }]', [], ['school'])
+    expect(r.ok && r.value[0].category).toBe('school')
+    const bad = parseNotices('[{ "kind": "simcha", "category": "gone", "from": "2026-11-07", "text": { "en": "x" } }]', [], ['school'])
+    expect(!bad.ok && bad.errors.join()).toContain('no category "gone"')
+  })
 })

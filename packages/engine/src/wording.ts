@@ -1,3 +1,4 @@
+import { noticeCategory } from './categories'
 import { parseDate } from './dates'
 import { AUDIENCE_LABELS, CATEGORY_LABELS, NOTICE_LABELS, WEEKDAYS, WEEKDAY_SHORT, ZMAN_LABELS } from './labels'
 import { cholehName, localize, nameStyle } from './localize'
@@ -13,6 +14,8 @@ import type {
   Localized,
   Minutes,
   NameStyle,
+  Notice,
+  NoticeCategory,
   NoticeKind,
   Relative,
   Weekday,
@@ -173,6 +176,11 @@ function build(lang: Language, timeFormat: string | undefined, names: NameStyle)
     audience: (a: Audience) => label(AUDIENCE_LABELS[a]),
     /** "Mazal tov", "Reminder"… */
     noticeKind: (k: NoticeKind) => label(NOTICE_LABELS[k]),
+    /** A notice's tag: its category's name (the shul's `settings.noticeCategories`), else its kind's. */
+    noticeTag: (n: Notice, categories?: NoticeCategory[]) => {
+      const c = noticeCategory({ noticeCategories: categories }, n)
+      return c ? text(c.name) : label(NOTICE_LABELS[n.kind])
+    },
     /** `10:15–11:30` */
     timeRange: (start: Minutes, end?: Minutes) => {
       const c = (m: Minutes) => (timeFormat ? formatTime(m, timeFormat) : clock(m))

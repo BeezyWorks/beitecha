@@ -325,9 +325,14 @@ export function withSponsorText(n: Notice): Notice {
   return { ...n, text: { ...n.text, en: `Sponsored by ${by}${honor ? `, in honor of ${honor}` : ''}` } }
 }
 
-/** A notice of another kind keeps only what that kind uses: a sponsorship's target and who and why, a reminder's event. */
-export function withNoticeKind(n: Notice, kind: Notice['kind']): Notice {
-  const { eventId, sponsors: _s, sponsoredBy: _b, inHonorOf: _h, ...rest } = n
-  if (kind === 'sponsor') return { ...n, kind }
+/**
+ * A notice of another kind keeps only what that kind uses: a sponsorship's target and who and why, a reminder's
+ * event, an announcement's `category`.
+ */
+export function withNoticeKind(n: Notice, kind: Notice['kind'], category?: string): Notice {
+  const { category: _c, ...uncategorized } = n
+  const { eventId, sponsors: _s, sponsoredBy: _b, inHonorOf: _h, ...rest } = uncategorized
+  if (kind === 'sponsor') return { ...uncategorized, kind }
+  if (kind === 'announcement' && category) return { ...rest, kind, category }
   return kind === 'reminder' && eventId ? { ...rest, kind, eventId } : { ...rest, kind }
 }

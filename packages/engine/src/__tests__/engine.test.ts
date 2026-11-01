@@ -18,7 +18,9 @@ import {
   guessAudience,
   guessCategory,
   guessTefila,
+  noticeCategory,
   noticeLastDay,
+  noticeTag,
   timeFormatProblem,
   inferCivilCalendar,
   localHolidayDates,
@@ -31,7 +33,7 @@ import {
   validate,
   zmanimList,
 } from '../index'
-import type { CustomZman, EventDef, LocalHoliday, Schedule, ShulSettings, TimeExpr } from '../types'
+import type { CustomZman, EventDef, LocalHoliday, Notice, Schedule, ShulSettings, TimeExpr } from '../types'
 
 const settings = sampleSchedule.settings
 const tags = (date: string, s: ShulSettings = settings) => [...dayInfo(date, s).tags]
@@ -655,6 +657,24 @@ describe('wording', () => {
     const first = day.events.find((e) => !e.cancelled && e.minutes !== null)!
     expect(nextUp(day, tomorrow, 0)).toMatchObject({ event: { eventId: first.eventId }, today: true })
     expect(nextUp(day, tomorrow, 24 * 60)).toMatchObject({ today: false })
+  })
+})
+
+describe('notice categories', () => {
+  const settings = { noticeCategories: [{ id: 'school', name: { en: 'School' } }] }
+  const notice = (extra: Partial<Notice>): Notice => ({ id: 'n', kind: 'announcement', from: '2026-11-01', text: { en: 'x' }, ...extra })
+
+  it('tags an announcement with its category, and everything else with its kind', () => {
+    expect(noticeCategory(settings, notice({ category: 'school' }))?.name.en).toBe('School')
+    expect(noticeTag(settings, notice({ category: 'school' })).en).toBe('School')
+    expect(noticeTag(settings, notice({})).en).toBe('Announcement')
+    expect(noticeTag(settings, notice({ category: 'gone' })).en).toBe('Announcement')
+    expect(noticeTag(settings, notice({ kind: 'simcha', category: 'school' })).en).toBe('Mazal tov')
+  })
+
+  it('warns about a category that does not exist', () => {
+    const issues = validate({ ...sampleSchedule, notices: [notice({ category: 'gone' })] }, '2026-11-01')
+    expect(issues.some((i) => /category that doesn't exist/.test(i.message))).toBe(true)
   })
 })
 

@@ -133,6 +133,17 @@ export interface ShulSettings {
   selichos?: SelichosMinhag
   /** How many weeks before it a starred event (`EventDef.announce`) is listed under "Coming up". Default 2. */
   announceWeeks?: number
+  /**
+   * The shul's own headings for announcements ("Community", "School"), in order, beside the built-in mazal tovs and
+   * condolences. The printed week groups announcements under them; the display and the Siddur tag each with its name.
+   */
+  noticeCategories?: NoticeCategory[]
+}
+
+/** A heading a shul files announcements under. Old clients show its notices as plain announcements. */
+export interface NoticeCategory {
+  id: string
+  name: Localized
 }
 
 // ---------------------------------------------------------------------------
@@ -374,6 +385,8 @@ export interface Notice {
   to?: DateString
   /** The event it's about: what a sponsorship is for (the kiddush, a shiur), or what a reminder is for. */
   eventId?: string
+  /** An announcement's `NoticeCategory` (by id); absent or unknown = a plain announcement. */
+  category?: string
   /** What a sponsorship without an event is for: the day (default, "today's learning") or the notices themselves. */
   sponsors?: 'day' | 'notices'
   title?: Localized

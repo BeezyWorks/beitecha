@@ -97,7 +97,6 @@ describe('parseNotices', () => {
           kind: 'sponsor',
           from: '2026-11-07',
           eventId: 'kiddush',
-          title: { en: 'Kiddush' },
           text: { en: 'The Cohens' },
         },
       ],

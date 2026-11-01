@@ -14,7 +14,7 @@ export function nextUp(
 ): NextUp | undefined {
   const upcoming = (d: DaySchedule | undefined, from: Minutes) =>
     d?.events.find(
-      (e): e is NextUp['event'] => !e.cancelled && e.minutes !== null && e.minutes >= from,
+      (e): e is NextUp['event'] => !e.cancelled && !e.untimed && e.minutes !== null && e.minutes >= from,
     )
   const today = upcoming(day, now)
   if (today) return { event: today, today: true }

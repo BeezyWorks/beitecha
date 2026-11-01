@@ -67,6 +67,12 @@ function isSelichos(date: DateString, hd: HDate, settings: ShulSettings, yomTov:
   return date >= startOfWeek(addDays(rhDate, -4))
 }
 
+/** The last Shabbos on or before the 29th, except in Elul (Tishrei's Rosh Chodesh is Rosh Hashana). */
+function isMevarchim(hd: HDate): boolean {
+  const d = hd.getDate()
+  return hd.getMonth() !== months.ELUL && d >= 23 && d <= 29
+}
+
 export function dayInfo(date: DateString, settings: ShulSettings, localHolidays: LocalHoliday[] = []): DayInfo {
   const { israel, timeZone } = settings.location
   const hdate = new HDate(hostDate(date))
@@ -85,6 +91,7 @@ export function dayInfo(date: DateString, settings: ShulSettings, localHolidays:
   if (yomTov && !yomTovTomorrow && weekday !== 5) tags.add('motzeiYomTov')
   if (has(holidays, flags.CHOL_HAMOED)) tags.add('cholHamoed')
   if (has(holidays, flags.ROSH_CHODESH)) tags.add('roshChodesh')
+  if (weekday === 6 && isMevarchim(hdate)) tags.add('shabbosMevarchim')
   if (holidays.some(isPublicFast)) tags.add('fast')
   if (inChanukah(hdate)) tags.add('chanukah')
   if (holidays.some((e) => e.getDesc() === 'Purim')) tags.add('purim')

@@ -225,6 +225,8 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
     key: string
     name: Localized
     minutes: Minutes | null
+    /** "after Shacharis", instead of a time. */
+    said?: string
     note?: string
     cancelled?: boolean
     lit?: boolean
@@ -233,6 +235,7 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
     key: e.eventId,
     name: e.name,
     minutes: e.minutes,
+    said: e.untimed && e.relative ? t.relative(e.relative) : undefined,
     cancelled: e.cancelled,
     note: e.cancelled
       ? e.note
@@ -286,7 +289,7 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
             )}
           </Stack>
           <Text variant="headline" color={r.lit ? SemanticColor.TextAccent : undefined}>
-            {r.cancelled ? '—' : r.minutes === null ? '—' : t.clock(r.minutes)}
+            {r.said ?? (r.cancelled ? '—' : r.minutes === null ? '—' : t.clock(r.minutes))}
           </Text>
         </Stack>
       ))}
@@ -331,8 +334,12 @@ function WeekdayGrid({ days }: { days: DaySchedule[] }) {
                         {t.s.cancelled}
                       </Text>
                     ) : (
-                      <Text variant="headline">
-                        {e.minutes === null ? '—' : t.clock(e.minutes)}
+                      <Text variant={e.untimed ? 'caption' : 'headline'} align="center">
+                        {e.untimed && e.relative
+                          ? t.relative(e.relative)
+                          : e.minutes === null
+                            ? '—'
+                            : t.clock(e.minutes)}
                       </Text>
                     )}
                     {!!e?.note && !e.cancelled && (

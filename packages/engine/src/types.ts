@@ -138,6 +138,8 @@ export const DAY_TAGS = [
   'motzeiYomTov',
   'cholHamoed',
   'roshChodesh',
+  /** The Shabbos on which the coming month is blessed. */
+  'shabbosMevarchim',
   'fast',
   'chanukah',
   'purim',
@@ -176,6 +178,8 @@ export type Condition =
  */
 export type RoundMode = 'down' | 'up' | 'nearest' | 'withTrend' | 'againstTrend'
 
+export type TimeTest = 'before' | 'atOrBefore' | 'after' | 'atOrAfter'
+
 export type TimeExpr =
   /** A fixed clock time, `HH:MM` 24-hour. */
   | { clock: string }
@@ -196,6 +200,12 @@ export type TimeExpr =
    * Days the expression has no value on are skipped.
    */
   | { weekly: TimeExpr; pick: 'earliest' | 'latest'; days?: Weekday[] }
+  /**
+   * `then` when `left` is `is` `right`, else `otherwise`. No `otherwise` (or one with no value) = no
+   * time that day, so the event doesn't happen: "Mincha at 12:45 if that's after Mincha Gedola, else no minyan".
+   * A side with no value that day makes the test false.
+   */
+  | { if: { left: TimeExpr; is: TimeTest; right: TimeExpr }; then: TimeExpr; otherwise?: TimeExpr }
 
 // ---------------------------------------------------------------------------
 // Events, exceptions, notices
@@ -240,6 +250,11 @@ export interface Rule {
    * after Maariv is "after Maariv". `null`: just the time.
    */
   relative?: RelativeTo | null
+  /**
+   * No clock time at all: the event just follows another ("after Shacharis"). Needs `relative` to be an
+   * `after`/`before` of a minyan, and `time` to be that minyan (`{ event }`), which only places it in the list.
+   */
+  untimed?: boolean
   note?: Localized
 }
 
@@ -357,6 +372,8 @@ export interface Occurrence {
   endMinutes?: Minutes
   /** "after Maariv": how the time is said, when it hangs on a minyan that happens that day. */
   relative?: Relative
+  /** Say `relative` instead of a time: "after Shacharis". `minutes` is the anchor's, only for ordering. */
+  untimed?: boolean
   cancelled: boolean
   note?: Localized
   source: 'rule' | 'exception' | 'added'

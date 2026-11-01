@@ -51,6 +51,7 @@ interface Resolved {
   expr?: TimeExpr
   /** The rule's own `relative`. */
   said?: RelativeTo | null
+  untimed?: boolean
   cancelled: boolean
   note?: Occurrence['note']
   source: Occurrence['source']
@@ -172,6 +173,17 @@ export class Calendar {
       if (values.length === 0) return null
       return expr.pick === 'earliest' ? Math.min(...values) : Math.max(...values)
     }
+    if ('if' in expr) {
+      const { left, is, right } = expr.if
+      const l = this.evaluate(left, date)
+      const r = this.evaluate(right, date)
+      const holds =
+        l !== null &&
+        r !== null &&
+        (is === 'before' ? l < r : is === 'atOrBefore' ? l <= r : is === 'after' ? l > r : l >= r)
+      const branch = holds ? expr.then : expr.otherwise
+      return branch ? this.evaluate(branch, date) : null
+    }
     throw new EvalError(`Unknown time expression ${JSON.stringify(expr)}`)
   }
 
@@ -244,6 +256,7 @@ export class Calendar {
           minutes: this.evaluate(rule.time, date),
           expr: rule.time,
           said: rule.relative,
+          untimed: rule.untimed,
           cancelled: false,
           source: 'rule',
           ruleIndex: i,
@@ -257,7 +270,7 @@ export class Calendar {
     if (retime && retime.type === 'retime') {
       const minutes = this.evaluate(retime.time, date)
       // A rule's "between Mincha and Maariv" no longer holds once the time is moved; say the new one's.
-      base = { ...base, minutes, expr: retime.time, said: undefined, source: 'exception', note: exceptionNote ?? base.note }
+      base = { ...base, minutes, expr: retime.time, said: undefined, untimed: undefined, source: 'exception', note: exceptionNote ?? base.note }
     } else if (exceptionNote) base = { ...base, note: exceptionNote }
     if (base.minutes === null) return base
     const end = endExpr ? this.evaluate(endExpr, date) : event.duration ? base.minutes + event.duration : null
@@ -319,10 +332,16 @@ export class Calendar {
       resolved.set(o, r)
     }
     for (const o of out) {
-      const relative = this.relativeOf(resolved.get(o)!, o.kind, out)
+      const r = resolved.get(o)!
+      const relative = this.relativeOf(r, o.kind, out)
       if (relative) o.relative = relative
+      // Untimed only means something when it can be said ("after Shacharis"); else fall back to the time.
+      if (r.untimed && relative && relative.position !== 'between') o.untimed = true
     }
-    return out.sort((a, b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity))
+    // An untimed event sits just below the minyan it follows.
+    return out.sort(
+      (a, b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity) || Number(!!a.untimed) - Number(!!b.untimed),
+    )
   }
 
   notices(date: DateString): Notice[] {

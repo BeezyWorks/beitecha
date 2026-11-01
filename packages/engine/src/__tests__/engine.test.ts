@@ -50,6 +50,12 @@ const gregOf = (hd: HDate) => {
 }
 
 describe('day tags', () => {
+  it('tags Shabbos Mevarchim', () => {
+    expect(tags('2026-11-07')).toContain('shabbosMevarchim') // before Rosh Chodesh Kislev
+    expect(tags('2026-10-31')).not.toContain('shabbosMevarchim')
+    expect(tags('2026-11-06')).not.toContain('shabbosMevarchim')
+  })
+
   it('only counts public fasts', () => {
     expect(tags('2026-10-19')).not.toContain('fast') // BeHaB
     expect(tags('2027-04-21')).not.toContain('fast') // Ta'anis Bechoros
@@ -142,6 +148,26 @@ describe('rules', () => {
     expect(timeOf(winter, 'e', '2026-11-04')).toBe('07:00') // Wednesday: not a rule-1 day
     expect(timeOf(winter, 'e', '2027-03-15')).toBe('06:00') // last day
     expect(timeOf(winter, 'e', '2027-03-22')).toBe('07:00') // after it ends
+  })
+
+  it('picks a time by comparing two others, and is off when there is nothing to pick', () => {
+    const gedola: TimeExpr = { zman: 'minchaGedola' }
+    const winter = '2026-12-21'
+    const summer = '2026-06-22'
+    const mincha = (time: TimeExpr) =>
+      withEvents([{ id: 'm', name: { en: 'M' }, kind: 'other', rules: [{ time }] }])
+    // 12:45 only when that's at or after gedola; otherwise no minyan
+    const early = mincha({ if: { left: { clock: '12:45' }, is: 'atOrAfter', right: gedola }, then: { clock: '12:45' } })
+    // 18:00 when gedola is after 13:00, else 12:45
+    const late = mincha({
+      if: { left: gedola, is: 'after', right: { clock: '13:00' } },
+      then: { clock: '18:00' },
+      otherwise: { clock: '12:45' },
+    })
+    expect(timeOf(early, 'm', winter)).toBe('12:45')
+    expect(timeOf(early, 'm', summer)).toBeUndefined()
+    expect(timeOf(late, 'm', winter)).toBe('12:45')
+    expect(timeOf(late, 'm', summer)).toBe('18:00')
   })
 
   it('reports which rule matched', () => {
@@ -701,6 +727,19 @@ describe('saying times', () => {
     expect(said(sampleSchedule, '2026-10-29', 'mishna-berura')).toBe('between Mincha and Maariv')
     expect(said(sampleSchedule, '2026-10-29', 'daf-yomi')).toBeUndefined() // a clock time
     expect(said(sampleSchedule, '2026-10-29', 'maariv')).toBeUndefined()
+  })
+
+  it('lists an untimed event just below the minyan it follows', () => {
+    const kiddush: EventDef = {
+      id: 'kiddush',
+      name: { en: 'Kiddush' },
+      kind: 'other',
+      rules: [{ time: { event: 'maariv' }, relative: { after: 'maariv' }, untimed: true }],
+    }
+    const day = computeDay({ ...sampleSchedule, events: [...sampleSchedule.events, kiddush] }, '2026-10-29')
+    const i = day.events.findIndex((e) => e.eventId === 'maariv')
+    expect(day.events[i + 1]).toMatchObject({ eventId: 'kiddush', untimed: true })
+    expect(t.relative(day.events[i + 1].relative!)).toBe('after Maariv')
   })
 
   it('in Hebrew', () => {

@@ -17,9 +17,9 @@ export function TimesList({ events, now, size = 'page' }: TimesListProps) {
   const next =
     now === undefined
       ? undefined
-      : events.find((e) => !e.cancelled && e.minutes !== null && e.minutes >= now)
+      : events.find((e) => !e.cancelled && !e.untimed && e.minutes !== null && e.minutes >= now)
   const big = size === 'display'
-  const { bothNames, nameRtl, s, text, clock } = useT()
+  const { bothNames, nameRtl, s, text, clock, relative } = useT()
   return (
     <Stack gap={big ? 'sm' : 'xs'}>
       {events.map((e) => {
@@ -45,6 +45,11 @@ export function TimesList({ events, now, size = 'page' }: TimesListProps) {
               >
                 {text(e.name)}
               </Text>
+              {e.untimed && e.relative && (
+                <Text variant={big ? 'title' : 'caption'} color={SemanticColor.TextSecondary}>
+                  {relative(e.relative)}
+                </Text>
+              )}
               {!!e.note && (
                 <Text
                   variant={big ? 'title' : 'caption'}
@@ -73,7 +78,7 @@ export function TimesList({ events, now, size = 'page' }: TimesListProps) {
                 variant={big ? 'displayMedium' : 'headline'}
                 color={isNext ? SemanticColor.TextAccent : undefined}
               >
-                {e.minutes === null ? '—' : clock(e.minutes)}
+                {e.untimed ? '' : e.minutes === null ? '—' : clock(e.minutes)}
               </Text>
             </Stack>
           </Stack>

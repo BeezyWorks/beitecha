@@ -49,6 +49,7 @@ export const TAG_LABELS: Record<DayTag, Localized> = {
   motzeiYomTov: { en: 'Motzei Yom Tov', he: 'מוצאי יום טוב' },
   cholHamoed: { en: 'Chol HaMoed', he: 'חול המועד' },
   roshChodesh: { en: 'Rosh Chodesh', he: 'ראש חודש' },
+  shabbosMevarchim: { en: 'Shabbos Mevarchim', he: 'שבת מברכים' },
   fast: { en: 'Fast day', he: 'תענית' },
   chanukah: { en: 'Chanukah', he: 'חנוכה' },
   purim: { en: 'Purim', he: 'פורים' },

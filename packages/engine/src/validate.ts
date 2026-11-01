@@ -32,6 +32,7 @@ function eventRefs(expr: TimeExpr, out: string[] = []): string[] {
   else if ('clamp' in expr) [expr.clamp, expr.min, expr.max].forEach((e) => e && eventRefs(e, out))
   else if ('round' in expr) eventRefs(expr.round, out)
   else if ('weekly' in expr) eventRefs(expr.weekly, out)
+  else if ('if' in expr) [expr.if.left, expr.if.right, expr.then, expr.otherwise].forEach((e) => e && eventRefs(e, out))
   return out
 }
 
@@ -118,6 +119,9 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
       }
       for (const ref of [...(rule.time ? eventRefs(rule.time) : []), ...(rule.end ? eventRefs(rule.end) : [])]) {
         if (!known.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown event "${ref}"` })
+      }
+      if (rule.untimed && (!rule.relative || 'between' in rule.relative)) {
+        issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} has no time, so it needs to be "after" or "before" a minyan` })
       }
       for (const ref of rule.relative ? relativeRefs(rule.relative) : []) {
         if (!known.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} is said by unknown event "${ref}"` })

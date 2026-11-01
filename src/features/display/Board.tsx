@@ -241,6 +241,11 @@ function TodayRow({
         <Text variant={big} numberOfLines={1} rtl={t.nameRtl} color={tone}>
           {t.text(e.name)}
         </Text>
+        {e.untimed && e.relative && (
+          <Text variant="title" color={quiet}>
+            {t.relative(e.relative)}
+          </Text>
+        )}
         {!!note && (
           <Text variant="title" color={e.cancelled ? SemanticColor.TextDanger : quiet}>
             {note}
@@ -254,7 +259,7 @@ function TodayRow({
       )}
       <Stack width={compact ? 80 : 100} align="end">
         <Text variant={big} color={tone}>
-          {e.minutes === null ? '—' : t.clock(e.minutes)}
+          {e.untimed ? '' : e.minutes === null ? '—' : t.clock(e.minutes)}
         </Text>
       </Stack>
     </Stack>
@@ -348,7 +353,7 @@ function ComingUp({ days }: { days: DaySchedule[] }) {
               </Text>
               <Stack grow />
               <Text variant="title" color={e.cancelled ? SemanticColor.TextDanger : undefined}>
-                {e.cancelled ? t.s.cancelled : t.clock(e.minutes!)}
+                {e.cancelled ? t.s.cancelled : e.untimed && e.relative ? t.relative(e.relative) : t.clock(e.minutes!)}
               </Text>
             </Stack>
           ))}

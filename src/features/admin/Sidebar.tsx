@@ -40,18 +40,14 @@ export function Sidebar({
   status,
   section,
   onSection,
-  onDisplay,
   onSiddur,
-  onPrint,
 }: {
   shulName: string
   /** "Saved", "Saving…", "Couldn't save". */
   status: string
   section: SectionKey
   onSection: (s: SectionKey) => void
-  onDisplay: () => void
   onSiddur: () => void
-  onPrint: () => void
 }) {
   const { appearance, setAppearance } = useAppearance()
   return (
@@ -85,9 +81,7 @@ export function Sidebar({
               See it
             </Text>
           </Stack>
-          <NavRow label="Lobby display" icon="external-link" onPress={onDisplay} />
           <NavRow label="Siddur page" icon="external-link" onPress={onSiddur} />
-          <NavRow label="Print the week" icon="print" onPress={onPrint} />
         </Stack>
         <Stack paddingHorizontal="sm" paddingTop="lg">
           <Segments options={APPEARANCES} value={appearance} onChange={setAppearance} accessibilityLabel="Appearance" />

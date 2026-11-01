@@ -14,6 +14,16 @@ const PAPER: Record<Paper, { size: string; width: string; height: string }> = {
 /** The sheet's own margin; the printer's is set to none so screen and paper match. */
 const MARGIN = '11mm'
 
+const sheetCss = (resolve: (c: SemanticColor) => string) => `
+    .bt-sheet { box-sizing: border-box; padding: ${MARGIN}; display: flex; overflow: hidden; flex-shrink: 0;
+      background: ${resolve(SemanticColor.SurfaceCard)}; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) }`
+
+/** A sheet's look, for a sheet shown outside `PrintRoot` (the admin's small preview). */
+export function SheetStyle() {
+  const resolve = useColorResolver()
+  return <style>{sheetCss(resolve)}</style>
+}
+
 /**
  * A page of paper sheets: on screen, a scrolling pile over the app; in print, just the
  * sheets, one per page. The app's root is a fixed-height flex column that clips, so the
@@ -42,8 +52,7 @@ export function PrintRoot({
     @page { size: ${PAPER[paper].size} portrait; margin: 0 }
     .bt-print { position: fixed; inset: 0; z-index: 10; overflow: auto; background: ${resolve(SemanticColor.SurfaceBackground)} }
     .bt-print-sheets { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 16px 48px }
-    .bt-sheet { box-sizing: border-box; padding: ${MARGIN}; display: flex; overflow: hidden; flex-shrink: 0;
-      background: ${resolve(SemanticColor.SurfaceCard)}; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) }
+    ${sheetCss(resolve)}
     @media print {
       body > :not(.bt-print), .bt-print-toolbar { display: none !important }
       html, body { height: auto !important; overflow: visible !important; background: none !important }

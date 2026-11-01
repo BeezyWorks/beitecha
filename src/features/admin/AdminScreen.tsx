@@ -14,6 +14,7 @@ import { siddurShulUrl } from '@/lib/config'
 import { CalendarTab } from './CalendarTab'
 import { CholimTab } from './CholimTab'
 import { YahrzeitsTab } from './YahrzeitsTab'
+import { DisplaySection } from './DisplaySection'
 import { EventsSection } from './EventsSection'
 import { NoticesTab } from './NoticesTab'
 import { isSection, SECTIONS, type SectionKey } from './sections'
@@ -68,11 +69,6 @@ export function AdminScreen({ slug }: { slug: string }) {
     useAdmin.setState({ editing: null })
     router.setParams({ s })
   }
-  // The sheet prints the published schedule, so save first.
-  const printWeek = async () => {
-    if (dirty) await persist()
-    if (!useAdmin.getState().dirty) router.push(`/${slug}/print`)
-  }
   const statusText =
     save === 'saving' ? 'Saving…' : save === 'error' || save === 'conflict' ? 'Not saved' : save === 'saved' ? 'Saved · displays update within 5 minutes' : 'All saved'
 
@@ -87,6 +83,7 @@ export function AdminScreen({ slug }: { slug: string }) {
       {section === 'notices' && <NoticesTab today={today} />}
       {section === 'cholim' && <CholimTab today={today} />}
       {section === 'yahrzeits' && <YahrzeitsTab today={today} />}
+      {section === 'display' && <DisplaySection slug={slug} />}
       {section === 'shul' && <ShulTab />}
       {section === 'team' && <TeamTab />}
     </>
@@ -100,9 +97,7 @@ export function AdminScreen({ slug }: { slug: string }) {
           status={statusText}
           section={section}
           onSection={go}
-          onDisplay={() => router.push(`/${slug}/display`)}
           onSiddur={() => Linking.openURL(siddurShulUrl(slug))}
-          onPrint={printWeek}
         />
       ) : (
         <Stack direction="row" align="center" gap="md" padding="md" background={SemanticColor.SurfaceSelected}>

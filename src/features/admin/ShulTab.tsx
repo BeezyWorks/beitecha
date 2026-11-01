@@ -5,12 +5,11 @@ import React from 'react'
 import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
 import { LocalHolidaysCard } from './LocalHolidaysCard'
-import { PrintCard } from './PrintCard'
 import { SectionPage } from './SectionPage'
 import { TimeFormatCard } from './TimeFormatCard'
 import { useAdmin } from './store'
 
-/** The shul's name and look, its language, local holidays and the printed week; saved from the save bar. */
+/** The shul's name and look, its language, language and local holidays; saved from the save bar. */
 export function ShulTab() {
   const { profile, schedule, setProfile, setSchedule } = useAdmin()
   if (!profile || !schedule) return null
@@ -102,7 +101,6 @@ export function ShulTab() {
 
       <LocalHolidaysCard settings={schedule.settings} onChange={setSettings} />
 
-      <PrintCard settings={schedule.settings} onChange={setSettings} />
     </SectionPage>
   )
 }

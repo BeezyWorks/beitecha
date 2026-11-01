@@ -163,6 +163,16 @@ export interface YahrzeitSettings {
 export interface PrintSettings {
   /** The week's zmanim, day by day, on the front. Default true. */
   zmanimTable?: boolean
+  /** The week's shiurim, with the announcements. Default true. */
+  shiurim?: boolean
+  /** Starred events coming up after this week. Default true. */
+  comingUp?: boolean
+  /** Sponsorships and announcements. Default true. */
+  notices?: boolean
+  /** The week's yahrzeits. Default true. */
+  yahrzeits?: boolean
+  /** The refuah shleimah list. Default true. */
+  cholim?: boolean
   /**
    * Zmanim listed among Friday night's minyanim and Shabbos day's, each at its time (built-in or custom, shown even
    * when `zmanim.hidden`). Default candle lighting and havdalah.

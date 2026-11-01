@@ -9,6 +9,7 @@ export type SectionKey =
   | 'notices'
   | 'cholim'
   | 'yahrzeits'
+  | 'display'
   | 'shul'
   | 'team'
 
@@ -35,6 +36,7 @@ export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; labe
   {
     title: 'Shul',
     sections: [
+      { key: 'display', label: 'Lobby display' },
       { key: 'shul', label: 'Shul settings' },
       { key: 'team', label: 'Team & displays' },
     ],

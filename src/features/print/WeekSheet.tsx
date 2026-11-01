@@ -54,6 +54,8 @@ export interface WeekProps {
   yahrzeitSettings?: YahrzeitSettings
   /** The week's zmanim table on the front. */
   zmanimTable: boolean
+  /** The week's shiurim on the announcements side. */
+  shiurim: boolean
   /** Zmanim listed among Friday night's and Shabbos day's minyanim (`settings.print.shabbosZmanim`). */
   shabbosZmanim: { friday: InlineZman[]; shabbos: InlineZman[] }
 }
@@ -75,12 +77,13 @@ export const hasAnnouncements = ({
   comingUp,
   cholim,
   yahrzeits,
-}: Pick<WeekProps, 'days' | 'notices' | 'comingUp' | 'cholim' | 'yahrzeits'>) =>
+  shiurim,
+}: Pick<WeekProps, 'days' | 'notices' | 'comingUp' | 'cholim' | 'yahrzeits' | 'shiurim'>) =>
   notices.length > 0 ||
   comingUp.length > 0 ||
   cholim.length > 0 ||
   yahrzeits.length > 0 ||
-  days.some((d) => d.events.some((e) => !notShiur(e)))
+  (shiurim && days.some((d) => d.events.some((e) => !notShiur(e))))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
 export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: boolean }) {
@@ -124,18 +127,20 @@ export function NoticesSide(week: WeekProps) {
   )
 }
 
-function Announcements({ days, notices, categories, comingUp, cholim, yahrzeits, yahrzeitSettings }: WeekProps) {
+function Announcements({ days, notices, categories, comingUp, cholim, yahrzeits, yahrzeitSettings, shiurim: showShiurim }: WeekProps) {
   const t = useT()
   const shiurim = days.map((d) => ({ ...d, events: d.events.filter((e) => !notShiur(e)) }))
   return (
     <Stack gap="lg">
-      <EventGrid
-        days={shiurim}
-        notices={notices}
-        en={t.s.shiurimThisWeek}
-        he={HE.s.shiurimThisWeek}
-        details
-      />
+      {showShiurim && (
+        <EventGrid
+          days={shiurim}
+          notices={notices}
+          en={t.s.shiurimThisWeek}
+          he={HE.s.shiurimThisWeek}
+          details
+        />
+      )}
       {comingUp.length > 0 && <ComingUp items={comingUp} />}
       {notices.length > 0 && <Notices notices={notices} categories={categories ?? []} />}
       {yahrzeits.length > 0 && <Yahrzeits items={yahrzeits} settings={yahrzeitSettings} />}

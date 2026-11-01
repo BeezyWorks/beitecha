@@ -13,6 +13,19 @@ import { zmanLabel } from './forms'
 
 const ADD = ''
 
+const SHOWN: {
+  key: 'zmanimTable' | 'shiurim' | 'comingUp' | 'notices' | 'yahrzeits' | 'cholim'
+  label: string
+  help: string
+}[] = [
+  { key: 'zmanimTable', label: 'Zmanim table', help: 'The week’s zmanim, day by day, on the front.' },
+  { key: 'shiurim', label: 'Shiurim', help: 'The week’s shiurim.' },
+  { key: 'comingUp', label: 'Coming up', help: 'Starred events after this week.' },
+  { key: 'notices', label: 'Sponsors & announcements', help: 'Including sponsors on minyanim and shiurim.' },
+  { key: 'yahrzeits', label: 'Yahrzeits', help: 'Those kept this week.' },
+  { key: 'cholim', label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
+]
+
 /** The printed week: whether it has the zmanim table, and which zmanim sit among the Shabbos minyanim. */
 export function PrintCard({
   settings,
@@ -73,20 +86,25 @@ export function PrintCard({
 
   return (
     <Card gap="md">
-      <Text variant="sectionHeader">Printed week</Text>
-      <Stack direction="row" align="center" gap="md">
-        <Stack grow>
-          <Text variant="body">Zmanim table</Text>
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            The week’s zmanim, day by day, on the front.
-          </Text>
+      <Text variant="sectionHeader">Printed week: what to show</Text>
+      <Text variant="caption" color={SemanticColor.TextSecondary}>
+        What goes on the sheet. Anything with nothing to show that week is left out anyway.
+      </Text>
+      {SHOWN.map(({ key, label, help }) => (
+        <Stack key={key} direction="row" align="center" gap="md">
+          <Stack grow>
+            <Text variant="body">{label}</Text>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              {help}
+            </Text>
+          </Stack>
+          <ToggleSwitch
+            value={print[key] !== false}
+            onValueChange={(on) => set({ [key]: on ? undefined : false })}
+            accessibilityLabel={label}
+          />
         </Stack>
-        <ToggleSwitch
-          value={print.zmanimTable !== false}
-          onValueChange={(on) => set({ zmanimTable: on ? undefined : false })}
-          accessibilityLabel="Zmanim table"
-        />
-      </Stack>
+      ))}
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         Zmanim listed among the Shabbos minyanim, each at its time. A hidden zman still shows here,
         so you can hide the built-in havdalah and list a zman of your own instead.

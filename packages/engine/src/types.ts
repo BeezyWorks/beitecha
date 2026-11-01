@@ -138,6 +138,24 @@ export interface ShulSettings {
    * condolences. The printed week groups announcements under them; the display and the Siddur tag each with its name.
    */
   noticeCategories?: NoticeCategory[]
+  /** How the printed week looks. */
+  print?: PrintSettings
+}
+
+export interface PrintSettings {
+  /** The week's zmanim, day by day, on the front. Default true. */
+  zmanimTable?: boolean
+  /**
+   * Zmanim listed among Friday night's minyanim and Shabbos day's, each at its time (built-in or custom, shown even
+   * when `zmanim.hidden`). Default candle lighting and havdalah.
+   */
+  shabbosZmanim?: { friday: ZmanKey[]; shabbos: ZmanKey[] }
+}
+
+/** The zmanim the printed week lists among Friday night's and Shabbos day's minyanim. */
+export const DEFAULT_SHABBOS_ZMANIM: NonNullable<PrintSettings['shabbosZmanim']> = {
+  friday: ['candleLighting'],
+  shabbos: ['havdalah'],
 }
 
 /** A heading a shul files announcements under. Old clients show its notices as plain announcements. */

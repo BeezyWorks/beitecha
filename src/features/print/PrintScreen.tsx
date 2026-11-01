@@ -1,5 +1,17 @@
 import { Button, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { addDays, Calendar, civilDateShort, type DateString, startOfWeek } from '@beitecha/engine'
+import {
+  addDays,
+  Calendar,
+  civilDateShort,
+  customZmanName,
+  type DateString,
+  DEFAULT_SHABBOS_ZMANIM,
+  type Schedule,
+  startOfWeek,
+  ZMAN_LABELS,
+  type ZmanId,
+  type ZmanKey,
+} from '@beitecha/engine'
 import { router, useLocalSearchParams } from 'expo-router'
 import React, { useMemo } from 'react'
 
@@ -12,7 +24,7 @@ import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useDays } from '@/features/luach/useDays'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
-import { hasAnnouncements, NoticesSide, TimesSide } from './WeekSheet'
+import { hasAnnouncements, type InlineZman, NoticesSide, TimesSide } from './WeekSheet'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -60,6 +72,8 @@ export function PrintScreen({ slug }: { slug: string }) {
     categories: feed.schedule.settings.noticeCategories,
     comingUp,
     cholim: feed.schedule.cholim ?? [],
+    zmanimTable: feed.schedule.settings.print?.zmanimTable !== false,
+    shabbosZmanim: shabbosZmanim(feed.schedule, addDays(sunday, 5)),
   }
   const hasBack = hasAnnouncements(week)
   const twoSided = hasBack && params.sides !== '1'
@@ -93,6 +107,23 @@ export function PrintScreen({ slug }: { slug: string }) {
       </LanguageProvider>
     </ThemeRoot>
   )
+}
+
+/** The zmanim the shul lists among Friday night's and Shabbos day's minyanim, hidden or not. */
+function shabbosZmanim(schedule: Schedule, friday: DateString) {
+  const picked = schedule.settings.print?.shabbosZmanim ?? DEFAULT_SHABBOS_ZMANIM
+  const custom = schedule.settings.zmanim?.custom ?? []
+  const cal = new Calendar(schedule)
+  const on = (date: DateString, ids: ZmanKey[]): InlineZman[] => {
+    const times = cal.zmanimOn(date)
+    return ids.flatMap((id) => {
+      const minutes = times[id]
+      const own = custom.find((c) => c.id === id)
+      const name = ZMAN_LABELS[id as ZmanId] ?? (own && customZmanName(own))
+      return minutes === undefined || !name ? [] : [{ id, name, minutes }]
+    })
+  }
+  return { friday: on(friday, picked.friday), shabbos: on(addDays(friday, 1), picked.shabbos) }
 }
 
 function Toolbar({

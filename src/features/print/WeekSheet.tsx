@@ -47,6 +47,17 @@ export interface WeekProps {
   comingUp: { date: DateString; event: Occurrence }[]
   /** The refuah shleimah list. */
   cholim: Choleh[]
+  /** The week's zmanim table on the front. */
+  zmanimTable: boolean
+  /** Zmanim listed among Friday night's and Shabbos day's minyanim (`settings.print.shabbosZmanim`). */
+  shabbosZmanim: { friday: InlineZman[]; shabbos: InlineZman[] }
+}
+
+/** A zman among a day's minyanim, at its time. */
+export interface InlineZman {
+  id: ZmanKey
+  name: Localized
+  minutes: Minutes
 }
 
 /** Shiurim have their own timetable with the announcements; the front keeps to the minyanim. */
@@ -58,7 +69,7 @@ export const hasAnnouncements = ({
   notices,
   comingUp,
   cholim,
-}: Omit<WeekProps, 'slug' | 'profile'>) =>
+}: Pick<WeekProps, 'days' | 'notices' | 'comingUp' | 'cholim'>) =>
   notices.length > 0 ||
   comingUp.length > 0 ||
   cholim.length > 0 ||
@@ -78,10 +89,16 @@ export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: b
   return (
     <Stack grow gap="lg">
       <Masthead {...week} />
-      <ShabbosPanel friday={friday} erevShabbos={erevShabbos} shabbos={days[6]} notices={notices} />
+      <ShabbosPanel
+        friday={friday}
+        erevShabbos={erevShabbos}
+        shabbos={days[6]}
+        notices={notices}
+        zmanim={week.shabbosZmanim}
+      />
       {withNotices && <Announcements {...week} />}
       <EventGrid days={weekdays} notices={notices} en={t.s.weekdays} he={HE.s.weekdays} />
-      <ZmanimGrid days={days} />
+      {week.zmanimTable && <ZmanimGrid days={days} />}
       <Stack grow />
       {withNotices && <Footer slug={week.slug} />}
     </Stack>
@@ -167,21 +184,21 @@ function Masthead({ profile, days }: WeekProps) {
   )
 }
 
-/** Friday night and Shabbos day side by side, candle lighting and havdalah among the minyanim. */
+/** Friday night and Shabbos day side by side, the shul's picked zmanim (candle lighting, havdalah) among the minyanim. */
 function ShabbosPanel({
   friday,
   erevShabbos,
   shabbos,
   notices,
+  zmanim,
 }: {
   friday: DaySchedule
   erevShabbos: Occurrence[]
   shabbos: DaySchedule
   notices: Notice[]
+  zmanim: WeekProps['shabbosZmanim']
 }) {
   const t = useT()
-  const candles = friday.zmanim.candleLighting
-  const havdalah = shabbos.zmanim.havdalah
   const holidays = [...friday.holidays, ...shabbos.holidays].map(t.text)
   return (
     <Stack
@@ -208,7 +225,7 @@ function ShabbosPanel({
           <Rows
             events={erevShabbos}
             sponsors={sponsorsOn(t, notices, friday)}
-            zman={candles === undefined ? undefined : { id: 'candleLighting', minutes: candles }}
+            zmanim={zmanim.friday}
           />
         </Stack>
         <Stack width={1} background={SemanticColor.AccentTintSelected} />
@@ -222,7 +239,7 @@ function ShabbosPanel({
           <Rows
             events={shabbos.events}
             sponsors={sponsorsOn(t, notices, shabbos)}
-            zman={havdalah === undefined ? undefined : { id: 'havdalah', minutes: havdalah }}
+            zmanim={zmanim.shabbos}
           />
         </Stack>
       </Stack>
@@ -292,15 +309,15 @@ function sponsorsOn(t: T, notices: Notice[], day: DaySchedule) {
   return by
 }
 
-/** A day's events as name … time rows, with one zman slotted in at its time. */
+/** A day's events as name … time rows, with zmanim slotted in at their times. */
 function Rows({
   events,
   sponsors,
-  zman,
+  zmanim,
 }: {
   events: Occurrence[]
   sponsors: Map<string, string>
-  zman?: { id: ZmanId; minutes: Minutes }
+  zmanim: InlineZman[]
 }) {
   const t = useT()
   type Row = {
@@ -327,14 +344,9 @@ function Rows({
       : e.note && t.text(e.note),
     sponsor: sponsors.get(e.eventId),
   }))
-  if (zman) {
+  for (const zman of zmanim) {
     const at = rows.findIndex((r) => r.minutes !== null && r.minutes > zman.minutes)
-    const row: Row = {
-      key: zman.id,
-      name: ZMAN_LABELS[zman.id],
-      minutes: zman.minutes,
-      lit: true,
-    }
+    const row: Row = { key: `zman:${zman.id}`, name: zman.name, minutes: zman.minutes, lit: true }
     rows.splice(at < 0 ? rows.length : at, 0, row)
   }
   return (

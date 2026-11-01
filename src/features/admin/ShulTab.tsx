@@ -15,6 +15,7 @@ import { NumberField } from '@/components/NumberField'
 import { CustomZmanimCard } from './CustomZmanimCard'
 import { zmanLabel } from './forms'
 import { LocalHolidaysCard } from './LocalHolidaysCard'
+import { PrintCard } from './PrintCard'
 import { TimeFormatCard } from './TimeFormatCard'
 import { useAdmin } from './store'
 
@@ -254,6 +255,8 @@ export function ShulTab() {
       <CustomZmanimCard schedule={schedule} onChange={setSettings} />
 
       <LocalHolidaysCard settings={schedule.settings} onChange={setSettings} />
+
+      <PrintCard settings={schedule.settings} onChange={setSettings} />
     </Stack>
   )
 }

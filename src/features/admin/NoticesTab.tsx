@@ -5,6 +5,9 @@ import React, { useState } from 'react'
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
 import { NoticeCard } from '@/features/luach/NoticeCard'
+import { AiAssist } from './AiAssist'
+import { noticePrompt, parseNotices } from './aiItems'
+import { DateField } from './DateField'
 import { linkProblem, sponsorTarget, withNoticeKind, withSponsorTarget, type SponsorTarget } from './forms'
 import { newId, useAdmin } from './store'
 
@@ -156,16 +159,18 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
         error={linkProblem(n.link ?? '')}
         onChangeText={(link) => setN({ ...n, link: link.trim() || undefined })}
       />
-      <Stack direction="row" gap="md">
+      <Stack direction="row" gap="md" wrap>
         <Stack grow>
-          <Field label="Show from" value={n.from} onChangeText={(from) => setN({ ...n, from })} help="YYYY-MM-DD" />
+          <DateField label="Show from" value={n.from} onChange={(from) => from && setN({ ...n, from })} />
         </Stack>
         <Stack grow>
-          <Field
-            label="Until (optional)"
-            value={n.to ?? ''}
-            onChangeText={(to) => setN({ ...n, to: to || undefined })}
-            help={n.kind === 'reminder' && n.eventId ? 'Leave empty to show it until the event' : 'Leave empty for one day'}
+          <DateField
+            label="Until"
+            value={n.to}
+            unsetLabel="Show it longer"
+            initial={addDays(n.from, 6)}
+            onChange={(to) => setN({ ...n, to })}
+            help={n.to ? undefined : n.kind === 'reminder' && n.eventId ? 'Until the event' : 'Just that day'}
           />
         </Stack>
       </Stack>
@@ -190,8 +195,13 @@ export function NoticesTab({ today }: { today: DateString }) {
   const exceptions = useAdmin((s) => s.schedule?.exceptions)
   const kiddush = useAdmin((s) => s.schedule?.events.find((e) => guessCategory(e) === 'meal'))
   const removeNotice = useAdmin((s) => s.removeNotice)
+  const upsertNotice = useAdmin((s) => s.upsertNotice)
+  const schedule = useAdmin((s) => s.schedule)
+  const profile = useAdmin((s) => s.profile)
   const [editing, setEditing] = useState<Notice | null>(null)
-  if (!notices || !exceptions) return null
+  const [ai, setAi] = useState(false)
+  if (!notices || !exceptions || !schedule || !profile) return null
+  const eventIds = [...schedule.events.map((e) => e.id), ...exceptions.flatMap((x) => (x.type === 'add' ? [x.event.id] : []))]
   const lastDay = (n: Notice) => noticeLastDay(n, exceptions)
 
   const nextShabbos = addDays(today, (6 - new Date(`${today}T12:00:00Z`).getUTCDay() + 7) % 7)
@@ -224,7 +234,32 @@ export function NoticesTab({ today }: { today: DateString }) {
             title="Add a notice"
             onPress={() => setEditing({ id: newId(), kind: 'announcement', from: today, to: addDays(today, 6), text: { en: '' } })}
           />
+          <Button variant="ghost" title="Paste with AI" onPress={() => setAi(!ai)} />
         </Stack>
+      )}
+      {ai && !editing && (
+        <AiAssist<Notice[]>
+          title="Sponsorships and notices with AI"
+          example="Paste the message you got, e.g. “Kiddush this Shabbos is sponsored by the Cohen family in honor of Sarah’s bas mitzvah. Mazal tov to the Levys on the birth of a daughter!”"
+          prompt={(r) => noticePrompt(schedule, profile, today, r)}
+          parse={(text) => parseNotices(text, eventIds)}
+          preview={(list) => (
+            <Stack gap="sm">
+              {list.map((n, i) => (
+                <Stack key={i} gap="xs">
+                  <Text variant="caption" color={SemanticColor.TextSecondary}>
+                    {KIND[n.kind].label} · {civilDateShort(n.from)}
+                    {n.to ? ` – ${civilDateShort(n.to)}` : ''}
+                  </Text>
+                  <NoticeCard notice={n} />
+                </Stack>
+              ))}
+            </Stack>
+          )}
+          applyLabel="Add them"
+          onApply={(list) => list.forEach((n) => upsertNotice({ ...n, id: newId() }))}
+          onClose={() => setAi(false)}
+        />
       )}
       {!current.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>

@@ -2,43 +2,18 @@ import { Button, Card, SemanticColor, Stack, Text, TextField } from '@beezyworks
 import { todayIn, validate, type EventDef, type Issue } from '@beitecha/engine'
 import React, { useState } from 'react'
 
+import { copy, download, pickTextFile } from './aiClipboard'
 import { applyImport, buildAiPrompt, parseAiImport } from './aiSetup'
 import { useAdmin } from './store'
 
 type Checked = { ok: true; events: EventDef[]; issues: Issue[] } | { ok: false; errors: string[] }
-
-function download(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function pickTextFile(onText: (text: string) => void) {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.json,.txt,.md,application/json,text/plain'
-  input.onchange = () => input.files?.[0]?.text().then(onText)
-  input.click()
-}
-
-async function copy(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
-}
 
 /** Describe the schedule to any chat AI in plain words, then paste (or upload) its answer back. */
 export function AiSetupCard() {
   const schedule = useAdmin((s) => s.schedule)
   const profile = useAdmin((s) => s.profile)
   const setSchedule = useAdmin((s) => s.setSchedule)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [copied, setCopied] = useState<'prompt' | 'problems' | null>(null)
   const [answer, setAnswer] = useState('')
   const [checked, setChecked] = useState<Checked | null>(null)

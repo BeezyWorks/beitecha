@@ -17,6 +17,7 @@ import { useAdmin } from './store'
 /** The day kinds a gabbai reaches for, in the order they're offered. */
 const TAGS: DayTag[] = [
   'roshChodesh',
+  'shabbosMevarchim',
   'fast',
   'erevShabbos',
   'shabbos',
@@ -32,6 +33,18 @@ const TAGS: DayTag[] = [
   'noTachanun',
   'omer',
   'dst',
+  'legalHoliday',
+]
+
+/** Shown up front; the rest wait behind "More days". */
+const COMMON: DayTag[] = [
+  'shabbos',
+  'erevShabbos',
+  'yomTov',
+  'erevYomTov',
+  'roshChodesh',
+  'fast',
+  'cholHamoed',
   'legalHoliday',
 ]
 
@@ -68,6 +81,8 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
       a.kind === 'dates' ||
       (a.kind === 'localHoliday' && !local.some((h) => h.id === a.id)),
   )
+  const rare = (a: Atom) => a.kind !== 'weekday' && !(a.kind === 'tag' && COMMON.includes(a.tag))
+  const [more, setMore] = useState(() => atoms.some(rare))
   return (
     <Stack gap="sm">
       <Stack direction="row" wrap gap="xs">
@@ -81,7 +96,7 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
         ))}
       </Stack>
       <Stack direction="row" wrap gap="xs">
-        {TAGS.map((tag) => (
+        {(more ? TAGS : COMMON).map((tag) => (
           <Chip
             key={tag}
             label={TAG_LABELS[tag].en}
@@ -90,44 +105,48 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
           />
         ))}
         {/* The plain “Public holiday” days are reached through the “Federal / bank holidays” chip. */}
-        {local
-          .filter((h) => h.name.en !== PUBLIC_HOLIDAY)
-          .map((h) => (
-            <Chip
-              key={h.id}
-              label={h.name.en}
-              selected={has({ kind: 'localHoliday', id: h.id })}
-              onPress={() => toggle({ kind: 'localHoliday', id: h.id })}
-            />
-          ))}
+        {more &&
+          local
+            .filter((h) => h.name.en !== PUBLIC_HOLIDAY)
+            .map((h) => (
+              <Chip
+                key={h.id}
+                label={h.name.en}
+                selected={has({ kind: 'localHoliday', id: h.id })}
+                onPress={() => toggle({ kind: 'localHoliday', id: h.id })}
+              />
+            ))}
         {extras.map((a) => (
           <Chip key={atomLabel(a)} label={`${atomLabel(a)} ✕`} selected onPress={() => toggle(a)} />
         ))}
+        {!more && <Chip label="More days…" selected={false} onPress={() => setMore(true)} />}
       </Stack>
-      <Stack direction="row" gap="sm" align="center">
-        <Stack grow>
-          <TextField
-            variant="boxed"
-            placeholder="A holiday by name, e.g. Tish'a B'Av, Erev Pesach, Lag BaOmer"
-            value={holiday}
-            onChangeText={setHoliday}
-            onSubmitEditing={() => {
-              if (holiday.trim()) toggle({ kind: 'holiday', name: holiday.trim() })
+      {more && (
+        <Stack direction="row" gap="sm" align="center">
+          <Stack grow>
+            <TextField
+              variant="boxed"
+              placeholder="A holiday by name, e.g. Tish'a B'Av, Erev Pesach, Lag BaOmer"
+              value={holiday}
+              onChangeText={setHoliday}
+              onSubmitEditing={() => {
+                if (holiday.trim()) toggle({ kind: 'holiday', name: holiday.trim() })
+                setHoliday('')
+              }}
+            />
+          </Stack>
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Add"
+            disabled={!holiday.trim()}
+            onPress={() => {
+              toggle({ kind: 'holiday', name: holiday.trim() })
               setHoliday('')
             }}
           />
         </Stack>
-        <Button
-          variant="secondary"
-          size="sm"
-          title="Add"
-          disabled={!holiday.trim()}
-          onPress={() => {
-            toggle({ kind: 'holiday', name: holiday.trim() })
-            setHoliday('')
-          }}
-        />
-      </Stack>
+      )}
     </Stack>
   )
 }

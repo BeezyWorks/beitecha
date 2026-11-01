@@ -66,7 +66,7 @@ export function AdminScreen({ slug }: { slug: string }) {
 
   const editor = (
     <Stack gap="lg">
-      {tab === 'times' && <EventsTab />}
+      {tab === 'times' && <EventsTab today={today} />}
       {tab === 'events' && <CalendarTab today={today} />}
       {tab === 'changes' && <ChangesTab today={today} />}
       {tab === 'sponsors' && <NoticesTab today={today} />}

@@ -214,6 +214,15 @@ export function TimeEditor({
   onChange: (t: TimeExpr) => void
 }) {
   const form = timeToForm(value)
+  // Rounding, earliest-of and the like are tucked away until wanted, or already in use.
+  const [more, setMore] = useState(
+    !!form &&
+      (form.sources.length > 1 ||
+        !!form.weekly ||
+        !!form.notBefore ||
+        !!form.notAfter ||
+        !!form.round),
+  )
   if (!form) {
     return (
       <Stack gap="xs">
@@ -257,107 +266,129 @@ export function TimeEditor({
           }
         />
       ))}
-      <Stack direction="row" wrap gap="xs">
-        <Button
-          variant="ghost"
-          size="sm"
-          icon="add"
-          title="Or another time (earliest/latest)"
-          onPress={() => update({ sources: [...form.sources, { type: 'clock', clock: '19:15' }] })}
-        />
-      </Stack>
+      {!more && (
+        <Stack direction="row">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="sliders"
+            title="More: round it, same all week, earliest of two…"
+            onPress={() => setMore(true)}
+          />
+        </Stack>
+      )}
+      {more && (
+        <>
+          <Stack direction="row" wrap gap="xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="add"
+              title="Or another time (earliest/latest)"
+              onPress={() =>
+                update({ sources: [...form.sources, { type: 'clock', clock: '19:15' }] })
+              }
+            />
+          </Stack>
 
-      <Stack gap="sm">
-        <Stack direction="row" align="center" gap="sm" wrap>
-          <Chip
-            label="Same time all week"
-            selected={!!form.weekly}
-            onPress={() =>
-              update({
-                weekly: form.weekly ? undefined : { pick: 'earliest', days: [0, 1, 2, 3, 4, 5] },
-              })
-            }
-          />
-          {form.weekly && (
-            <>
-              <Text variant="body">using the</Text>
-              <SegmentedControl
-                options={[
-                  { key: 'earliest', label: 'earliest' },
-                  { key: 'latest', label: 'latest' },
-                ]}
-                value={form.weekly.pick}
-                onChange={(pick) => update({ weekly: { ...form.weekly!, pick } })}
+          <Stack gap="sm">
+            <Stack direction="row" align="center" gap="sm" wrap>
+              <Chip
+                label="Same time all week"
+                selected={!!form.weekly}
+                onPress={() =>
+                  update({
+                    weekly: form.weekly
+                      ? undefined
+                      : { pick: 'earliest', days: [0, 1, 2, 3, 4, 5] },
+                  })
+                }
               />
-              <Text variant="body">day of</Text>
-              {([0, 1, 2, 3, 4, 5, 6] as Weekday[]).map((d) => (
-                <Chip
-                  key={d}
-                  label={WEEKDAY_SHORT[d]}
-                  selected={form.weekly!.days.includes(d)}
-                  onPress={() => {
-                    const days = form.weekly!.days.includes(d)
-                      ? form.weekly!.days.filter((x) => x !== d)
-                      : [...form.weekly!.days, d].sort()
-                    if (days.length)
-                      update({ weekly: { ...form.weekly!, days: days as Weekday[] } })
-                  }}
+              {form.weekly && (
+                <>
+                  <Text variant="body">using the</Text>
+                  <SegmentedControl
+                    options={[
+                      { key: 'earliest', label: 'earliest' },
+                      { key: 'latest', label: 'latest' },
+                    ]}
+                    value={form.weekly.pick}
+                    onChange={(pick) => update({ weekly: { ...form.weekly!, pick } })}
+                  />
+                  <Text variant="body">day of</Text>
+                  {([0, 1, 2, 3, 4, 5, 6] as Weekday[]).map((d) => (
+                    <Chip
+                      key={d}
+                      label={WEEKDAY_SHORT[d]}
+                      selected={form.weekly!.days.includes(d)}
+                      onPress={() => {
+                        const days = form.weekly!.days.includes(d)
+                          ? form.weekly!.days.filter((x) => x !== d)
+                          : [...form.weekly!.days, d].sort()
+                        if (days.length)
+                          update({ weekly: { ...form.weekly!, days: days as Weekday[] } })
+                      }}
+                    />
+                  ))}
+                </>
+              )}
+            </Stack>
+            <Stack direction="row" align="center" gap="sm" wrap>
+              <Chip
+                label="No earlier than"
+                selected={!!form.notBefore}
+                onPress={() => update({ notBefore: form.notBefore ? undefined : '06:00' })}
+              />
+              {!!form.notBefore && (
+                <ClockField
+                  value={form.notBefore}
+                  onChange={(notBefore) => update({ notBefore })}
                 />
-              ))}
-            </>
-          )}
-        </Stack>
-        <Stack direction="row" align="center" gap="sm" wrap>
-          <Chip
-            label="No earlier than"
-            selected={!!form.notBefore}
-            onPress={() => update({ notBefore: form.notBefore ? undefined : '06:00' })}
-          />
-          {!!form.notBefore && (
-            <ClockField value={form.notBefore} onChange={(notBefore) => update({ notBefore })} />
-          )}
-          <Chip
-            label="No later than"
-            selected={!!form.notAfter}
-            onPress={() => update({ notAfter: form.notAfter ? undefined : '19:15' })}
-          />
-          {!!form.notAfter && (
-            <ClockField value={form.notAfter} onChange={(notAfter) => update({ notAfter })} />
-          )}
-        </Stack>
-        <Stack direction="row" align="center" gap="sm" wrap>
-          <Chip
-            label="Round"
-            selected={!!form.round}
-            onPress={() => update({ round: form.round ? undefined : { to: 5, mode: 'down' } })}
-          />
-          {form.round && (
-            <>
-              <SegmentedControl
-                options={ROUND_MODES}
-                value={form.round.mode}
-                onChange={(mode) => update({ round: { ...form.round!, mode } })}
+              )}
+              <Chip
+                label="No later than"
+                selected={!!form.notAfter}
+                onPress={() => update({ notAfter: form.notAfter ? undefined : '19:15' })}
               />
-              <Text variant="body">to</Text>
-              <SegmentedControl
-                options={[
-                  { key: '5', label: '5' },
-                  { key: '10', label: '10' },
-                  { key: '15', label: '15' },
-                ]}
-                value={String(form.round.to) as '5' | '10' | '15'}
-                onChange={(to) => update({ round: { ...form.round!, to: Number(to) } })}
+              {!!form.notAfter && (
+                <ClockField value={form.notAfter} onChange={(notAfter) => update({ notAfter })} />
+              )}
+            </Stack>
+            <Stack direction="row" align="center" gap="sm" wrap>
+              <Chip
+                label="Round"
+                selected={!!form.round}
+                onPress={() => update({ round: form.round ? undefined : { to: 5, mode: 'down' } })}
               />
-              <Text variant="body">minutes</Text>
-            </>
-          )}
-        </Stack>
-        {form.round && TREND_HINTS[form.round.mode] && (
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            {TREND_HINTS[form.round.mode]}
-          </Text>
-        )}
-      </Stack>
+              {form.round && (
+                <>
+                  <SegmentedControl
+                    options={ROUND_MODES}
+                    value={form.round.mode}
+                    onChange={(mode) => update({ round: { ...form.round!, mode } })}
+                  />
+                  <Text variant="body">to</Text>
+                  <SegmentedControl
+                    options={[
+                      { key: '5', label: '5' },
+                      { key: '10', label: '10' },
+                      { key: '15', label: '15' },
+                    ]}
+                    value={String(form.round.to) as '5' | '10' | '15'}
+                    onChange={(to) => update({ round: { ...form.round!, to: Number(to) } })}
+                  />
+                  <Text variant="body">minutes</Text>
+                </>
+              )}
+            </Stack>
+            {form.round && TREND_HINTS[form.round.mode] && (
+              <Text variant="caption" color={SemanticColor.TextSecondary}>
+                {TREND_HINTS[form.round.mode]}
+              </Text>
+            )}
+          </Stack>
+        </>
+      )}
     </Stack>
   )
 }

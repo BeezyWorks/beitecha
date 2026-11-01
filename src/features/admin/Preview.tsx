@@ -19,7 +19,7 @@ const RANGES = { week: 7, month: 31 } as const
  * found over the coming year. "Tricky days" jumps through the days schedules break on.
  */
 export function Preview({ schedule, today }: { schedule: Schedule; today: DateString }) {
-  const { clock } = makeT('en', schedule.settings.timeFormat)
+  const { clock, relative } = makeT('en', schedule.settings.timeFormat)
   const [range, setRange] = useState<'week' | 'month' | 'tricky'>('week')
   const issues = useMemo(() => validate(schedule, today, 370), [schedule, today])
   const days = useMemo(() => {
@@ -27,7 +27,7 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
     if (range !== 'tricky') return cal.range(today, RANGES[range], { includeInternal: true })
     return trickyDays(cal, today).map((d) => cal.day(d, { includeInternal: true }))
   }, [schedule, today, range])
-  const ruleOf = (eventId: string, i?: number) => (i === undefined ? '' : `rule ${i + 1}`)
+  const ruleOf = (eventId: string, i?: number) => (i === undefined ? '' : `line ${i + 1}`)
 
   return (
     <Stack gap="md">
@@ -79,7 +79,7 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
                   variant="body"
                   color={o.cancelled || o.error ? SemanticColor.TextDanger : undefined}
                 >
-                  {o.cancelled ? '—' : o.minutes === null ? '!' : clock(o.minutes)}
+                  {o.cancelled ? '—' : o.untimed && o.relative ? relative(o.relative) : o.minutes === null ? '!' : clock(o.minutes)}
                 </Text>
               </Stack>
               <Text variant="body">{o.name.en}</Text>

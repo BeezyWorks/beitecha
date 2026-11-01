@@ -4,6 +4,9 @@ import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
 import { makeT } from '@/features/luach/language'
+import { AiAssist } from './AiAssist'
+import { oneTimePrompt, parseOneTime } from './aiItems'
+import { DateField } from './DateField'
 import { DetailsEditor } from './DetailsEditor'
 import { linkProblem } from './forms'
 import { newId, useAdmin } from './store'
@@ -47,8 +50,8 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
         </Stack>
       </Stack>
       <Stack direction="row" gap="md" align="end" wrap>
-        <Stack width={160}>
-          <Field label="Date" value={x.date} onChangeText={(date) => setX({ ...x, date })} help="YYYY-MM-DD" />
+        <Stack width={180}>
+          <DateField label="Date" value={x.date} onChange={(date) => date && setX({ ...x, date })} />
         </Stack>
         <ClockField value={time} onChange={setTime} placeholder="7:00 PM" />
         <ClockField value={end} onChange={setEnd} placeholder="Ends" />
@@ -94,8 +97,12 @@ export function CalendarTab({ today }: { today: DateString }) {
   const exceptions = useAdmin((s) => s.schedule?.exceptions)
   const timeFormat = useAdmin((s) => s.schedule?.settings.timeFormat)
   const removeException = useAdmin((s) => s.removeException)
+  const upsertException = useAdmin((s) => s.upsertException)
+  const schedule = useAdmin((s) => s.schedule)
+  const profile = useAdmin((s) => s.profile)
   const [editing, setEditing] = useState<DatedEvent | null>(null)
-  if (!exceptions) return null
+  const [ai, setAi] = useState(false)
+  if (!exceptions || !schedule || !profile) return null
 
   const { clock } = makeT('en', timeFormat)
   const when = (x: DatedEvent) => `${x.date} ${clockOf(x) ?? ''}`
@@ -123,7 +130,37 @@ export function CalendarTab({ today }: { today: DateString }) {
               setEditing({ id, date: today, type: 'add', event: { id: `event-${id}`, name: { en: '' }, kind: 'other' }, time: { clock: '19:00' } })
             }}
           />
+          <Button variant="ghost" title="Add with AI" onPress={() => setAi(!ai)} />
         </Stack>
+      )}
+      {ai && !editing && (
+        <AiAssist<DatedEvent[]>
+          title="Add events with AI"
+          example="Paste a flyer or message, e.g. “Chanukah party for the kids, Sunday of Chanukah at 5:30 in the social hall”"
+          prompt={(r) => oneTimePrompt(schedule, profile, today, r)}
+          parse={parseOneTime}
+          preview={(list) => (
+            <Stack gap="xs">
+              {list.map((x, i) => (
+                <Text key={i} variant="body">
+                  <Text variant="bodyStrong">{x.event.name.en}</Text> · {WEEKDAYS[weekdayOf(x.date)].en}, {civilDateShort(x.date)} ·{' '}
+                  {timeLabel(x)}
+                  {endOf(x) ? `–${timeLabel({ ...x, time: { clock: endOf(x)! } })}` : ''}
+                  {x.event.room ? ` · ${x.event.room}` : ''}
+                  {x.event.location ? ` · ${x.event.location}` : ''}
+                </Text>
+              ))}
+            </Stack>
+          )}
+          applyLabel="Add them"
+          onApply={(list) =>
+            list.forEach((x) => {
+              const id = newId()
+              upsertException({ ...x, id, event: { ...x.event, id: `event-${id}` } })
+            })
+          }
+          onClose={() => setAi(false)}
+        />
       )}
       {!upcoming.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>

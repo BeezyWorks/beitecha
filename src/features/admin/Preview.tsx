@@ -11,6 +11,7 @@ import {
 import React, { useMemo, useState } from 'react'
 
 import { makeT } from '@/features/luach/language'
+import { adminLabel } from './forms'
 
 const RANGES = { week: 7, month: 31 } as const
 
@@ -27,6 +28,10 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
     if (range !== 'tricky') return cal.range(today, RANGES[range], { includeInternal: true })
     return trickyDays(cal, today).map((d) => cal.day(d, { includeInternal: true }))
   }, [schedule, today, range])
+  const labelOf = (id: string, shown: string) => {
+    const e = schedule.events.find((x) => x.id === id)
+    return e ? adminLabel(e) : shown
+  }
   const ruleOf = (eventId: string, i?: number) => (i === undefined ? '' : `line ${i + 1}`)
 
   return (
@@ -82,7 +87,7 @@ export function Preview({ schedule, today }: { schedule: Schedule; today: DateSt
                   {o.cancelled ? '—' : o.untimed && o.relative ? relative(o.relative) : o.minutes === null ? '!' : clock(o.minutes)}
                 </Text>
               </Stack>
-              <Text variant="body">{o.name.en}</Text>
+              <Text variant="body">{labelOf(o.eventId, o.name.en)}</Text>
               <Stack grow />
               <Text variant="caption" color={SemanticColor.TextSecondary}>
                 {o.error ??

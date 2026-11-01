@@ -1,7 +1,6 @@
 import {
   Button,
   Card,
-  SegmentedControl,
   SemanticColor,
   Stack,
   Text,
@@ -11,6 +10,7 @@ import type { Language } from '@beitecha/engine'
 import { router } from 'expo-router'
 import React, { useState } from 'react'
 
+import { Segments } from '@/components/Segments'
 import { Centered } from '@/components/Centered'
 import { Field } from '@/components/Field'
 import { Page } from '@/components/Page'
@@ -117,7 +117,7 @@ export function NewShulScreen() {
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Language of your page and display
           </Text>
-          <SegmentedControl
+          <Segments
             options={[
               { key: 'en', label: 'English' },
               { key: 'he', label: 'עברית' },

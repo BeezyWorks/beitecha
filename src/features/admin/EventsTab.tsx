@@ -1,4 +1,4 @@
-import { Button, Card, Chip, Icon, IconButton, SegmentedControl, SemanticColor, Stack, Text, ToggleSwitch, Touchable } from '@beezyworks/design'
+import { Button, Card, Chip, Icon, IconButton, SemanticColor, Stack, Text, ToggleSwitch, Touchable, useIsWideLayout } from '@beezyworks/design'
 import {
   Calendar,
   civilDateShort,
@@ -18,6 +18,7 @@ import {
 } from '@beitecha/engine'
 import React, { useMemo, useState } from 'react'
 
+import { Segments } from '@/components/Segments'
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
 import { makeT } from '@/features/luach/language'
@@ -27,7 +28,7 @@ import { AiSetupCard } from './AiSetupCard'
 import { ConditionEditor, describeCondition } from './ConditionEditor'
 import { DateField } from './DateField'
 import { DetailsEditor, describeDetails } from './DetailsEditor'
-import { formToSaid, saidToForm, type SaidForm } from './forms'
+import { adminLabel, formToSaid, saidToForm, type SaidForm } from './forms'
 import { newId, useAdmin } from './store'
 import { ClockField, describeTime, TimeEditor } from './TimeEditor'
 
@@ -149,18 +150,18 @@ function SaidEditor({ rule, events, onChange }: { rule: Rule; events: EventDef[]
   /** No time at all: it's listed right below this minyan and just says "after" it. */
   const followAfter = (id: string) => onChange({ ...rule, time: { event: id }, relative: { after: id }, untimed: true })
   const followed = rule.untimed && rule.relative && 'after' in rule.relative ? rule.relative.after : undefined
-  const nameOf = (id: string) => events.find((e) => e.id === id)?.name.en ?? id
+  const nameOf = (id: string) => { const e = events.find((x) => x.id === id); return e ? adminLabel(e) : id }
   const auto = rule.time ? derivedRelative(rule.time) : undefined
   const anchor = auto && ('after' in auto ? auto.after : 'before' in auto ? auto.before : undefined)
   const autoText = anchor && `${auto && 'after' in auto ? 'after' : 'before'} ${nameOf(anchor)}`
-  const options = minyanim.map((e) => ({ value: e.id, label: e.name.en }))
+  const options = minyanim.map((e) => ({ value: e.id, label: adminLabel(e) }))
   return (
     <Stack gap="xs">
       <Text variant="label" color={SemanticColor.TextSecondary}>
         How the time is said
       </Text>
       {followed ? (
-        <SegmentedControl
+        <Segments
           options={[
             { key: 'untimed', label: 'No time, just “after”' },
             { key: 'none', label: 'Back to a time' },
@@ -171,7 +172,7 @@ function SaidEditor({ rule, events, onChange }: { rule: Rule; events: EventDef[]
       ) : form.mode === 'other' ? (
         <Text variant="body">As written in the rule’s JSON</Text>
       ) : (
-        <SegmentedControl
+        <Segments
           options={[
             { key: 'auto', label: autoText ? `“${autoText}”` : 'Just the time' },
             ...(autoText ? [{ key: 'none', label: 'Just the time' }] : []),
@@ -226,7 +227,7 @@ function ruleDays(rule: Rule, index: number, count: number): string {
 }
 
 function ruleTime(rule: Rule, event: EventDef, events: EventDef[]): string {
-  if (rule.time === null) return `No ${event.name.en || 'event'}`
+  if (rule.time === null) return `No ${adminLabel(event) || 'event'}`
   if (rule.untimed) return 'No time, just “after” a minyan'
   return describeTime(rule.time, events)
 }
@@ -332,10 +333,10 @@ function RuleEditor({
       </Stack>
       <Stack gap="sm">
         <Text variant="bodyStrong">On those days</Text>
-        <SegmentedControl
+        <Segments
           options={[
             { key: 'at', label: 'It’s at…' },
-            { key: 'none', label: `No ${event.name.en || 'event'}` },
+            { key: 'none', label: `No ${adminLabel(event) || 'event'}` },
           ]}
           value={rule.time === null ? 'none' : 'at'}
           onChange={(k) => onChange({ ...rule, time: k === 'none' ? null : { clock: '06:30' } })}
@@ -372,6 +373,7 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
   const [ai, setAi] = useState<'event' | 'newRule' | number | null>(null)
   const [more, setMore] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const wide = useIsWideLayout()
   const coming = useComing(14, today).get(event.id) ?? []
   const set = (patch: Partial<EventDef>) => updateEvent(event.id, { ...event, ...patch })
   const setRules = (rules: Rule[]) => set({ rules })
@@ -379,7 +381,7 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
   const siblings = all.filter((e) => e.kind === event.kind)
   const at = siblings.findIndex((e) => e.id === event.id)
   const firstCatchAll = event.rules.findIndex(coversAll)
-  const name = event.name.en || 'this'
+  const name = adminLabel(event) || 'this'
 
   /** A new line goes above the "every other day" one, so it only has to say its own days. */
   const addRule = (rule: Rule) => {
@@ -415,6 +417,15 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
         )}
         <Button variant="secondary" size="sm" title="Change with AI" onPress={() => setAi(ai === 'event' ? null : 'event')} />
       </Stack>
+      <Stack gap="none">
+        <Text variant="largeTitle">{adminLabel(event) || 'Untitled'}</Text>
+        {!!event.adminName?.trim() && (
+          <Text variant="body" color={SemanticColor.TextSecondary}>
+            Shown as {event.name.en}
+            {event.name.he ? ` · ${event.name.he}` : ''}
+          </Text>
+        )}
+      </Stack>
 
       {ai === 'event' && (
         <AiAssist<EventDef[]>
@@ -436,16 +447,28 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
       <Card gap="md">
         <Stack direction="row" gap="md" wrap>
           <Stack grow>
-            <Field label="Name" value={event.name.en} onChangeText={(en) => set({ name: { ...event.name, en } })} />
+            <Field
+              label="Name everyone sees"
+              help="On the display, the printed week and in the Siddur"
+              value={event.name.en}
+              onChangeText={(en) => set({ name: { ...event.name, en } })}
+            />
           </Stack>
           <Stack grow>
-            <Field label="Hebrew name (optional)" value={event.name.he ?? ''} onChangeText={(he) => set({ name: { ...event.name, he: he || undefined } })} />
+            <Field label="In Hebrew (optional)" value={event.name.he ?? ''} onChangeText={(he) => set({ name: { ...event.name, he: he || undefined } })} />
           </Stack>
         </Stack>
+        <Field
+          label="Your name for it (optional)"
+          placeholder={`e.g. Shabbos ${event.name.en || 'Mincha'}`}
+          help="Only gabbaim see it, here. Handy when two minyanim show the same name."
+          value={event.adminName ?? ''}
+          onChangeText={(v) => set({ adminName: v || undefined })}
+        />
         {event.kind === 'tefila' ? (
           <TefilaPicker value={event.tefila} onChange={(t) => updateEvent(event.id, retype(event, t))} />
         ) : (
-          <SegmentedControl
+          <Segments
             options={KINDS}
             value={event.kind}
             onChange={(kind) =>
@@ -465,7 +488,7 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
           <Text variant="headline">When it’s on</Text>
           <Text variant="caption" color={SemanticColor.TextSecondary}>
             Each line covers some days. When a day fits more than one line, the higher line wins, so special days go above the
-            everyday time. A day no line covers has no {event.name.en || 'event'}.
+            everyday time. A day no line covers has no {adminLabel(event) || 'event'}.
           </Text>
         </Stack>
         <Stack gap="xs">
@@ -474,9 +497,10 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
             const unused = firstCatchAll >= 0 && i > firstCatchAll
             return (
               <Stack key={`${event.rules.length}:${i}`} gap="xs">
+                {/* On a phone the buttons go under the text: a row child doesn't shrink, so long text would push them off screen. */}
                 <Stack
-                  direction="row"
-                  align="center"
+                  direction={wide ? 'row' : 'column'}
+                  align={wide ? 'center' : 'stretch'}
                   gap="xs"
                   padding="sm"
                   radius="md"
@@ -501,14 +525,16 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
                       </Stack>
                     </Touchable>
                   </Stack>
-                  {event.rules.length > 1 && (
-                    <>
-                      <Button variant="ghost" size="sm" title="↑" disabled={i === 0} onPress={() => move(i, -1)} />
-                      <Button variant="ghost" size="sm" title="↓" disabled={i === event.rules.length - 1} onPress={() => move(i, 1)} />
-                    </>
-                  )}
-                  <IconButton name={open ? 'chevron-down' : 'edit'} size={18} onPress={() => setOpenRule(open ? null : i)} accessibilityLabel={`Edit line ${i + 1}`} />
-                  <IconButton name="delete" size={18} onPress={() => remove(i)} accessibilityLabel={`Remove line ${i + 1}`} />
+                  <Stack direction="row" align="center" gap="xs" justify={wide ? undefined : 'end'}>
+                    {event.rules.length > 1 && (
+                      <>
+                        <Button variant="ghost" size="sm" title="↑" disabled={i === 0} onPress={() => move(i, -1)} />
+                        <Button variant="ghost" size="sm" title="↓" disabled={i === event.rules.length - 1} onPress={() => move(i, 1)} />
+                      </>
+                    )}
+                    <IconButton name={open ? 'chevron-down' : 'edit'} size={18} onPress={() => setOpenRule(open ? null : i)} accessibilityLabel={`Edit line ${i + 1}`} />
+                    <IconButton name="delete" size={18} onPress={() => remove(i)} accessibilityLabel={`Remove line ${i + 1}`} />
+                  </Stack>
                 </Stack>
                 {ai === i && (
                   <AiAssist<Rule>
@@ -654,11 +680,11 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
 function EventRow({ event, all, slots, onOpen }: { event: EventDef; all: EventDef[]; slots: Slot[]; onOpen: () => void }) {
   const others = all.filter((e) => e.id !== event.id)
   return (
-    <Card gap="sm" onPress={onOpen} accessibilityLabel={`Edit ${event.name.en}`}>
+    <Card gap="sm" onPress={onOpen} accessibilityLabel={`Edit ${adminLabel(event)}`}>
       <Stack direction="row" align="center" gap="sm">
         <Stack grow gap="none">
           <Stack direction="row" gap="sm" align="center" wrap>
-            <Text variant="title">{event.name.en || 'Untitled'}</Text>
+            <Text variant="title">{adminLabel(event) || 'Untitled'}</Text>
             {!!event.name.he && (
               <Text variant="title" rtl color={SemanticColor.TextSecondary}>
                 {event.name.he}
@@ -666,6 +692,7 @@ function EventRow({ event, all, slots, onOpen }: { event: EventDef; all: EventDe
             )}
           </Stack>
           <Text variant="caption" color={SemanticColor.TextSecondary}>
+            {event.adminName?.trim() ? `Shown as ${event.name.en} · ` : ''}
             {event.kind === 'tefila'
               ? !event.tefila
                 ? 'Which tefila? Tap to choose'
@@ -763,7 +790,7 @@ export function EventsTab({ today }: { today: DateString }) {
                   <Stack gap="sm">
                     {list.map((e) => (
                       <Stack key={e.id} gap="none">
-                        <Text variant="bodyStrong">{e.name.en}</Text>
+                        <Text variant="bodyStrong">{adminLabel(e)}</Text>
                         <RulesSummary event={e} events={events} />
                       </Stack>
                     ))}

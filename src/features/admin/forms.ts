@@ -209,6 +209,12 @@ export function formToTime(form: TimeForm): TimeExpr {
 }
 
 // ---------------------------------------------------------------------------
+// Names.
+
+/** What the admin calls an event: the gabbai's own name for it ("Shabbos Mincha"), else the name everyone sees. */
+export const adminLabel = (e: Pick<EventDef, 'name' | 'adminName'>) => e.adminName?.trim() || e.name.en
+
+// ---------------------------------------------------------------------------
 // Event details: guessed from the name until the gabbai says otherwise.
 
 type Details = Pick<EventDef, 'name' | 'kind' | 'category' | 'audience'>

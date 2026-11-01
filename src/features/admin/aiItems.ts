@@ -38,7 +38,7 @@ ${r || '(The gabbai will write it in the next message.)'}
 /** The other events by id, for anchoring a time on one ("30 minutes before Mincha") or sponsoring it. */
 function eventIndex(events: EventDef[]): string {
   if (!events.length) return '  (none)'
-  return events.map((e) => `  ${e.id}: ${e.name.en} (${e.kind === 'tefila' ? `minyan, ${e.tefila}` : e.kind})`).join('\n')
+  return events.map((e) => `  ${e.id}: ${e.adminName ? `${e.adminName}, shown as ${e.name.en}` : e.name.en} (${e.kind === 'tefila' ? `minyan, ${e.tefila}` : e.kind})`).join('\n')
 }
 
 /** The coming days in words, so an AI can turn "this Shabbos" or "Chanukah" into dates. */

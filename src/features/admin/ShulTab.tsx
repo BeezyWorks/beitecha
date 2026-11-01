@@ -1,11 +1,4 @@
-import {
-  Card,
-  SegmentedControl,
-  SemanticColor,
-  Stack,
-  Text,
-  ToggleSwitch,
-} from '@beezyworks/design'
+import { Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
   type NameStyle,
   nameStyle,
@@ -17,6 +10,7 @@ import {
 } from '@beitecha/engine'
 import React from 'react'
 
+import { Segments } from '@/components/Segments'
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
 import { LocalHolidaysCard } from './LocalHolidaysCard'
@@ -84,7 +78,7 @@ export function ShulTab() {
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Language of the shul’s page, display and calendar
           </Text>
-          <SegmentedControl
+          <Segments
             options={[
               { key: 'en', label: 'English' },
               { key: 'he', label: 'עברית' },
@@ -100,7 +94,7 @@ export function ShulTab() {
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Names: minyanim, shiurim, zmanim, parsha, holidays, notices
           </Text>
-          <SegmentedControl<NameStyle>
+          <Segments<NameStyle>
             options={[
               { key: 'en', label: 'English' },
               { key: 'he', label: 'עברית' },
@@ -173,7 +167,7 @@ export function ShulTab() {
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Motzei Shabbos / Havdalah
           </Text>
-          <SegmentedControl
+          <Segments
             options={[
               { key: 'angle', label: 'Sun angle' },
               { key: 'minutes', label: 'Fixed minutes after sunset' },
@@ -243,7 +237,7 @@ export function ShulTab() {
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Selichos (for the “Selichos” days in rules)
           </Text>
-          <SegmentedControl<SelichosMinhag>
+          <Segments<SelichosMinhag>
             options={[
               { key: 'ashkenaz', label: 'Ashkenaz' },
               { key: 'sefard', label: 'From Rosh Chodesh Elul' },

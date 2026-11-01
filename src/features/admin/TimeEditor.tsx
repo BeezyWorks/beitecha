@@ -1,13 +1,4 @@
-import {
-  Button,
-  Chip,
-  IconButton,
-  SegmentedControl,
-  SemanticColor,
-  Stack,
-  Text,
-  TextField,
-} from '@beezyworks/design'
+import { Button, Chip, IconButton, SemanticColor, Stack, Text, TextField } from '@beezyworks/design'
 import {
   type EventDef,
   type RoundMode,
@@ -20,8 +11,10 @@ import {
 } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
+import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import {
+  adminLabel,
   clockLabel,
   formToTime,
   parseClockInput,
@@ -93,7 +86,7 @@ function OffsetField({ value, onChange }: { value: number; onChange: (n: number)
         />
       </Stack>
       <Text variant="body">min</Text>
-      <SegmentedControl
+      <Segments
         options={[
           { key: 'before', label: 'before' },
           { key: 'after', label: 'after' },
@@ -135,7 +128,7 @@ function SourceRow({
       borderColor={SemanticColor.BorderDefault}
     >
       <Stack direction="row" align="center" gap="sm" wrap>
-        <SegmentedControl
+        <Segments
           options={[
             { key: 'clock', label: 'Fixed time' },
             { key: 'zman', label: 'Zman' },
@@ -172,7 +165,7 @@ function SourceRow({
         {source.type === 'event' && (
           <Select<string>
             value={source.event}
-            options={events.map((e) => ({ value: e.id, label: e.name.en }))}
+            options={events.map((e) => ({ value: e.id, label: adminLabel(e) }))}
             onChange={(event) => onChange({ ...source, event })}
           />
         )}
@@ -242,7 +235,7 @@ export function TimeEditor({
       {form.sources.length > 1 && (
         <Stack direction="row" align="center" gap="sm" wrap>
           <Text variant="body">Whichever is</Text>
-          <SegmentedControl
+          <Segments
             options={[
               { key: 'earliest', label: 'earliest' },
               { key: 'latest', label: 'latest' },
@@ -307,7 +300,7 @@ export function TimeEditor({
               {form.weekly && (
                 <>
                   <Text variant="body">using the</Text>
-                  <SegmentedControl
+                  <Segments
                     options={[
                       { key: 'earliest', label: 'earliest' },
                       { key: 'latest', label: 'latest' },
@@ -362,13 +355,13 @@ export function TimeEditor({
               />
               {form.round && (
                 <>
-                  <SegmentedControl
+                  <Segments
                     options={ROUND_MODES}
                     value={form.round.mode}
                     onChange={(mode) => update({ round: { ...form.round!, mode } })}
                   />
                   <Text variant="body">to</Text>
-                  <SegmentedControl
+                  <Segments
                     options={[
                       { key: '5', label: '5' },
                       { key: '10', label: '10' },
@@ -400,10 +393,8 @@ export function describeTime(t: TimeExpr | null, events: EventDef[]): string {
   if (!form) return 'Custom time'
   const src = (s: Source) => {
     if (s.type === 'clock') return clockLabel(s.clock)
-    const name =
-      s.type === 'zman'
-        ? ZMAN_LABELS[s.zman].en
-        : (events.find((e) => e.id === s.event)?.name.en ?? s.event)
+    const anchor = s.type === 'event' ? events.find((e) => e.id === s.event) : undefined
+    const name = s.type === 'zman' ? ZMAN_LABELS[s.zman].en : anchor ? adminLabel(anchor) : s.event
     if (!s.offset) return name
     return `${Math.abs(s.offset)} min ${s.offset < 0 ? 'before' : 'after'} ${name}`
   }

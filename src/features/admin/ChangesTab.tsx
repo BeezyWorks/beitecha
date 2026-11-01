@@ -1,12 +1,4 @@
-import {
-  Badge,
-  Button,
-  Card,
-  SegmentedControl,
-  SemanticColor,
-  Stack,
-  Text,
-} from '@beezyworks/design'
+import { Badge, Button, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
   addDays,
   Calendar,
@@ -19,8 +11,10 @@ import {
 } from '@beitecha/engine'
 import React, { useMemo, useState } from 'react'
 
+import { Segments } from '@/components/Segments'
 import { Field } from '@/components/Field'
 import { makeT } from '@/features/luach/language'
+import { adminLabel } from './forms'
 import { formatClockHHMM } from './time'
 import { newId, useAdmin } from './store'
 import { ClockField, TimeEditor } from './TimeEditor'
@@ -43,6 +37,7 @@ function OccurrenceRow({
   const { clock } = makeT('en', schedule?.settings.timeFormat)
   const [draft, setDraft] = useState<Draft | null>(null)
   const events = schedule?.events ?? []
+  const event = events.find((e) => e.id === o.eventId)
 
   const apply = () => {
     if (!draft) return
@@ -65,7 +60,7 @@ function OccurrenceRow({
             {o.cancelled ? '—' : o.minutes === null ? '?' : clock(o.minutes)}
           </Text>
         </Stack>
-        <Text variant="body">{o.name.en}</Text>
+        <Text variant="body">{event ? adminLabel(event) : o.name.en}</Text>
         {exception && (
           <Badge
             label={
@@ -131,7 +126,7 @@ function OccurrenceRow({
       </Stack>
       {draft && (
         <Stack gap="sm" padding="md" radius="md" background={SemanticColor.SurfaceBackground}>
-          <SegmentedControl
+          <Segments
             options={[
               { key: 'cancel', label: 'Cancel' },
               { key: 'retime', label: 'Move' },

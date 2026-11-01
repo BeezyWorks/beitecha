@@ -48,6 +48,8 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   - The admin edits a draft in a zustand store (`features/admin/store.ts`) and saves the whole document.
     `features/admin/forms.ts` maps `Condition`/`TimeExpr` to editable forms and back; anything the forms can't say
     round-trips through a JSON editor instead of being lost. Jest-tested.
+    An event's `adminName` ("Shabbos Mincha") is what the admin calls it (`adminLabel`); `name` is what everyone
+    else sees, so viewer surfaces never read `adminName`.
 - **Print** (`/<slug>/print`, the admin's "Print this week"): the published week on A4 or Letter, Shabbos, weekday
   minyanim and zmanim on the front, sponsorships and announcements on the back (or all on one side). Each side is
   shrunk to fit its sheet, never split.

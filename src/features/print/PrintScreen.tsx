@@ -1,8 +1,9 @@
-import { Button, SegmentedControl, SemanticColor, Stack, Text } from '@beezyworks/design'
+import { Button, SemanticColor, Stack, Text } from '@beezyworks/design'
 import { addDays, civilDateShort, type DateString, startOfWeek } from '@beitecha/engine'
 import { router, useLocalSearchParams } from 'expo-router'
 import React from 'react'
 
+import { Segments } from '@/components/Segments'
 import { Centered } from '@/components/Centered'
 import { usePageTitle } from '@/components/PageTitle'
 import { paperFor, PrintRoot, PrintSheet, type Paper } from '@/components/Print'
@@ -132,7 +133,7 @@ function Toolbar({
           onPress={() => set({ week: addDays(sunday, 7) })}
         />
       </Stack>
-      <SegmentedControl<Paper>
+      <Segments<Paper>
         options={[
           { key: 'letter', label: 'Letter' },
           { key: 'a4', label: 'A4' },
@@ -142,7 +143,7 @@ function Toolbar({
         accessibilityLabel="Paper size"
       />
       {hasNotices && (
-        <SegmentedControl<'1' | '2'>
+        <Segments<'1' | '2'>
           options={[
             { key: '2', label: 'Two sides' },
             { key: '1', label: 'One side' },

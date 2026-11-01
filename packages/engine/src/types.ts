@@ -260,7 +260,13 @@ export interface Rule {
 
 export interface EventDef {
   id: string
+  /** What the display, the printed week and the Siddur show. */
   name: Localized
+  /**
+   * What the gabbai calls it in the admin, when the shown name doesn't tell it apart: "Shabbos Mincha" shown as
+   * Mincha. Never shown to the public.
+   */
+  adminName?: string
   kind: EventKind
   /** Which tefila; every `tefila` event has one, other kinds none. */
   tefila?: TefilaType

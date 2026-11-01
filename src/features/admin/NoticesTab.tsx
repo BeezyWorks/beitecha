@@ -8,7 +8,7 @@ import { NoticeCard } from '@/features/luach/NoticeCard'
 import { AiAssist } from './AiAssist'
 import { noticePrompt, parseNotices } from './aiItems'
 import { DateField } from './DateField'
-import { linkProblem, sponsorTarget, withNoticeKind, withSponsorTarget, type SponsorTarget } from './forms'
+import { adminLabel, linkProblem, sponsorTarget, withNoticeKind, withSponsorTarget, type SponsorTarget } from './forms'
 import { newId, useAdmin } from './store'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -63,7 +63,7 @@ function useEventOptions(today: DateString, oneTimeOnly: boolean) {
   if (oneTimeOnly) return oneTime
   const weekly = schedule.events
     .filter((e) => e.kind !== 'tefila' && e.visibility !== 'internal')
-    .map((e) => ({ value: e.id, label: e.name.en }))
+    .map((e) => ({ value: e.id, label: adminLabel(e) }))
   return [...weekly, ...oneTime]
 }
 

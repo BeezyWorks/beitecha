@@ -1,12 +1,4 @@
-import {
-  Button,
-  Card,
-  SegmentedControl,
-  SemanticColor,
-  Stack,
-  Text,
-  ToggleSwitch,
-} from '@beezyworks/design'
+import { Button, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
   builtInHolidays,
   CIVIL_CALENDARS,
@@ -20,6 +12,7 @@ import {
 } from '@beitecha/engine'
 import React, { useState } from 'react'
 
+import { Segments } from '@/components/Segments'
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
 import { Select } from '@/components/Select'
@@ -189,7 +182,7 @@ export function LocalHolidaysCard({
       {adding && (
         <Stack gap="md">
           <Field label="Name" value={name} onChangeText={setName} placeholder="Thanksgiving" />
-          <SegmentedControl<Shape>
+          <Segments<Shape>
             options={[
               { key: 'date', label: 'Same date' },
               { key: 'weekday', label: 'Weekday of a month' },

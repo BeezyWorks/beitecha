@@ -48,6 +48,7 @@ const SCHEMA = `type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6 // 0 = Sunday … 6 = S
 interface EventDef {
   id: string // short, lowercase, unique, e.g. "shacharis", "shacharis-early", "daf-yomi"
   name: { en: string; he?: string } // he = Hebrew name, if you know it
+  adminName?: string // the gabbai's own name for it, only when the shown name is shared: "Shabbos Mincha" shown as Mincha
   kind: 'tefila' | 'shiur' | 'other' // tefila = a minyan
   tefila?: 'shacharis' | 'mincha' | 'maariv' | 'minchaMaariv' // every minyan has one: which tefila it davens; other kinds none
   category?: 'program' | 'meal' // non-minyanim only; meal = Kiddush, Seudas Shlishis, Melava Malka

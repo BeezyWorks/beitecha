@@ -999,7 +999,7 @@ function Remembrance({
 }
 
 /** A box of items in three columns, filled top to bottom, so a short list still reads in order. */
-function ColumnBox<T>({ items, render }: { items: T[]; render: (item: T) => ReactNode }) {
+function ColumnBox<T>({ items, render }: { items: T[]; render: (item: T) => React.ReactNode }) {
   const size = Math.ceil(items.length / 3)
   const columns = [0, 1, 2].map((i) => items.slice(i * size, (i + 1) * size))
   return (

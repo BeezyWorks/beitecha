@@ -174,6 +174,13 @@ export interface PrintSettings {
   /** The refuah shleimah list. Default true. */
   cholim?: boolean
   /**
+   * How many pages the sheet may run to, or `'unlimited'`. The content is shrunk to fit; unlimited keeps it at
+   * full size and adds pages as needed. Default 2 (a second page only when there are announcements).
+   */
+  pages?: number | 'unlimited'
+  /** Text size on the sheet as a multiple of normal (1), shrunk anyway where it wouldn't fit the pages. Default 1. */
+  textSize?: number
+  /**
    * Zmanim listed among Friday night's minyanim and Shabbos day's, each at its time (built-in or custom, shown even
    * when `zmanim.hidden`). Default candle lighting and havdalah.
    */

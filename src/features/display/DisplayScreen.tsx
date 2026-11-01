@@ -1,6 +1,5 @@
 import { SemanticColor, Stack } from '@beezyworks/design'
 import { addDays, yahrzeitsBetween } from '@beitecha/engine'
-import { useLocalSearchParams } from 'expo-router'
 import React from 'react'
 
 import { Blackout } from '@/components/Blackout'
@@ -20,7 +19,6 @@ const POLL_MS = 5 * 60_000
 
 /** The monitor in the lobby: point a TV's browser here and leave it. `setup` is the id in `/<slug>/display/<id>`. */
 export function DisplayScreen({ slug, setup: setupId }: { slug: string; setup?: string }) {
-  const params = useLocalSearchParams<{ theme?: string; label?: string }>()
   const { feed, notFound } = useShulFeed(slug, POLL_MS)
   const tz = feed?.schedule.settings.location.timeZone
   const { today, minutes } = useShulClock(tz, 5_000)
@@ -28,7 +26,7 @@ export function DisplayScreen({ slug, setup: setupId }: { slug: string; setup?: 
   const [yesterday, ...days] = useDays(feed?.schedule, addDays(today, -1), 9)
   const displays = feed?.schedule.settings.displays
   const setup = findSetup(displays, setupId)
-  useDisplayUpkeep(slug, today, params.label ?? (displays?.length ? setup?.id : undefined))
+  useDisplayUpkeep(slug, today, setup?.id)
   const t = makeT(
     feed?.schedule.settings.language,
     feed?.schedule.settings.timeFormat,
@@ -46,10 +44,7 @@ export function DisplayScreen({ slug, setup: setupId }: { slug: string; setup?: 
     return <Centered title="No such display" body={`Check the address: /${slug}/display`} />
 
   // OLED panels burn in, so they default to the dark theme.
-  const mode =
-    params.theme === 'dark' || params.theme === 'light'
-      ? params.theme
-      : (setup.theme ?? (setup.screen === 'oled' ? 'dark' : 'light'))
+  const mode = setup.theme ?? (setup.screen === 'oled' ? 'dark' : 'light')
   const { width, height } = CANVAS[setup.orientation ?? 'landscape']
   const notices = feed.schedule.notices
     .filter((n) => (n.to ?? n.from) >= today && n.from <= addDays(today, 7))

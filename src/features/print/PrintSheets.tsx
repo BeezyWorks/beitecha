@@ -2,13 +2,7 @@ import { type PrintSettings } from '@beitecha/engine'
 import React, { useRef, useState } from 'react'
 
 import { PagedSheets, PrintSheet, type Paper } from '@/components/Print'
-import {
-  hasAnnouncements,
-  NoticesSide,
-  TimesSide,
-  useNoticesParts,
-  type WeekProps,
-} from './WeekSheet'
+import { hasAnnouncements, TimesSide, useNoticesParts, type WeekProps } from './WeekSheet'
 
 /** Pages a sheet runs to when the shul hasn't said: the front, and a back when there are announcements. */
 export const DEFAULT_PAGES = 2
@@ -74,28 +68,20 @@ export function PrintSheets({
     )
   return (
     <>
-      <PrintSheet
-        key={`front|${v}|${oneSide}`}
-        paper={paper}
-        rtl={rtl}
-        scale={textSize}
-        grow={grow}
-      >
-        <TimesSide {...week} withNotices={oneSide} />
-      </PrintSheet>
-      {!oneSide && maxPages === 2 && (
-        <PrintSheet key={`back|${v}`} paper={paper} rtl={rtl} scale={textSize} grow>
-          <NoticesSide {...week} />
+      {oneSide && (
+        <PrintSheet key={`front|${v}`} paper={paper} rtl={rtl} scale={textSize} grow={grow}>
+          <TimesSide {...week} withNotices />
         </PrintSheet>
       )}
-      {!oneSide && maxPages !== 2 && (
+      {!oneSide && (
         <PagedSheets
           key={`paged|${v}`}
           paper={paper}
           rtl={rtl}
           scale={textSize}
-          maxPages={Number.isFinite(maxPages) ? maxPages - 1 : undefined}
+          maxPages={Number.isFinite(maxPages) ? maxPages : undefined}
           {...parts}
+          head={<TimesSide {...week} withNotices={false} />}
         />
       )}
     </>

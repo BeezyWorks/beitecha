@@ -733,26 +733,32 @@ describe('event details', () => {
     expect(cal.oneTimeEvents('2026-11-09')).toEqual([])
   })
 
-  it('announces starred events from their lead time, the first time of each', () => {
-    const star = (s: Schedule, id: string, patch: Partial<EventDef> = { announce: true }): Schedule => ({
+  it('announces one-time events from their lead time, and recurring ones only when asked', () => {
+    const mark = (s: Schedule, id: string, patch: Partial<EventDef>): Schedule => ({
       ...s,
       events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
       exceptions: s.exceptions.map((x) => (x.type === 'add' && x.event.id === id ? { ...x, event: { ...x.event, ...patch } } : x)),
     })
     const announced = (s: Schedule, sunday: string) => new Calendar(s).announced(sunday).map((x) => `${x.date} ${x.event.eventId}`)
-    expect(announced(sampleSchedule, '2026-10-25')).toEqual([])
-    const bbq = star(sampleSchedule, 'bbq')
-    // Two weeks by default: from the week of Oct 25 (to Nov 14), not the week before (to Nov 7).
-    expect(announced(bbq, '2026-10-25')).toEqual(['2026-11-08 bbq'])
-    expect(announced(bbq, '2026-10-18')).toEqual([])
-    expect(announced({ ...bbq, settings: { ...bbq.settings, announceWeeks: 3 } }, '2026-10-18')).toEqual(['2026-11-08 bbq'])
-    expect(announced(star(sampleSchedule, 'bbq', { announce: true, announceWeeks: 3 }), '2026-10-18')).toEqual(['2026-11-08 bbq'])
-    expect(announced(bbq, '2026-11-15')).toEqual([])
-    // A weekly one: only its next time, and not a cancelled one.
-    const mishmar = star(sampleSchedule, 'mishmar')
-    expect(announced(mishmar, '2026-10-25')).toEqual(['2026-10-30 mishmar'])
-    const cancelled = { ...mishmar, exceptions: [{ id: 'c', date: '2026-10-30', type: 'cancel' as const, eventId: 'mishmar' }] }
-    expect(announced(cancelled, '2026-10-25')).toEqual(['2026-11-06 mishmar'])
+    // Three weeks by default: from the week of Oct 18 (to Nov 7 + 7 days), not the week before.
+    expect(announced(sampleSchedule, '2026-10-25')).toEqual(['2026-11-08 bbq'])
+    expect(announced(sampleSchedule, '2026-10-11')).toEqual([])
+    expect(announced(sampleSchedule, '2026-10-18')).toEqual(['2026-11-08 bbq'])
+    // The shul's lead time moves it.
+    const weeks = (announceWeeks: number): Schedule => ({ ...sampleSchedule, settings: { ...sampleSchedule.settings, announceWeeks } })
+    expect(announced(weeks(1), '2026-10-25')).toEqual([])
+    expect(announced(weeks(1), '2026-11-01')).toEqual(['2026-11-08 bbq'])
+    // Always: however far ahead, but not once it has passed. Never: not at all.
+    expect(announced(mark(weeks(1), 'bbq', { announce: true }), '2026-09-27')).toEqual(['2026-11-08 bbq'])
+    expect(announced(mark(sampleSchedule, 'bbq', { announce: true }), '2026-11-15')).toEqual([])
+    expect(announced(mark(sampleSchedule, 'bbq', { announce: false }), '2026-10-25')).toEqual([])
+    // A weekly one: not by default; when asked, only its next time, and not a cancelled one.
+    expect(announced(sampleSchedule, '2026-10-25')).not.toContain('2026-10-30 mishmar')
+    const mishmar = mark(sampleSchedule, 'mishmar', { announce: true })
+    expect(announced(mishmar, '2026-10-25')).toContain('2026-10-30 mishmar')
+    const cancelled = { ...mishmar, exceptions: [...mishmar.exceptions, { id: 'c', date: '2026-10-30', type: 'cancel' as const, eventId: 'mishmar' }] }
+    expect(announced(cancelled, '2026-10-25')).toContain('2026-11-06 mishmar')
+    expect(announced(cancelled, '2026-10-25')).not.toContain('2026-10-30 mishmar')
   })
 })
 

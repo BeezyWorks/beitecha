@@ -1,5 +1,5 @@
 import { Button, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { civilDateShort, type DateString, type Exception, WEEKDAYS, weekdayOf } from '@beitecha/engine'
+import { civilDateShort, DEFAULT_ANNOUNCE_WEEKS, type DateString, type Exception, WEEKDAYS, weekdayOf } from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
@@ -7,7 +7,7 @@ import { makeT } from '@/features/luach/language'
 import { AiAssist } from './AiAssist'
 import { oneTimePrompt, parseOneTime } from './aiItems'
 import { DateField } from './DateField'
-import { AnnounceEditor, announceLabel, DEFAULT_ANNOUNCE_WEEKS } from './AnnounceEditor'
+import { AnnouncedCard, AnnounceEditor, announceLabel } from './AnnounceEditor'
 import { DetailsEditor } from './DetailsEditor'
 import { linkProblem } from './forms'
 import { SectionPage } from './SectionPage'
@@ -67,7 +67,7 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
         </Stack>
       </Stack>
       <DetailsEditor event={x.event} onChange={setEvent} oneTime />
-      <AnnounceEditor event={x.event} onChange={setEvent} />
+      <AnnounceEditor event={x.event} onChange={setEvent} oneTime />
       <Field
         label="Note (optional)"
         placeholder="RSVP by Thursday"
@@ -166,6 +166,7 @@ export function CalendarTab({ today }: { today: DateString }) {
           onClose={() => setAi(false)}
         />
       )}
+      {!editing && <AnnouncedCard today={today} />}
       {!upcoming.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>
           Nothing coming up. Events show on their day on the display, the printed week, the calendar feed and in the Siddur.
@@ -192,24 +193,13 @@ export function CalendarTab({ today }: { today: DateString }) {
               {x.note.en}
             </Text>
           )}
-          {!!x.event.announce && (
+          {x.event.announce !== undefined && (
             <Text variant="caption" color={SemanticColor.TextAccent}>
               {announceLabel(x.event, announceWeeks)}
             </Text>
           )}
           <Stack direction="row" gap="sm">
             <Button variant="ghost" size="sm" icon="edit" title="Edit" onPress={() => setEditing(x)} />
-            <Button
-              variant="ghost"
-              size="sm"
-              title={x.event.announce ? '☆ Unstar' : '★ Star for announcements'}
-              onPress={() =>
-                upsertException({
-                  ...x,
-                  event: { ...x.event, announce: x.event.announce ? undefined : true, announceWeeks: undefined },
-                })
-              }
-            />
             <Button variant="ghost" size="sm" icon="delete" title="Delete" onPress={() => removeException(x.id)} />
           </Stack>
         </Card>

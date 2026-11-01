@@ -24,6 +24,7 @@ import type {
 
 /** The furthest ahead a starred event is announced. */
 export const MAX_ANNOUNCE_WEEKS = 52
+export const DEFAULT_ANNOUNCE_WEEKS = 3
 
 /** Thrown inside evaluation; caught per occurrence and reported as its `error`. */
 class EvalError extends Error {}
@@ -370,22 +371,24 @@ export class Calendar {
   }
 
   /**
-   * Starred events (`announce`) that happen from `from` until each one's lead time after `days` days, the first time
-   * of each: the printed week's "Coming up". Cancelled ones are left out.
+   * Events to list under "Coming up" for the week from `from`: one-time events within the shul's lead time
+   * (`settings.announceWeeks`, default 3) of it, and any event marked `announce` however far off, the first time of
+   * each. Events marked `announce: false`, past ones and cancelled ones are left out.
    */
   announced(from: DateString, days = 7): { date: DateString; event: Occurrence }[] {
-    const last = addDays(from, days - 1)
+    const weeks = Math.min(Math.max(0, this.schedule.settings.announceWeeks ?? DEFAULT_ANNOUNCE_WEEKS), MAX_ANNOUNCE_WEEKS)
+    const defaultLast = addDays(from, days - 1 + weeks * 7)
     const out: { date: DateString; event: Occurrence }[] = []
     for (const event of this.events.values()) {
-      if (!event.announce || event.visibility === 'internal') continue
-      const weeks = Math.min(Math.max(0, event.announceWeeks ?? this.schedule.settings.announceWeeks ?? 2), MAX_ANNOUNCE_WEEKS)
+      if (event.announce === false || event.visibility === 'internal' || event.kind === 'tefila') continue
       const added = this.schedule.exceptions.find((x) => x.type === 'add' && x.event.id === event.id)
+      if (!added && !event.announce) continue
       // A one-time event only needs its own day looked at.
       const dates = added
         ? [added.date]
-        : Array.from({ length: days + weeks * 7 }, (_, i) => addDays(from, i))
+        : Array.from({ length: MAX_ANNOUNCE_WEEKS * 7 }, (_, i) => addDays(from, i))
       for (const date of dates) {
-        if (date < from || date > addDays(last, weeks * 7)) continue
+        if (date < from || (!event.announce && date > defaultLast)) continue
         const r = this.resolve(event.id, date)
         if (r.minutes === null || r.cancelled || r.error) continue
         const o = this.occurrences(date).find((x) => x.eventId === event.id)

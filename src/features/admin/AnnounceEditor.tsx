@@ -1,8 +1,9 @@
-import { Badge, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
+import { Card, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
   addDays,
   Calendar,
   civilDateShort,
+  DEFAULT_ANNOUNCE_WEEKS,
   type EventDef,
   MAX_ANNOUNCE_WEEKS,
   startOfWeek,
@@ -13,66 +14,67 @@ import {
 import React, { useMemo } from 'react'
 
 import { NumberField } from '@/components/NumberField'
-import { adminLabel } from './forms'
+import { Segments } from '@/components/Segments'
 import { useAdmin } from './store'
 
-export const DEFAULT_ANNOUNCE_WEEKS = 2
+type Announce = Pick<EventDef, 'announce'>
+type Choice = 'default' | 'always' | 'never'
 
-type Starred = Pick<EventDef, 'announce' | 'announceWeeks'>
+const choiceOf = (event: Announce): Choice =>
+  event.announce === undefined ? 'default' : event.announce ? 'always' : 'never'
 
 /** A whole number of weeks from 0 to the most the engine looks ahead, or the default. */
 const weeksOf = (n: number | undefined) =>
   n === undefined ? undefined : Math.min(Math.max(0, Math.round(n)), MAX_ANNOUNCE_WEEKS)
 
-/** "★ Announced 2 weeks ahead", for an event's caption. */
-export function announceLabel(event: Starred, defaultWeeks: number) {
-  if (!event.announce) return ''
-  const weeks = event.announceWeeks ?? defaultWeeks
-  return `★ Announced ${weeks === 0 ? 'its week' : `${weeks} week${weeks === 1 ? '' : 's'} ahead`}`
+const weeksText = (weeks: number) => (weeks === 0 ? 'its week' : `${weeks} week${weeks === 1 ? '' : 's'} ahead`)
+
+/** "Announced 3 weeks ahead" for a dated event's caption, or '' when it isn't listed early. */
+export function announceLabel(event: Announce, defaultWeeks: number) {
+  if (event.announce === false) return 'Not in the announcements'
+  return event.announce ? 'Always in the announcements' : `Announced ${weeksText(defaultWeeks)}`
 }
 
-/** Star an event for "Coming up" on the printed announcements, and how far ahead. */
+/** Whether an event is listed under "Coming up": by the shul's lead time (default), always, or never. */
 export function AnnounceEditor({
   event,
   onChange,
+  oneTime,
 }: {
-  event: Starred
-  onChange: (patch: Starred) => void
+  event: Announce
+  onChange: (patch: Announce) => void
+  /** A dated event follows the shul's lead time by default; a recurring one isn't listed unless asked. */
+  oneTime?: boolean
 }) {
   const defaultWeeks = useAdmin((s) => s.schedule?.settings.announceWeeks) ?? DEFAULT_ANNOUNCE_WEEKS
+  const choice = choiceOf(event)
   return (
     <Stack gap="sm">
-      <Stack direction="row" align="center" gap="md">
-        <Stack grow>
-          <Text variant="body">★ On the printed announcements</Text>
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            Listed under “Coming up” from {event.announceWeeks ?? defaultWeeks} weeks before it
-            {event.announceWeeks === undefined ? ' (the shul’s setting, under Sponsors)' : ''}.
-          </Text>
-        </Stack>
-        <ToggleSwitch
-          value={!!event.announce}
-          onValueChange={(v) =>
-            onChange(v ? { announce: true } : { announce: undefined, announceWeeks: undefined })
-          }
-          accessibilityLabel="On the printed announcements"
-        />
-      </Stack>
-      {!!event.announce && (
-        <Stack width={220}>
-          <NumberField
-            label="Weeks ahead (optional)"
-            value={event.announceWeeks}
-            help={`Blank: the shul’s ${defaultWeeks}`}
-            onChange={(n) => onChange({ announce: true, announceWeeks: weeksOf(n) })}
-          />
-        </Stack>
-      )}
+      <Text variant="body">In the announcements</Text>
+      <Segments<Choice>
+        accessibilityLabel="In the announcements"
+        value={choice}
+        options={[
+          { key: 'default', label: 'Default' },
+          { key: 'always', label: 'Always' },
+          { key: 'never', label: 'Never' },
+        ]}
+        onChange={(c) => onChange({ announce: c === 'default' ? undefined : c === 'always' })}
+      />
+      <Text variant="caption" color={SemanticColor.TextSecondary}>
+        {choice === 'always'
+          ? 'Listed under “Coming up” however far ahead, until it has passed.'
+          : choice === 'never'
+            ? 'Never listed under “Coming up”.'
+            : oneTime
+              ? `Listed under “Coming up” from ${weeksText(defaultWeeks)} (set under Dates & events).`
+              : 'A recurring event isn’t listed under “Coming up” unless set to Always.'}
+      </Text>
     </Stack>
   )
 }
 
-/** The shul's lead time for starred events, and what this week's sheet will list. */
+/** The shul's lead time for dated events, and what this week's sheet will list. */
 export function AnnouncedCard({ today }: { today: DateString }) {
   const schedule = useAdmin((s) => s.schedule)
   const commitSchedule = useAdmin((s) => s.commitSchedule)
@@ -82,29 +84,20 @@ export function AnnouncedCard({ today }: { today: DateString }) {
     [schedule, sunday],
   )
   if (!schedule) return null
-  const weeks = schedule.settings.announceWeeks ?? DEFAULT_ANNOUNCE_WEEKS
-  const starred = [
-    ...schedule.events.filter((e) => e.announce).map((e) => adminLabel(e)),
-    ...schedule.exceptions.flatMap((x) =>
-      x.type === 'add' && x.event.announce && x.date >= today
-        ? [`${x.event.name.en} (${civilDateShort(x.date)})`]
-        : [],
-    ),
-  ]
   return (
     <Card gap="md">
       <Stack gap="none">
         <Text variant="sectionHeader">Coming up</Text>
         <Text variant="caption" color={SemanticColor.TextSecondary}>
-          Star an event (under Times or Events) to list it with the printed week’s announcements
-          ahead of time: the dinner, a siyum, a monthly shiur.
+          Dated events are listed with the announcements this many weeks ahead. An event can be set
+          to always or never be listed.
         </Text>
       </Stack>
       <Stack width={260}>
         <NumberField
           label="Weeks ahead"
           value={schedule.settings.announceWeeks}
-          help={`Blank: ${DEFAULT_ANNOUNCE_WEEKS}. An event can set its own.`}
+          help={`Blank: ${DEFAULT_ANNOUNCE_WEEKS}.`}
           onChange={(n) =>
             commitSchedule({
               ...schedule,
@@ -113,20 +106,6 @@ export function AnnouncedCard({ today }: { today: DateString }) {
           }
         />
       </Stack>
-      {starred.length > 0 ? (
-        <Stack direction="row" gap="xs" wrap align="center">
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            Starred:
-          </Text>
-          {starred.map((s) => (
-            <Badge key={s} label={`★ ${s}`} tone="accent" />
-          ))}
-        </Stack>
-      ) : (
-        <Text variant="caption" color={SemanticColor.TextSecondary}>
-          Nothing starred yet. Events default to {weeks} weeks ahead once starred.
-        </Text>
-      )}
       {thisWeek.length > 0 && (
         <Stack gap="xs">
           <Text variant="bodyStrong">

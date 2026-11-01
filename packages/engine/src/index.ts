@@ -1,5 +1,5 @@
 export * from './types'
-export { Calendar, MAX_ANNOUNCE_WEEKS, computeDay, computeRange, derivedRelative, noticeLastDay } from './schedule'
+export { Calendar, DEFAULT_ANNOUNCE_WEEKS, MAX_ANNOUNCE_WEEKS, computeDay, computeRange, derivedRelative, noticeLastDay } from './schedule'
 export { customZmanName, customZmanProblem, isSunBased } from './custom'
 export { guessAudience, guessCategory, noticeCategory, noticeTag } from './categories'
 export { sampleSchedule } from './sample'

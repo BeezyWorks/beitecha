@@ -17,7 +17,6 @@ import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
 import { NoticeCard } from '@/features/luach/NoticeCard'
 import { AiAssist } from './AiAssist'
-import { AnnouncedCard } from './AnnounceEditor'
 import { noticePrompt, parseNotices } from './aiItems'
 import { DateField } from './DateField'
 import {
@@ -603,7 +602,6 @@ export function NoticesTab({ today }: { today: DateString }) {
           </Stack>
         </Stack>
       ))}
-      {!editing && <AnnouncedCard today={today} />}
       {!editing && <CategoriesCard notices={notices} />}
       {past.length > 0 && (
         <Card gap="sm">

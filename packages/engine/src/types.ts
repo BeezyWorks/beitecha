@@ -131,7 +131,7 @@ export interface ShulSettings {
   localHolidays?: LocalHoliday[]
   /** Which selichos period the `selichos` day tag follows. Default `ashkenaz`. */
   selichos?: SelichosMinhag
-  /** How many weeks before it a starred event (`EventDef.announce`) is listed under "Coming up". Default 2. */
+  /** How many weeks ahead a one-time event is listed under "Coming up" unless its `announce` says otherwise. Default 3. */
   announceWeeks?: number
   /**
    * The shul's own headings for announcements ("Community", "School"), in order, beside the built-in mazal tovs and
@@ -436,11 +436,11 @@ export interface EventDef {
   /** `internal` events can be referenced but are never shown. */
   visibility?: 'public' | 'internal'
   /**
-   * Starred: listed under "Coming up" with the printed week's announcements, from `announceWeeks` (else the shul's
-   * `settings.announceWeeks`) weeks before each time it happens.
+   * Whether it is listed under "Coming up" with the announcements. Unset = the default: a one-time event from
+   * `settings.announceWeeks` weeks before it (recurring events aren't). `true` = always, however far ahead (until it
+   * has passed); `false` = never.
    */
   announce?: boolean
-  announceWeeks?: number
   /** First matching rule wins. No match = no occurrence. */
   rules: Rule[]
 }

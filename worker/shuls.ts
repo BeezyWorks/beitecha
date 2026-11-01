@@ -108,6 +108,11 @@ export function scheduleProblem(s: unknown): string | null {
   for (const n of s.notices as unknown[]) {
     if (!isObject(n) || !NOTICE_KINDS.includes(n.kind as NoticeKind)) return `every notice is one of: ${NOTICE_KINDS.join(', ')}`
   }
+  if (s.cholim !== undefined) {
+    if (!Array.isArray(s.cholim)) return 'cholim must be a list'
+    for (const c of s.cholim as unknown[])
+      if (!isObject(c) || typeof c.id !== 'string' || !isObject(c.name) || !(c.name.en || c.name.he)) return 'every choleh needs a name'
+  }
   return null
 }
 

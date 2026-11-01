@@ -170,6 +170,14 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
     if (n.link !== undefined && !isLink(n.link)) {
       issues.push({ level: 'warning', date: n.from, message: `The ${what} has a link that isn't an https address` })
     }
+    for (const l of n.links ?? []) {
+      if (!isLink(l.url)) {
+        issues.push({ level: 'warning', date: n.from, message: `The ${what} has a QR link that isn't an https address` })
+      }
+      if (!l.title.en.trim() && !l.title.he?.trim()) {
+        issues.push({ level: 'warning', date: n.from, message: `The ${what} has a QR link without a title` })
+      }
+    }
   }
 
   const cal = new Calendar(schedule)

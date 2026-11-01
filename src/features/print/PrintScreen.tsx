@@ -1,7 +1,7 @@
 import { Button, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { addDays, civilDateShort, type DateString, startOfWeek } from '@beitecha/engine'
+import { addDays, Calendar, civilDateShort, type DateString, startOfWeek } from '@beitecha/engine'
 import { router, useLocalSearchParams } from 'expo-router'
-import React from 'react'
+import React, { useMemo } from 'react'
 
 import { Segments } from '@/components/Segments'
 import { Centered } from '@/components/Centered'
@@ -12,13 +12,14 @@ import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useDays } from '@/features/luach/useDays'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
-import { NoticesSide, TimesSide } from './WeekSheet'
+import { hasAnnouncements, NoticesSide, TimesSide } from './WeekSheet'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
  * The week on paper for the shul's tables: Shabbos, the weekday minyanim and the zmanim on
- * the front, sponsorships and announcements on the back (or all on one side).
+ * the front; the week's shiurim, starred events coming up, sponsorships and announcements on the
+ * back (or all on one side).
  */
 export function PrintScreen({ slug }: { slug: string }) {
   const params = useLocalSearchParams<{ week?: string; paper?: string; sides?: string }>()
@@ -27,6 +28,10 @@ export function PrintScreen({ slug }: { slug: string }) {
   const { today } = useShulClock(tz, 60_000)
   const sunday = startOfWeek(params.week && DATE_RE.test(params.week) ? params.week : today)
   const days = useDays(feed?.schedule, sunday, 7)
+  const comingUp = useMemo(
+    () => (feed ? new Calendar(feed.schedule).announced(sunday) : []),
+    [feed, sunday],
+  )
   const t = makeT(
     feed?.schedule.settings.language,
     feed?.schedule.settings.timeFormat,
@@ -47,8 +52,9 @@ export function PrintScreen({ slug }: { slug: string }) {
   const notices = feed.schedule.notices
     .filter((n) => (n.to ?? n.from) >= sunday && n.from <= shabbos)
     .sort((a, b) => a.from.localeCompare(b.from))
-  const twoSided = notices.length > 0 && params.sides !== '1'
-  const week = { slug, profile: feed.profile, days, notices }
+  const week = { slug, profile: feed.profile, days, notices, comingUp, cholim: feed.schedule.cholim ?? [] }
+  const hasBack = hasAnnouncements(week)
+  const twoSided = hasBack && params.sides !== '1'
   // A new layout starts its fit-to-page over.
   const key = `${sunday}|${paper}|${twoSided}`
 
@@ -63,7 +69,7 @@ export function PrintScreen({ slug }: { slug: string }) {
               sunday={sunday}
               paper={paper}
               twoSided={twoSided}
-              hasNotices={notices.length > 0}
+              hasNotices={hasBack}
             />
           }
         >

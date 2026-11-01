@@ -11,6 +11,7 @@ import {
   FR_HOLIDAYS,
   UK_HOLIDAYS,
   US_HOLIDAYS,
+  cholehName,
   computeDay,
   formatClock,
   formatTime,
@@ -710,6 +711,39 @@ describe('event details', () => {
     expect(formatClock(bbq[0].event.endMinutes!)).toBe('15:00')
     expect(cal.oneTimeEvents('2026-10-28', 7)).toEqual([])
     expect(cal.oneTimeEvents('2026-11-09')).toEqual([])
+  })
+
+  it('announces starred events from their lead time, the first time of each', () => {
+    const star = (s: Schedule, id: string, patch: Partial<EventDef> = { announce: true }): Schedule => ({
+      ...s,
+      events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      exceptions: s.exceptions.map((x) => (x.type === 'add' && x.event.id === id ? { ...x, event: { ...x.event, ...patch } } : x)),
+    })
+    const announced = (s: Schedule, sunday: string) => new Calendar(s).announced(sunday).map((x) => `${x.date} ${x.event.eventId}`)
+    expect(announced(sampleSchedule, '2026-10-25')).toEqual([])
+    const bbq = star(sampleSchedule, 'bbq')
+    // Two weeks by default: from the week of Oct 25 (to Nov 14), not the week before (to Nov 7).
+    expect(announced(bbq, '2026-10-25')).toEqual(['2026-11-08 bbq'])
+    expect(announced(bbq, '2026-10-18')).toEqual([])
+    expect(announced({ ...bbq, settings: { ...bbq.settings, announceWeeks: 3 } }, '2026-10-18')).toEqual(['2026-11-08 bbq'])
+    expect(announced(star(sampleSchedule, 'bbq', { announce: true, announceWeeks: 3 }), '2026-10-18')).toEqual(['2026-11-08 bbq'])
+    expect(announced(bbq, '2026-11-15')).toEqual([])
+    // A weekly one: only its next time, and not a cancelled one.
+    const mishmar = star(sampleSchedule, 'mishmar')
+    expect(announced(mishmar, '2026-10-25')).toEqual(['2026-10-30 mishmar'])
+    const cancelled = { ...mishmar, exceptions: [{ id: 'c', date: '2026-10-30', type: 'cancel' as const, eventId: 'mishmar' }] }
+    expect(announced(cancelled, '2026-10-25')).toEqual(['2026-11-06 mishmar'])
+  })
+})
+
+describe('cholim', () => {
+  it('names a choleh in the asked language, else the one written', () => {
+    const both = { id: 'a', added: '2026-11-01', name: { en: 'Yosef Chaim ben Rivka', he: 'יוסף חיים בן רבקה' } }
+    const he = { id: 'b', added: '2026-11-01', name: { en: '', he: 'שרה בת לאה' } }
+    expect(cholehName(both)).toBe('Yosef Chaim ben Rivka')
+    expect(cholehName(both, 'he')).toBe('יוסף חיים בן רבקה')
+    expect(cholehName(he, 'en')).toBe('שרה בת לאה')
+    expect(cholehName({ ...both, name: { en: 'Dovid ben Chana' } }, 'he')).toBe('Dovid ben Chana')
   })
 })
 

@@ -129,6 +129,11 @@ describe('the public feed', () => {
     expect((await call('GET', `/api/shuls/${slug}`)).data.schedule.notices.map((n: any) => n.id)).toEqual(['r'])
     const bad = { ...schedule, notices: [{ id: 'b', kind: 'bulletin', from: '2020-01-01', text: { en: 'x' } }] }
     expect((await call('PUT', `/api/shuls/${slug}`, { schedule: bad, baseRevision: data.revision + 1 }, { token: 'owner1' })).status).toBe(400)
+    const nameless = { ...schedule, cholim: [{ id: 'c', added: '2026-11-01', name: { en: '' } }] }
+    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: nameless, baseRevision: data.revision + 1 }, { token: 'owner1' })).status).toBe(400)
+    const cholim = [{ id: 'c', added: '2026-11-01', name: { en: '', he: 'שרה בת לאה' } }]
+    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: { ...schedule, cholim }, baseRevision: data.revision + 1 }, { token: 'owner1' })).status).toBe(200)
+    expect((await call('GET', `/api/shuls/${slug}`)).data.schedule.cholim).toEqual(cholim)
   })
 
   it('can be read by the Siddur’s web build, and only it', async () => {

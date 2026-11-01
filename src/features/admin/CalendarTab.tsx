@@ -7,6 +7,7 @@ import { makeT } from '@/features/luach/language'
 import { AiAssist } from './AiAssist'
 import { oneTimePrompt, parseOneTime } from './aiItems'
 import { DateField } from './DateField'
+import { AnnounceEditor, announceLabel, DEFAULT_ANNOUNCE_WEEKS } from './AnnounceEditor'
 import { DetailsEditor } from './DetailsEditor'
 import { linkProblem } from './forms'
 import { newId, useAdmin } from './store'
@@ -65,6 +66,7 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
         </Stack>
       </Stack>
       <DetailsEditor event={x.event} onChange={setEvent} oneTime />
+      <AnnounceEditor event={x.event} onChange={setEvent} />
       <Field
         label="Note (optional)"
         placeholder="RSVP by Thursday"
@@ -96,6 +98,7 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
 export function CalendarTab({ today }: { today: DateString }) {
   const exceptions = useAdmin((s) => s.schedule?.exceptions)
   const timeFormat = useAdmin((s) => s.schedule?.settings.timeFormat)
+  const announceWeeks = useAdmin((s) => s.schedule?.settings.announceWeeks) ?? DEFAULT_ANNOUNCE_WEEKS
   const removeException = useAdmin((s) => s.removeException)
   const upsertException = useAdmin((s) => s.upsertException)
   const schedule = useAdmin((s) => s.schedule)
@@ -188,8 +191,24 @@ export function CalendarTab({ today }: { today: DateString }) {
               {x.note.en}
             </Text>
           )}
+          {!!x.event.announce && (
+            <Text variant="caption" color={SemanticColor.TextAccent}>
+              {announceLabel(x.event, announceWeeks)}
+            </Text>
+          )}
           <Stack direction="row" gap="sm">
             <Button variant="ghost" size="sm" icon="edit" title="Edit" onPress={() => setEditing(x)} />
+            <Button
+              variant="ghost"
+              size="sm"
+              title={x.event.announce ? '☆ Unstar' : '★ Star for announcements'}
+              onPress={() =>
+                upsertException({
+                  ...x,
+                  event: { ...x.event, announce: x.event.announce ? undefined : true, announceWeeks: undefined },
+                })
+              }
+            />
             <Button variant="ghost" size="sm" icon="delete" title="Delete" onPress={() => removeException(x.id)} />
           </Stack>
         </Card>

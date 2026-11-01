@@ -9,6 +9,7 @@ import {
   type EventCategory,
   type EventDef,
   type Notice,
+  type NoticeLink,
   type RelativeTo,
   type RoundMode,
   type Rule,
@@ -250,6 +251,27 @@ export function parseMinutes(input: string): number | undefined | null {
 export function linkProblem(input: string): string | null {
   if (!input.trim()) return null
   return /^https:\/\/[^\s/]+\.\S+$/i.test(input.trim()) ? null : 'A web address starting https://'
+}
+
+/** A notice's links to edit; one from before titled links comes up untitled, to be named. */
+export function noticeLinks(n: Notice): NoticeLink[] {
+  return n.links ?? (n.link ? [{ title: { en: '' }, url: n.link }] : [])
+}
+
+/** Sets a notice's links (dropping blank rows), keeping `link` to the first for clients that only know it. */
+export function withNoticeLinks(n: Notice, rows: NoticeLink[]): Notice {
+  const { link: _, links: __, ...rest } = n
+  const links = rows
+    .map((l) => ({ title: { ...l.title, en: l.title.en.trim() }, url: l.url.trim() }))
+    .filter((l) => l.title.en || l.url)
+  return links.length ? { ...rest, links, link: links[0].url } : rest
+}
+
+/** What's wrong with a link row, or null. */
+export function noticeLinkProblem(l: NoticeLink): string | null {
+  if (!l.url.trim() && !l.title.en.trim()) return null
+  if (!l.title.en.trim()) return 'Say what scanning it does'
+  return l.url.trim() ? linkProblem(l.url) : 'A web address starting https://'
 }
 
 // ---------------------------------------------------------------------------

@@ -1,14 +1,26 @@
 import { Button, Card, Chip, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { addDays, civilDateShort, guessCategory, NOTICE_KINDS, noticeLastDay, type DateString, type Notice, type NoticeKind } from '@beitecha/engine'
+import { addDays, civilDateShort, guessCategory, NOTICE_KINDS, noticeLastDay, type DateString, type Notice, type NoticeKind, type NoticeLink } from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
 import { NoticeCard } from '@/features/luach/NoticeCard'
 import { AiAssist } from './AiAssist'
+import { AnnouncedCard } from './AnnounceEditor'
 import { noticePrompt, parseNotices } from './aiItems'
 import { DateField } from './DateField'
-import { adminLabel, linkProblem, sponsorTarget, withNoticeKind, withSponsorTarget, withSponsorText, type SponsorTarget } from './forms'
+import {
+  adminLabel,
+  linkProblem,
+  noticeLinkProblem,
+  noticeLinks,
+  sponsorTarget,
+  withNoticeKind,
+  withNoticeLinks,
+  withSponsorTarget,
+  withSponsorText,
+  type SponsorTarget,
+} from './forms'
 import { newId, useAdmin } from './store'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -70,6 +82,7 @@ function useEventOptions(today: DateString, oneTimeOnly: boolean) {
 function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateString; onDone: () => void }) {
   const upsertNotice = useAdmin((s) => s.upsertNotice)
   const [n, setN] = useState(initial)
+  const [links, setLinks] = useState(() => noticeLinks(initial))
   const events = useEventOptions(today, n.kind === 'reminder')
   const target = sponsorTarget(n)
   const copy = KIND[n.kind]
@@ -77,7 +90,7 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
     (n.text.en.trim() || (n.kind === 'sponsor' && n.sponsoredBy?.en.trim())) &&
     DATE_RE.test(n.from) &&
     (!n.to || (DATE_RE.test(n.to) && n.to >= n.from)) &&
-    !linkProblem(n.link ?? '') &&
+    links.every((l) => !noticeLinkProblem(l)) &&
     !(n.kind === 'sponsor' && target.kind === 'event' && !target.eventId)
   return (
     <Card gap="md">
@@ -172,13 +185,7 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
         value={n.text.he ?? ''}
         onChangeText={(he) => setN({ ...n, text: { ...n.text, he: he || undefined } })}
       />
-      <Field
-        label="Link (optional)"
-        placeholder="https://… to sign up or for details"
-        value={n.link ?? ''}
-        error={linkProblem(n.link ?? '')}
-        onChangeText={(link) => setN({ ...n, link: link.trim() || undefined })}
-      />
+      <LinksEditor links={links} onChange={setLinks} />
       <Stack direction="row" gap="md" wrap>
         <Stack grow>
           <DateField label="Show from" value={n.from} onChange={(from) => from && setN({ ...n, from })} />
@@ -199,13 +206,62 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
           title="Done"
           disabled={!valid}
           onPress={() => {
-            upsertNotice(withSponsorText({ ...n, text: { ...n.text, en: n.text.en.trim() } }))
+            upsertNotice(withNoticeLinks(withSponsorText({ ...n, text: { ...n.text, en: n.text.en.trim() } }), links))
             onDone()
           }}
         />
         <Button variant="ghost" title="Never mind" onPress={onDone} />
       </Stack>
     </Card>
+  )
+}
+
+/** A notice's links, each printed as a QR code under what scanning it does. */
+function LinksEditor({ links, onChange }: { links: NoticeLink[]; onChange: (links: NoticeLink[]) => void }) {
+  const set = (i: number, l: NoticeLink) => onChange(links.map((x, j) => (j === i ? l : x)))
+  return (
+    <Stack gap="sm">
+      <Stack gap="none">
+        <Text variant="label" color={SemanticColor.TextSecondary}>
+          Links and QR codes (optional)
+        </Text>
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          The printed week shows each as a QR code with its title; the first is the notice’s link in the Siddur.
+        </Text>
+      </Stack>
+      {links.map((l, i) => (
+        <Stack key={i} direction="row" gap="sm" wrap align="end">
+          <Stack grow width={200}>
+            <Field
+              label="What scanning it does"
+              placeholder="To sponsor a kiddush, Download the shiur"
+              value={l.title.en}
+              error={l.title.en.trim() || !l.url.trim() ? undefined : 'Say what scanning it does'}
+              onChangeText={(en) => set(i, { ...l, title: { ...l.title, en } })}
+            />
+          </Stack>
+          <Stack grow width={200}>
+            <Field
+              label="Link"
+              placeholder="https://…"
+              value={l.url}
+              error={l.url.trim() ? linkProblem(l.url) : undefined}
+              onChangeText={(url) => set(i, { ...l, url })}
+            />
+          </Stack>
+          <Button variant="ghost" size="sm" icon="delete" title="Remove" onPress={() => onChange(links.filter((_, j) => j !== i))} />
+        </Stack>
+      ))}
+      <Stack direction="row">
+        <Button
+          variant="secondary"
+          size="sm"
+          icon="add"
+          title={links.length ? 'Add another link' : 'Add a link'}
+          onPress={() => onChange([...links, { title: { en: '' }, url: '' }])}
+        />
+      </Stack>
+    </Stack>
   )
 }
 
@@ -296,6 +352,7 @@ export function NoticesTab({ today }: { today: DateString }) {
           </Stack>
         </Stack>
       ))}
+      {!editing && <AnnouncedCard today={today} />}
       {past.length > 0 && (
         <Card gap="sm">
           <Text variant="sectionHeader">Past</Text>

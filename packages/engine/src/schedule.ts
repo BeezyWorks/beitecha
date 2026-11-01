@@ -22,6 +22,9 @@ import type {
   ZmanTimes,
 } from './types'
 
+/** The furthest ahead a starred event is announced. */
+export const MAX_ANNOUNCE_WEEKS = 52
+
 /** Thrown inside evaluation; caught per occurrence and reported as its `error`. */
 class EvalError extends Error {}
 
@@ -361,6 +364,33 @@ export class Calendar {
       if (x.type !== 'add' || x.event.kind === 'tefila' || x.date < from || x.date > to) continue
       const event = this.occurrences(x.date).find((o) => o.eventId === x.event.id)
       if (event) out.push({ date: x.date, event })
+    }
+    return out.sort((a, b) => a.date.localeCompare(b.date) || (a.event.minutes ?? Infinity) - (b.event.minutes ?? Infinity))
+  }
+
+  /**
+   * Starred events (`announce`) that happen from `from` until each one's lead time after `days` days, the first time
+   * of each: the printed week's "Coming up". Cancelled ones are left out.
+   */
+  announced(from: DateString, days = 7): { date: DateString; event: Occurrence }[] {
+    const last = addDays(from, days - 1)
+    const out: { date: DateString; event: Occurrence }[] = []
+    for (const event of this.events.values()) {
+      if (!event.announce || event.visibility === 'internal') continue
+      const weeks = Math.min(Math.max(0, event.announceWeeks ?? this.schedule.settings.announceWeeks ?? 2), MAX_ANNOUNCE_WEEKS)
+      const added = this.schedule.exceptions.find((x) => x.type === 'add' && x.event.id === event.id)
+      // A one-time event only needs its own day looked at.
+      const dates = added
+        ? [added.date]
+        : Array.from({ length: days + weeks * 7 }, (_, i) => addDays(from, i))
+      for (const date of dates) {
+        if (date < from || date > addDays(last, weeks * 7)) continue
+        const r = this.resolve(event.id, date)
+        if (r.minutes === null || r.cancelled || r.error) continue
+        const o = this.occurrences(date).find((x) => x.eventId === event.id)
+        if (o) out.push({ date, event: o })
+        break
+      }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date) || (a.event.minutes ?? Infinity) - (b.event.minutes ?? Infinity))
   }

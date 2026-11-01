@@ -8,12 +8,15 @@ import {
   formToSaid,
   formToTime,
   linkProblem,
+  noticeLinkProblem,
+  noticeLinks,
   parseClockInput,
   parseMinutes,
   saidToForm,
   sponsorTarget,
   timeToForm,
   withNoticeKind,
+  withNoticeLinks,
   withSponsorTarget,
 } from '../forms'
 
@@ -145,5 +148,32 @@ describe('notices', () => {
     const s = { ...base, eventId: 'bbq', sponsors: 'notices' as const }
     expect(withNoticeKind(s, 'reminder')).toEqual({ ...base, kind: 'reminder', eventId: 'bbq' })
     expect(withNoticeKind(s, 'simcha')).toEqual({ ...base, kind: 'simcha' })
+  })
+})
+
+describe('notice links', () => {
+  const base: Notice = { id: 'n', kind: 'announcement', from: '2026-11-06', text: { en: 'Shiur tonight' } }
+  const shiur = { title: { en: 'Download the shiur' }, url: 'https://example.org/shiur' }
+
+  it('brings up an older single link untitled', () => {
+    expect(noticeLinks({ ...base, link: 'https://example.org' })).toEqual([{ title: { en: '' }, url: 'https://example.org' }])
+    expect(noticeLinks(base)).toEqual([])
+  })
+
+  it('keeps link to the first and drops blank rows', () => {
+    const sponsor = { title: { en: ' To sponsor ' }, url: 'https://example.org/give ' }
+    expect(withNoticeLinks(base, [sponsor, { title: { en: '' }, url: '' }, shiur])).toEqual({
+      ...base,
+      links: [{ title: { en: 'To sponsor' }, url: 'https://example.org/give' }, shiur],
+      link: 'https://example.org/give',
+    })
+    expect(withNoticeLinks({ ...base, link: 'https://x.org', links: [shiur] }, [])).toEqual(base)
+  })
+
+  it('wants a title and an https address', () => {
+    expect(noticeLinkProblem(shiur)).toBeNull()
+    expect(noticeLinkProblem({ title: { en: '' }, url: '' })).toBeNull()
+    expect(noticeLinkProblem({ ...shiur, title: { en: ' ' } })).toMatch(/scanning/)
+    expect(noticeLinkProblem({ ...shiur, url: 'example.org' })).toMatch(/https/)
   })
 })

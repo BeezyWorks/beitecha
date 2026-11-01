@@ -64,6 +64,9 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its
   three web hosts only; the public reads are rate-limited per IP by `PUBLIC_LIMIT`, since CORS doesn't stop non-browsers) and computes with the same engine, so labels, dates and "next up" live in the engine
   (`makeT`, `labels.ts`, `nextUp.ts`), not here. A change to them is an engine commit both apps pick up.
+- **Refuah shleimah** (`schedule.cholim`): names for the Mi Shebeirach, in English, Hebrew or both (`t.choleh()` picks
+  one). The admin's tab takes them one per line and asks about any over a month old; the display gives them pages in
+  the notice rotation, the printed week a list at the end of the announcements. They're public with the schedule.
 - **Display upkeep** (`useDisplayUpkeep`): heartbeat every 5 min (capped at 20 displays per shul), wake lock, hidden
   cursor, reload when the shul's day rolls over, hourly 1px drift against burn-in.
 

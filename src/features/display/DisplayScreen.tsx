@@ -58,6 +58,7 @@ export function DisplayScreen({ slug }: { slug: string }) {
                 days={days}
                 minutes={minutes}
                 notices={notices}
+                cholim={feed.schedule.cholim ?? []}
               />
             )}
           </ScaleToFit>

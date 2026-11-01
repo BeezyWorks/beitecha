@@ -1,10 +1,11 @@
 import { parseDate } from './dates'
 import { AUDIENCE_LABELS, CATEGORY_LABELS, NOTICE_LABELS, WEEKDAYS, WEEKDAY_SHORT, ZMAN_LABELS } from './labels'
-import { localize, nameStyle } from './localize'
+import { cholehName, localize, nameStyle } from './localize'
 import { formatTime } from './timeFormat'
 import type {
   Anchor,
   Audience,
+  Choleh,
   DateString,
   DaySchedule,
   EventCategory,
@@ -78,8 +79,10 @@ const STRINGS = {
     erevShabbos: 'Erev Shabbos',
     weekdays: 'Weekdays',
     zmanimThisWeek: 'Zmanim this week',
+    shiurimThisWeek: 'Shiurim this week',
     sponsorships: 'Sponsorships',
     announcements: 'Announcements',
+    refuahShleimah: 'Refuah Shleimah',
     upToDate: 'Always up to date: scan for this week’s times in the Siddur.',
   },
   he: {
@@ -108,8 +111,10 @@ const STRINGS = {
     erevShabbos: 'ערב שבת',
     weekdays: 'ימות החול',
     zmanimThisWeek: 'זמני השבוע',
+    shiurimThisWeek: 'שיעורי השבוע',
     sponsorships: 'הקדשות',
     announcements: 'הודעות',
+    refuahShleimah: 'רפואה שלמה',
     upToDate: 'סרקו לזמנים המעודכנים של השבוע בסידור.',
   },
 } as const satisfies Record<Language, Record<string, string>>
@@ -153,6 +158,8 @@ function build(lang: Language, timeFormat: string | undefined, names: NameStyle)
     s,
     /** A name in the shul's names language (not the labels'). */
     text,
+    /** A choleh's name in the names language, else the one it's written in. */
+    choleh: (c: Choleh) => cholehName(c, nameLang),
     /** The shul's time format, or plain `3:05` when it hasn't picked one. */
     customTimeFormat: timeFormat,
     clock: (minutes: number) => (timeFormat ? formatTime(minutes, timeFormat) : clock(minutes)),

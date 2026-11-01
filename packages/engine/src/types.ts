@@ -131,6 +131,8 @@ export interface ShulSettings {
   localHolidays?: LocalHoliday[]
   /** Which selichos period the `selichos` day tag follows. Default `ashkenaz`. */
   selichos?: SelichosMinhag
+  /** How many weeks before it a starred event (`EventDef.announce`) is listed under "Coming up". Default 2. */
+  announceWeeks?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -329,6 +331,12 @@ export interface EventDef {
   link?: string
   /** `internal` events can be referenced but are never shown. */
   visibility?: 'public' | 'internal'
+  /**
+   * Starred: listed under "Coming up" with the printed week's announcements, from `announceWeeks` (else the shul's
+   * `settings.announceWeeks`) weeks before each time it happens.
+   */
+  announce?: boolean
+  announceWeeks?: number
   /** First matching rule wins. No match = no occurrence. */
   rules: Rule[]
 }
@@ -377,8 +385,26 @@ export interface Notice {
   sponsoredBy?: Localized
   inHonorOf?: Localized
   text: Localized
-  /** An `https` link for details or to sign up. */
+  /** An `https` link for details or to sign up. The admin keeps it to the first of `links`, for old clients. */
   link?: string
+  /** Links with what scanning them does ("To sponsor", "Download the shiur"); the printed week prints each as a QR code. */
+  links?: NoticeLink[]
+}
+
+export interface NoticeLink {
+  /** What you're doing when you scan it: "To sponsor a kiddush", "Download the shiur". */
+  title: Localized
+  /** An `https` address. */
+  url: string
+}
+
+/** Someone the shul davens for, by name and mother's name as said in a Mi Shebeirach: "Yosef Chaim ben Rivka". */
+export interface Choleh {
+  id: string
+  /** Transliterated in `en`, in Hebrew in `he`; either one may be blank (use `cholehName`). */
+  name: Localized
+  /** When it went on the list (or was last confirmed), so the gabbai can ask about old names. */
+  added: DateString
 }
 
 export interface Schedule {
@@ -386,6 +412,8 @@ export interface Schedule {
   events: EventDef[]
   exceptions: Exception[]
   notices: Notice[]
+  /** The refuah shleimah list. Absent on schedules from before it. */
+  cholim?: Choleh[]
 }
 
 // ---------------------------------------------------------------------------

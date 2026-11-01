@@ -1,11 +1,11 @@
 export * from './types'
-export { Calendar, computeDay, computeRange, derivedRelative, noticeLastDay } from './schedule'
+export { Calendar, MAX_ANNOUNCE_WEEKS, computeDay, computeRange, derivedRelative, noticeLastDay } from './schedule'
 export { customZmanName, customZmanProblem, isSunBased } from './custom'
 export { guessAudience, guessCategory } from './categories'
 export { sampleSchedule } from './sample'
 export { starterSchedule, type StarterOptions } from './starter'
 export { STANDARD_TEFILOS, guessTefila, tefilaName } from './tefilos'
-export { localize, nameStyle } from './localize'
+export { cholehName, localize, nameStyle } from './localize'
 export {
   DEFAULT_TIME_FORMAT,
   TIME_FORMAT_PRESETS,

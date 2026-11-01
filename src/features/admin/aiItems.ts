@@ -233,7 +233,8 @@ const NOTICE_SCHEMA = `{ "notices": [
     "inHonorOf"?: { "en": string }, // for a sponsorship: why, the words after "in honor of": "Sarah's bas mitzvah"
     "text": { "en": string, "he"?: string }, // the notice itself; for a sponsorship the whole line:
       // "Sponsored by the Cohen family, in honor of Sarah's bas mitzvah". A Hebrew dedication (לע"נ…) goes in "he".
-    "link"?: "https://…"
+    "links"?: [{ "title": { "en": string, "he"?: string }, "url": "https://…" }]
+      // printed as QR codes; the title says what scanning it does: "To sponsor a kiddush", "Download the shiur"
   }
 ] }`
 
@@ -283,6 +284,14 @@ export function parseNotices(text: string, eventIds: string[]): Parsed<Notice[]>
     if (n.eventId !== undefined && !eventIds.includes(n.eventId as string)) errors.push(`${at}: no event "${n.eventId}"; use an id from the list`)
     if (n.sponsors !== undefined && n.sponsors !== 'day' && n.sponsors !== 'notices') errors.push(`${at}: "sponsors" must be "day" or "notices"`)
     if (n.link !== undefined && !/^https:\/\/\S+$/.test(String(n.link))) errors.push(`${at}: "link" must start https://`)
+    const links = (Array.isArray(n.links) ? n.links : []).map((raw: unknown) => {
+      const l = isObj(raw) ? raw : {}
+      const linkTitle = localized(l.title)
+      if (!linkTitle) errors.push(`${at}: each link needs a "title" saying what scanning it does`)
+      if (!str(l.url) || !/^https:\/\/\S+$/.test(l.url as string)) errors.push(`${at}: each link's "url" must start https://`)
+      return { title: linkTitle ?? { en: '' }, url: String(l.url ?? '') }
+    })
+    if (n.links !== undefined && !Array.isArray(n.links)) errors.push(`${at}: "links" must be a list`)
     return withSponsorText({
       id: '',
       kind: n.kind as Notice['kind'],
@@ -295,6 +304,7 @@ export function parseNotices(text: string, eventIds: string[]): Parsed<Notice[]>
       ...(inHonorOf && { inHonorOf }),
       text: text ?? { en: '' },
       ...(str(n.link) && { link: n.link as string }),
+      ...(links.length > 0 && { links, link: links[0].url }),
     })
   })
   return errors.length ? { ok: false, errors } : { ok: true, value: notices }

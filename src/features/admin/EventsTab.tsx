@@ -28,6 +28,7 @@ import { zmanIds } from './aiSetup'
 import { AiSetupCard } from './AiSetupCard'
 import { ConditionEditor, describeCondition } from './ConditionEditor'
 import { DateField } from './DateField'
+import { AnnounceEditor, announceLabel, DEFAULT_ANNOUNCE_WEEKS } from './AnnounceEditor'
 import { DetailsEditor, describeDetails } from './DetailsEditor'
 import { adminLabel, formToSaid, saidToForm, type SaidForm } from './forms'
 import { newId, useAdmin } from './store'
@@ -625,6 +626,10 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
       </Card>
 
       <Card gap="md">
+        <AnnounceEditor event={event} onChange={set} />
+      </Card>
+
+      <Card gap="md">
         <Touchable onPress={() => setMore((m) => !m)} accessibilityLabel="More about it">
           <Stack direction="row" align="center" gap="sm">
             <Stack grow gap="none">
@@ -680,6 +685,7 @@ function EventEditor({ event, all, today, onBack }: { event: EventDef; all: Even
 /** An event in the list: its lines in short and the coming week. Tap to open it. */
 function EventRow({ event, all, slots, onOpen }: { event: EventDef; all: EventDef[]; slots: Slot[]; onOpen: () => void }) {
   const others = all.filter((e) => e.id !== event.id)
+  const announceWeeks = useAdmin((s) => s.schedule?.settings.announceWeeks) ?? DEFAULT_ANNOUNCE_WEEKS
   return (
     <Card gap="sm" onPress={onOpen} accessibilityLabel={`Edit ${adminLabel(event)}`}>
       <Stack direction="row" align="center" gap="sm">
@@ -704,6 +710,7 @@ function EventRow({ event, all, slots, onOpen }: { event: EventDef; all: EventDe
             {describeDetails(event)}
             {event.room ? ` · ${event.room}` : ''}
             {event.visibility === 'internal' ? ' · hidden' : ''}
+            {event.announce ? ` · ${announceLabel(event, announceWeeks)}` : ''}
           </Text>
         </Stack>
         <Icon name="chevron-right" size={18} />

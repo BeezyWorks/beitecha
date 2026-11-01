@@ -1,6 +1,8 @@
 import { QRCode, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
+  type Choleh,
   DAILY_ZMANIM,
+  type DateString,
   type DaySchedule,
   type Localized,
   type Minutes,
@@ -8,6 +10,7 @@ import {
   type Occurrence,
   parseDate,
   type ShulProfile,
+  weekdayOf,
   ZMAN_LABELS,
   type ZmanId,
   zmanimList,
@@ -22,8 +25,12 @@ import { siddurShulUrl } from '@/lib/config'
 const NOON = 12 * 60
 const NAME_W = 180
 const QR = 76
+/** A notice's own QR codes, a little smaller than the shul's, each beside what scanning it does. */
+const LINK_QR = 60
+const LINK_W = 220
 /** Headings are in Hebrew whenever the page or its names are, whatever the labels' language. */
 const HE = makeT('he')
+const HEBREW = /[\u0590-\u05FF]/
 
 export interface WeekProps {
   slug: string
@@ -31,40 +38,77 @@ export interface WeekProps {
   /** Sunday to Shabbos. */
   days: DaySchedule[]
   notices: Notice[]
+  /** Starred events from this week to their lead time (`Calendar.announced`). */
+  comingUp: { date: DateString; event: Occurrence }[]
+  /** The refuah shleimah list. */
+  cholim: Choleh[]
 }
+
+/** Shiurim have their own timetable with the announcements; the front keeps to the minyanim. */
+const notShiur = (e: Occurrence) => e.kind !== 'shiur'
+
+/** Whether the week has anything for the announcements side. */
+export const hasAnnouncements = ({
+  days,
+  notices,
+  comingUp,
+  cholim,
+}: Omit<WeekProps, 'slug' | 'profile'>) =>
+  notices.length > 0 ||
+  comingUp.length > 0 ||
+  cholim.length > 0 || days.some((d) => d.events.some((e) => !notShiur(e)))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
 export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: boolean }) {
+  const t = useT()
   const { days, notices } = week
   const friday = days[5]
   const afternoon = friday.zmanim.chatzos ?? NOON
   const erevShabbos = friday.events.filter((e) => e.minutes !== null && e.minutes >= afternoon)
-  const weekdays = days
-    .slice(0, 6)
-    .map((d) =>
-      d === friday ? { ...d, events: d.events.filter((e) => !erevShabbos.includes(e)) } : d,
-    )
+  const weekdays = days.slice(0, 6).map((d) => ({
+    ...d,
+    events: d.events.filter((e) => notShiur(e) && !(d === friday && erevShabbos.includes(e))),
+  }))
   return (
     <Stack grow gap="lg">
       <Masthead {...week} />
       <ShabbosPanel friday={friday} erevShabbos={erevShabbos} shabbos={days[6]} notices={notices} />
-      {withNotices && notices.length > 0 && <Notices notices={notices} />}
-      <WeekdayGrid days={weekdays} notices={notices} />
+      {withNotices && <Announcements {...week} />}
+      <EventGrid days={weekdays} notices={notices} en={t.s.weekdays} he={HE.s.weekdays} />
       <ZmanimGrid days={days} />
       <Stack grow />
-      {(withNotices || !notices.length) && <Footer slug={week.slug} />}
+      {withNotices && <Footer slug={week.slug} />}
     </Stack>
   )
 }
 
-/** The back: sponsorships and announcements. */
+/** The back: the week's shiurim, what's coming up, sponsorships and announcements. */
 export function NoticesSide(week: WeekProps) {
   return (
     <Stack grow gap="lg">
       <Masthead {...week} />
-      <Notices notices={week.notices} />
+      <Announcements {...week} />
       <Stack grow />
       <Footer slug={week.slug} />
+    </Stack>
+  )
+}
+
+function Announcements({ days, notices, comingUp, cholim }: WeekProps) {
+  const t = useT()
+  const shiurim = days.map((d) => ({ ...d, events: d.events.filter((e) => !notShiur(e)) }))
+  return (
+    <Stack gap="lg">
+      <EventGrid
+        days={shiurim}
+        notices={notices}
+        en={t.s.shiurimThisWeek}
+        he={HE.s.shiurimThisWeek}
+        details
+      />
+      {comingUp.length > 0 && <ComingUp items={comingUp} />}
+      {notices.length > 0 && <Notices notices={notices} />}
+      {cholim.length > 0 && <Cholim cholim={cholim} />}
     </Stack>
   )
 }
@@ -336,8 +380,23 @@ function Rows({
   )
 }
 
-/** Sunday to Friday morning: a row per minyan or shiur, a column per day. */
-function WeekdayGrid({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) {
+/**
+ * A row per event, a column per day: the weekday minyanim (Sunday to Friday morning), or the week's shiurim with
+ * who gives them and where (`details`).
+ */
+function EventGrid({
+  days,
+  notices,
+  en,
+  he,
+  details,
+}: {
+  days: DaySchedule[]
+  notices: Notice[]
+  en: string
+  he: string
+  details?: boolean
+}) {
   const t = useT()
   const sponsors = days.map((d) => sponsorsOn(t, notices, d))
   const ids: string[] = []
@@ -354,13 +413,16 @@ function WeekdayGrid({ days, notices }: { days: DaySchedule[]; notices: Notice[]
   ids.sort((a, b) => earliest(a) - earliest(b))
   return (
     <Stack gap="xs">
-      <Heading en={t.s.weekdays} he={HE.s.weekdays} />
+      <Heading en={en} he={he} />
       <Stack gap="none">
         <DayColumns days={days} />
         {ids.map((id) => {
-          const name = first.get(id)!.name
+          const e = first.get(id)!
           return (
-            <TableRow key={id} label={<RowName name={name} />}>
+            <TableRow
+              key={id}
+              label={<RowName name={e.name} caption={details ? aboutShiur(t, e) : undefined} />}
+            >
               {days.map((d, i) => {
                 const e = d.events.find((x) => x.eventId === id)
                 const sponsor = e && !e.cancelled && sponsors[i].get(id)
@@ -570,18 +632,75 @@ function Cell({
   )
 }
 
-function RowName({ name }: { name: Localized }) {
+function RowName({ name, caption }: { name: Localized; caption?: string }) {
   const t = useT()
   return (
-    <Stack direction="row" align="center" gap="sm">
-      <Text variant="item" numberOfLines={1} rtl={t.nameRtl && !!name.he}>
-        {t.text(name)}
-      </Text>
-      {t.bothNames && !!name.he && (
-        <Text variant="item" rtl numberOfLines={1} color={SemanticColor.TextSecondary}>
-          {name.he}
+    <Stack gap="none">
+      <Stack direction="row" align="center" gap="sm">
+        <Text variant="item" numberOfLines={1} rtl={t.nameRtl && !!name.he}>
+          {t.text(name)}
+        </Text>
+        {t.bothNames && !!name.he && (
+          <Text variant="item" rtl numberOfLines={1} color={SemanticColor.TextSecondary}>
+            {name.he}
+          </Text>
+        )}
+      </Stack>
+      {!!caption && (
+        <Text variant="caption" numberOfLines={2} color={SemanticColor.TextSecondary}>
+          {caption}
         </Text>
       )}
+    </Stack>
+  )
+}
+
+/** "R’ Stern · Hilchos Shabbos · Beis Medrash" */
+function aboutShiur(t: T, e: Occurrence) {
+  return [e.speaker, e.topic]
+    .flatMap((l) => (l ? [t.text(l)] : []))
+    .concat(e.room ?? [], e.location ?? [])
+    .join(' · ')
+}
+
+/** Starred events from now to their lead time: the date, what, when, and where. */
+function ComingUp({ items }: { items: WeekProps['comingUp'] }) {
+  const t = useT()
+  return (
+    <Stack gap="xs">
+      <Heading en={t.s.comingUp} he={HE.s.comingUp} />
+      <Stack gap="none">
+        {items.map(({ date, event: e }) => {
+          const about = [aboutShiur(t, e), e.note && t.text(e.note)].filter(Boolean).join(' · ')
+          return (
+            <Stack
+              key={`${date}|${e.eventId}`}
+              direction="row"
+              align="center"
+              gap="md"
+              paddingVertical="xs"
+              borderBottomWidth="hairline"
+              borderColor={SemanticColor.BorderDefault}
+            >
+              <Stack width={NAME_W - 40} gap="none">
+                <Text variant={strong(t)} color={SemanticColor.TextAccent}>
+                  {t.weekday(weekdayOf(date))}, {t.dateShort(date)}
+                </Text>
+              </Stack>
+              <Stack grow width={0} gap="none">
+                <RowName name={e.name} caption={about || undefined} />
+              </Stack>
+              <Text variant={e.untimed ? 'caption' : 'headline'}>
+                {e.untimed && e.relative
+                  ? t.relative(e.relative)
+                  : e.minutes === null
+                    ? '—'
+                    : t.timeRange(e.minutes, e.endMinutes)}
+              </Text>
+            </Stack>
+          )
+        })}
+      </Stack>
     </Stack>
   )
 }
@@ -611,6 +730,26 @@ function Notices({ notices }: { notices: Notice[] }) {
           ))}
         </Stack>
       )}
+    </Stack>
+  )
+}
+
+/** The names to daven for, flowing in rows like a Mi Shebeirach list. */
+function Cholim({ cholim }: { cholim: Choleh[] }) {
+  const t = useT()
+  return (
+    <Stack gap="sm">
+      <Heading en={t.s.refuahShleimah} he={HE.s.refuahShleimah} />
+      <Stack direction="row" wrap gap="md">
+        {cholim.map((c) => {
+          const name = t.choleh(c)
+          return (
+            <Text key={c.id} variant="bodySerifLarge" rtl={HEBREW.test(name)}>
+              {name}
+            </Text>
+          )
+        })}
+      </Stack>
     </Stack>
   )
 }
@@ -651,6 +790,20 @@ function NoticeBlock({ notice: n }: { notice: Notice }) {
         <Text variant="bodySerif" rtl>
           {n.text.he}
         </Text>
+      )}
+      {!!n.links?.length && (
+        <Stack direction="row" wrap gap="lg" paddingTop="xs">
+          {n.links.map((l, i) => (
+            <Stack key={i} direction="row" align="center" gap="sm" width={LINK_W}>
+              <QRCode value={l.url} size={LINK_QR} logo={false} />
+              <Stack grow width={0}>
+                <Text variant={strong(t)} rtl={t.nameRtl && !!l.title.he} numberOfLines={3}>
+                  {t.text(l.title)}
+                </Text>
+              </Stack>
+            </Stack>
+          ))}
+        </Stack>
       )}
     </Stack>
   )

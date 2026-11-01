@@ -200,7 +200,6 @@ export const sampleSchedule: Schedule = {
       kind: 'sponsor',
       from: '2026-10-31',
       eventId: 'kiddush',
-      title: { en: 'Kiddush' },
       sponsoredBy: { en: 'the Cohen family' },
       inHonorOf: { en: 'Sarah’s bas mitzvah' },
       text: { en: 'Sponsored by the Cohen family, in honor of Sarah’s bas mitzvah' },

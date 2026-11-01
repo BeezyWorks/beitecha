@@ -42,8 +42,8 @@ export const KIND: Record<
 > = {
   sponsor: {
     label: 'Sponsorship',
-    title: 'What’s sponsored',
-    titleHint: 'Kiddush, Seudah Shlishis, the Daf Yomi shiur…',
+    title: '',
+    titleHint: '',
     text: 'Sponsored by / dedication',
     textHint: 'The Cohen family, in honor of Sarah’s bas mitzvah',
   },

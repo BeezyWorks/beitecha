@@ -332,8 +332,11 @@ export function withSponsorTarget(n: Notice, t: SponsorTarget): Notice {
  * Hebrew line stays the gabbai's own). Without a sponsor named, `text` is left as written.
  */
 export function withSponsorText(n: Notice): Notice {
+  if (n.kind !== 'sponsor') return n
+  const { title: _t, ...untitled } = n
+  n = untitled
   const by = n.sponsoredBy?.en.trim()
-  if (n.kind !== 'sponsor' || !by) return n
+  if (!by) return n
   const honor = n.inHonorOf?.en.trim()
   // The announcements' sponsor is shown as a name with the dedication under it, as written.
   if (n.sponsors === 'notices' && !n.eventId) return { ...n, text: { ...n.text, en: honor ?? '' } }
@@ -350,7 +353,10 @@ export function withSponsorText(n: Notice): Notice {
 export function withNoticeKind(n: Notice, kind: Notice['kind'], category?: string): Notice {
   const { category: _c, ...uncategorized } = n
   const { eventId, sponsors: _s, sponsoredBy: _b, inHonorOf: _h, ...rest } = uncategorized
-  if (kind === 'sponsor') return { ...uncategorized, kind }
+  if (kind === 'sponsor') {
+    const { title: _t, ...untitled } = uncategorized
+    return { ...untitled, kind }
+  }
   if (kind === 'announcement' && category) return { ...rest, kind, category }
   return kind === 'reminder' && eventId ? { ...rest, kind, eventId } : { ...rest, kind }
 }

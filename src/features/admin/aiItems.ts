@@ -283,7 +283,7 @@ const NOTICE_SCHEMA = `{ "notices": [
     "category"?: string, // an announcement's category: an id from the list below (omit for a general announcement)
     "eventId"?: string, // what a sponsorship is for, or what a reminder is about: an id from the list below
     "sponsors"?: "day" | "notices", // a sponsorship of no event: the day's learning ("day", the default) or the notices
-    "title"?: { "en": string, "he"?: string }, // for a sponsorship: what's sponsored ("Kiddush")
+    "title"?: { "en": string, "he"?: string }, // not for a sponsorship (its event says what is sponsored)
     "sponsoredBy"?: { "en": string }, // for a sponsorship: who, "the Cohen family"
     "inHonorOf"?: { "en": string }, // for a sponsorship: why, the words after "in honor of": "Sarah's bas mitzvah"
     "text": { "en": string, "he"?: string }, // the notice itself; for a sponsorship the whole line:
@@ -353,7 +353,7 @@ export function parseNotices(
   const notices = list.map((raw: unknown, i: number): Notice => {
     const n = isObj(raw) ? raw : {}
     const text = localized(n.text)
-    const title = localized(n.title)
+    const title = n.kind === 'sponsor' ? undefined : localized(n.title)
     const sponsoredBy = n.kind === 'sponsor' ? localized(n.sponsoredBy) : undefined
     const inHonorOf = sponsoredBy && localized(n.inHonorOf)
     const at = `Notice ${i + 1}${title ? ` (${title.en})` : ''}`

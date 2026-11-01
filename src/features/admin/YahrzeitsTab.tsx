@@ -117,6 +117,12 @@ function DateEditor({
             That Hebrew date doesn’t exist in {hebrew.year}.
           </Text>
         )}
+        {real && gregorian > new Date().toISOString().slice(0, 10) && (
+          <Text variant="caption" color={SemanticColor.TextDanger}>
+            This is the year of the passing, and it hasn’t happened yet. Set the year they passed
+            away, or this yahrzeit won’t be listed.
+          </Text>
+        )}
       </Stack>
     </Stack>
   )

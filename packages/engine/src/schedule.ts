@@ -321,6 +321,7 @@ export class Calendar {
         ages: event.ages,
         speaker: event.speaker,
         topic: event.topic,
+        description: event.description,
         room: event.room,
         location: event.location,
         link: event.link,

@@ -12,7 +12,7 @@ type Checked = { ok: true; events: EventDef[]; issues: Issue[] } | { ok: false; 
 export function AiSetupCard() {
   const schedule = useAdmin((s) => s.schedule)
   const profile = useAdmin((s) => s.profile)
-  const setSchedule = useAdmin((s) => s.setSchedule)
+  const commitSchedule = useAdmin((s) => s.commitSchedule)
   const [open, setOpen] = useState(true)
   const [copied, setCopied] = useState<'prompt' | 'problems' | null>(null)
   const [answer, setAnswer] = useState('')
@@ -40,7 +40,7 @@ export function AiSetupCard() {
 
   const apply = (mode: 'replace' | 'merge') => {
     if (!checked?.ok) return
-    setSchedule({ ...schedule, events: applyImport(schedule.events, checked.events, mode) })
+    commitSchedule({ ...schedule, events: applyImport(schedule.events, checked.events, mode) })
     setChecked(null)
     setAnswer('')
     setApplied(true)

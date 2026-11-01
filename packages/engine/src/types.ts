@@ -350,6 +350,11 @@ export interface EventDef {
   speaker?: Localized
   /** What it's on: "Hilchos Shabbos", "Bava Kamma". */
   topic?: Localized
+  /**
+   * A paragraph about it under its name: "Exploring the parsha through the lens of the Maharal…". Shiurim set this
+   * instead of `topic`; clients that don't know it show `topic` or nothing.
+   */
+  description?: Localized
   /** Minutes it lasts, when that's worth saying (youth groups 10:15–11:30). */
   duration?: number
   /** The room in the shul. */
@@ -475,6 +480,7 @@ export interface Occurrence {
   ages?: Localized
   speaker?: Localized
   topic?: Localized
+  description?: Localized
   room?: string
   location?: string
   link?: string

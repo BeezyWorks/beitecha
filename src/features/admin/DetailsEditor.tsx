@@ -63,24 +63,35 @@ export function DetailsEditor({
         value={event.ages?.en ?? ''}
         onChangeText={(v) => onChange({ ages: en(v, event.ages) })}
       />
-      <Stack direction="row" gap="md" wrap>
-        <Stack grow>
+      {event.kind === 'shiur' ? (
+        // A shiur's speaker and description are set above, by its own page; the old topic only shows if it has one.
+        !!event.topic && (
           <Field
-            label={event.kind === 'shiur' ? 'Given by (optional)' : 'Run by (optional)'}
-            placeholder="R’ Stern"
-            value={event.speaker?.en ?? ''}
-            onChangeText={(v) => onChange({ speaker: en(v, event.speaker) })}
-          />
-        </Stack>
-        <Stack grow>
-          <Field
-            label="On (optional)"
-            placeholder="Hilchos Shabbos"
-            value={event.topic?.en ?? ''}
+            label="On (older field; the description replaces it)"
+            value={event.topic.en}
             onChangeText={(v) => onChange({ topic: en(v, event.topic) })}
           />
+        )
+      ) : (
+        <Stack direction="row" gap="md" wrap>
+          <Stack grow>
+            <Field
+              label="Run by (optional)"
+              placeholder="R’ Stern"
+              value={event.speaker?.en ?? ''}
+              onChangeText={(v) => onChange({ speaker: en(v, event.speaker) })}
+            />
+          </Stack>
+          <Stack grow>
+            <Field
+              label="On (optional)"
+              placeholder="Hilchos Shabbos"
+              value={event.topic?.en ?? ''}
+              onChangeText={(v) => onChange({ topic: en(v, event.topic) })}
+            />
+          </Stack>
         </Stack>
-      </Stack>
+      )}
       <Field
         label="Somewhere else (optional)"
         placeholder="At the Levys’, 14 Forest Ave"

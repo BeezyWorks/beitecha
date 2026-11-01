@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useAccount } from '@/features/account/store'
 import { api } from '@/lib/api'
 import { SITE_URL } from '@/lib/config'
+import { SectionPage } from './SectionPage'
 import { useAdmin } from './store'
 
 const ago = (ms: number) => {
@@ -34,7 +35,7 @@ export function TeamTab() {
   }
 
   return (
-    <Stack gap="md">
+    <SectionPage title="Team & displays">
       <Card gap="sm">
         <Text variant="sectionHeader">Gabbaim</Text>
         {loaded.members.map((m) => (
@@ -134,6 +135,6 @@ export function TeamTab() {
           </Stack>
         ))}
       </Card>
-    </Stack>
+    </SectionPage>
   )
 }

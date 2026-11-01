@@ -10,6 +10,7 @@ import { DateField } from './DateField'
 import { AnnounceEditor, announceLabel, DEFAULT_ANNOUNCE_WEEKS } from './AnnounceEditor'
 import { DetailsEditor } from './DetailsEditor'
 import { linkProblem } from './forms'
+import { SectionPage } from './SectionPage'
 import { newId, useAdmin } from './store'
 import { ClockField } from './TimeEditor'
 
@@ -75,7 +76,7 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
       />
       <Stack direction="row" gap="sm">
         <Button
-          title="Done"
+          title="Save"
           disabled={!valid}
           onPress={() => {
             const { end: _, ...rest } = x
@@ -88,7 +89,7 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
             onDone()
           }}
         />
-        <Button variant="ghost" title="Never mind" onPress={onDone} />
+        <Button variant="ghost" title="Cancel" onPress={onDone} />
       </Stack>
     </Card>
   )
@@ -120,7 +121,7 @@ export function CalendarTab({ today }: { today: DateString }) {
   }
 
   return (
-    <Stack gap="md">
+    <SectionPage title="Dates & events" intro="One-time events: a dinner, a Chanukah party, a guest speaker.">
       {editing ? (
         <EventForm initial={editing} onDone={() => setEditing(null)} />
       ) : (
@@ -227,6 +228,6 @@ export function CalendarTab({ today }: { today: DateString }) {
           ))}
         </Card>
       )}
-    </Stack>
+    </SectionPage>
   )
 }

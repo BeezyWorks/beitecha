@@ -22,10 +22,11 @@ import {
   type SponsorTarget,
 } from './forms'
 import { newId, useAdmin } from './store'
+import { SectionPage } from './SectionPage'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-const KIND: Record<NoticeKind, { label: string; title: string; titleHint: string; text: string; textHint: string }> = {
+export const KIND: Record<NoticeKind, { label: string; title: string; titleHint: string; text: string; textHint: string }> = {
   sponsor: {
     label: 'Sponsorship',
     title: 'What’s sponsored',
@@ -83,7 +84,8 @@ function useEventOptions(today: DateString, oneTimeOnly: boolean) {
   return [...weekly, ...oneTime]
 }
 
-function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateString; onDone: () => void }) {
+/** One notice's form; Save puts it in the schedule at once, Cancel just closes. */
+export function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateString; onDone: () => void }) {
   const upsertNotice = useAdmin((s) => s.upsertNotice)
   const categories = useAdmin((s) => s.schedule?.settings.noticeCategories) ?? []
   const [n, setN] = useState(initial)
@@ -220,14 +222,14 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
       </Stack>
       <Stack direction="row" gap="sm">
         <Button
-          title="Done"
+          title="Save"
           disabled={!valid}
           onPress={() => {
             upsertNotice(withNoticeLinks(withSponsorText({ ...n, text: { ...n.text, en: n.text.en.trim() } }), links))
             onDone()
           }}
         />
-        <Button variant="ghost" title="Never mind" onPress={onDone} />
+        <Button variant="ghost" title="Cancel" onPress={onDone} />
       </Stack>
     </Card>
   )
@@ -251,7 +253,7 @@ function NewCategoryChip({ onAdd }: { onAdd: (c: NoticeCategory) => void }) {
         <Field label="New category" placeholder="Community, School…" value={name} onChangeText={setName} autoFocus onSubmitEditing={() => name.trim() && add()} />
       </Stack>
       <Button size="sm" title="Add" disabled={!name.trim()} onPress={add} />
-      <Button variant="ghost" size="sm" title="Never mind" onPress={() => setName(null)} />
+      <Button variant="ghost" size="sm" title="Cancel" onPress={() => setName(null)} />
     </Stack>
   )
 }
@@ -367,78 +369,95 @@ function LinksEditor({ links, onChange }: { links: NoticeLink[]; onChange: (link
   )
 }
 
+/** Blank notices to start a form from: a sponsorship for the shul's Kiddush, or an announcement for the week. */
+export function useNewNotice(today: DateString) {
+  const kiddush = useAdmin((s) => s.schedule?.events.find((e) => guessCategory(e) === 'meal'))
+  const nextShabbos = addDays(today, (6 - new Date(`${today}T12:00:00Z`).getUTCDay() + 7) % 7)
+  return {
+    sponsorship: (from = nextShabbos): Notice => ({
+      id: newId(),
+      kind: 'sponsor',
+      from,
+      title: { en: kiddush?.name.en ?? 'Kiddush' },
+      ...(kiddush && { eventId: kiddush.id }),
+      text: { en: '' },
+    }),
+    announcement: (from = today): Notice => ({
+      id: newId(),
+      kind: 'announcement',
+      from,
+      to: addDays(from, 6),
+      text: { en: '' },
+    }),
+  }
+}
+
+/** Paste an email or message; what the AI understood is shown, then added as notices. */
+export function NoticesAi({ today, onClose }: { today: DateString; onClose: () => void }) {
+  const schedule = useAdmin((s) => s.schedule)
+  const profile = useAdmin((s) => s.profile)
+  const upsertNotice = useAdmin((s) => s.upsertNotice)
+  if (!schedule || !profile) return null
+  const eventIds = [
+    ...schedule.events.map((e) => e.id),
+    ...schedule.exceptions.flatMap((x) => (x.type === 'add' ? [x.event.id] : [])),
+  ]
+  return (
+    <AiAssist<Notice[]>
+      title="Sponsorships and notices with AI"
+      example="Paste the message you got, e.g. “Kiddush this Shabbos is sponsored by the Cohen family in honor of Sarah’s bas mitzvah. Mazal tov to the Levys on the birth of a daughter!”"
+      prompt={(r) => noticePrompt(schedule, profile, today, r)}
+      parse={(text) => parseNotices(text, eventIds, (schedule.settings.noticeCategories ?? []).map((c) => c.id))}
+      preview={(list) => (
+        <Stack gap="sm">
+          {list.map((n, i) => (
+            <Stack key={i} gap="xs">
+              <Text variant="caption" color={SemanticColor.TextSecondary}>
+                {noticeCategory(schedule.settings, n)?.name.en ?? KIND[n.kind].label} · {civilDateShort(n.from)}
+                {n.to ? ` – ${civilDateShort(n.to)}` : ''}
+              </Text>
+              <NoticeCard notice={n} categories={schedule.settings.noticeCategories} />
+            </Stack>
+          ))}
+        </Stack>
+      )}
+      applyLabel="Add them"
+      onApply={(list) => list.forEach((n) => upsertNotice({ ...n, id: newId() }))}
+      onClose={onClose}
+    />
+  )
+}
+
 /** Sponsorships, announcements, reminders, mazal tovs and condolences for the display, the printed week and the Siddur. */
 export function NoticesTab({ today }: { today: DateString }) {
   const notices = useAdmin((s) => s.schedule?.notices)
   const exceptions = useAdmin((s) => s.schedule?.exceptions)
-  const kiddush = useAdmin((s) => s.schedule?.events.find((e) => guessCategory(e) === 'meal'))
   const removeNotice = useAdmin((s) => s.removeNotice)
-  const upsertNotice = useAdmin((s) => s.upsertNotice)
   const schedule = useAdmin((s) => s.schedule)
-  const profile = useAdmin((s) => s.profile)
   const [editing, setEditing] = useState<Notice | null>(null)
   const [ai, setAi] = useState(false)
-  if (!notices || !exceptions || !schedule || !profile) return null
-  const eventIds = [...schedule.events.map((e) => e.id), ...exceptions.flatMap((x) => (x.type === 'add' ? [x.event.id] : []))]
+  const fresh = useNewNotice(today)
+  if (!notices || !exceptions || !schedule) return null
   const lastDay = (n: Notice) => noticeLastDay(n, exceptions)
 
-  const nextShabbos = addDays(today, (6 - new Date(`${today}T12:00:00Z`).getUTCDay() + 7) % 7)
   const current = notices.filter((n) => lastDay(n) >= today).sort((a, b) => a.from.localeCompare(b.from))
   const past = notices.filter((n) => lastDay(n) < today).sort((a, b) => b.from.localeCompare(a.from))
 
   return (
-    <Stack gap="md">
-      {editing ? (
-        <NoticeForm initial={editing} today={today} onDone={() => setEditing(null)} />
-      ) : (
-        <Stack direction="row" gap="sm" wrap>
-          <Button
-            icon="add"
-            title="Add a sponsorship"
-            onPress={() =>
-              setEditing({
-                id: newId(),
-                kind: 'sponsor',
-                from: nextShabbos,
-                title: { en: kiddush?.name.en ?? 'Kiddush' },
-                ...(kiddush && { eventId: kiddush.id }),
-                text: { en: '' },
-              })
-            }
-          />
-          <Button
-            variant="secondary"
-            icon="add"
-            title="Add a notice"
-            onPress={() => setEditing({ id: newId(), kind: 'announcement', from: today, to: addDays(today, 6), text: { en: '' } })}
-          />
-          <Button variant="ghost" title="Paste with AI" onPress={() => setAi(!ai)} />
-        </Stack>
-      )}
-      {ai && !editing && (
-        <AiAssist<Notice[]>
-          title="Sponsorships and notices with AI"
-          example="Paste the message you got, e.g. “Kiddush this Shabbos is sponsored by the Cohen family in honor of Sarah’s bas mitzvah. Mazal tov to the Levys on the birth of a daughter!”"
-          prompt={(r) => noticePrompt(schedule, profile, today, r)}
-          parse={(text) => parseNotices(text, eventIds, (schedule.settings.noticeCategories ?? []).map((c) => c.id))}
-          preview={(list) => (
-            <Stack gap="sm">
-              {list.map((n, i) => (
-                <Stack key={i} gap="xs">
-                  <Text variant="caption" color={SemanticColor.TextSecondary}>
-                    {noticeCategory(schedule.settings, n)?.name.en ?? KIND[n.kind].label} · {civilDateShort(n.from)}
-                    {n.to ? ` – ${civilDateShort(n.to)}` : ''}
-                  </Text>
-                  <NoticeCard notice={n} categories={schedule.settings.noticeCategories} />
-                </Stack>
-              ))}
-            </Stack>
-          )}
-          applyLabel="Add them"
-          onApply={(list) => list.forEach((n) => upsertNotice({ ...n, id: newId() }))}
-          onClose={() => setAi(false)}
-        />
-      )}
+    <SectionPage
+      title="Sponsors & notices"
+      actions={
+        !editing && (
+          <Stack direction="row" gap="sm" wrap>
+            <Button icon="add" title="Add a sponsorship" onPress={() => setEditing(fresh.sponsorship())} />
+            <Button variant="secondary" icon="add" title="Add a notice" onPress={() => setEditing(fresh.announcement())} />
+            <Button variant="ghost" title="Paste with AI" onPress={() => setAi(!ai)} />
+          </Stack>
+        )
+      }
+    >
+      {editing && <NoticeForm initial={editing} today={today} onDone={() => setEditing(null)} />}
+      {ai && !editing && <NoticesAi today={today} onClose={() => setAi(false)} />}
       {!current.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>
           Nothing coming up. Sponsorships, announcements, reminders, mazal tovs and condolences show on the display, the printed
@@ -471,6 +490,6 @@ export function NoticesTab({ today }: { today: DateString }) {
           ))}
         </Card>
       )}
-    </Stack>
+    </SectionPage>
   )
 }

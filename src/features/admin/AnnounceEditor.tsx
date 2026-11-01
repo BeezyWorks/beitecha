@@ -75,7 +75,7 @@ export function AnnounceEditor({
 /** The shul's lead time for starred events, and what this week's sheet will list. */
 export function AnnouncedCard({ today }: { today: DateString }) {
   const schedule = useAdmin((s) => s.schedule)
-  const setSchedule = useAdmin((s) => s.setSchedule)
+  const commitSchedule = useAdmin((s) => s.commitSchedule)
   const sunday = startOfWeek(today)
   const thisWeek = useMemo(
     () => (schedule ? new Calendar(schedule).announced(sunday) : []),
@@ -106,7 +106,7 @@ export function AnnouncedCard({ today }: { today: DateString }) {
           value={schedule.settings.announceWeeks}
           help={`Blank: ${DEFAULT_ANNOUNCE_WEEKS}. An event can set its own.`}
           onChange={(n) =>
-            setSchedule({
+            commitSchedule({
               ...schedule,
               settings: { ...schedule.settings, announceWeeks: weeksOf(n) },
             })

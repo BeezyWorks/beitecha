@@ -3,6 +3,7 @@ import { addDays, civilDateShort, type Choleh, type DateString } from '@beitecha
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
+import { SectionPage } from './SectionPage'
 import { newId, useAdmin } from './store'
 
 /** Names on the list longer than this are asked about. */
@@ -32,13 +33,13 @@ function NameForm({ initial, onDone }: { initial: Choleh; onDone: (c?: Choleh) =
       <Field label="In Hebrew" placeholder="יוסף חיים בן רבקה" value={he} onChangeText={setHe} />
       <Stack direction="row" gap="sm">
         <Button
-          title="Done"
+          title="Save"
           disabled={!en.trim() && !he.trim()}
           onPress={() =>
             onDone({ ...initial, name: { en: en.trim(), ...(he.trim() && { he: he.trim() }) } })
           }
         />
-        <Button variant="ghost" title="Never mind" onPress={() => onDone()} />
+        <Button variant="ghost" title="Cancel" onPress={() => onDone()} />
       </Stack>
     </Card>
   )
@@ -60,7 +61,7 @@ export function CholimTab({ today }: { today: DateString }) {
   const replace = (c: Choleh) => setCholim(cholim.map((x) => (x.id === c.id ? c : x)))
 
   return (
-    <Stack gap="md">
+    <SectionPage title="Refuah shleimah" intro="Names for the Mi Shebeirach, shown on the display and the printed week.">
       <Card gap="md">
         <Field
           label="Add names"
@@ -157,6 +158,6 @@ export function CholimTab({ today }: { today: DateString }) {
           )}
         </Card>
       )}
-    </Stack>
+    </SectionPage>
   )
 }

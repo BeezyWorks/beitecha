@@ -1,43 +1,36 @@
-import { Button, Chip, Screen, ScrollStack, SemanticColor, Stack, Text, useIsWideLayout } from '@beezyworks/design'
-import { router } from 'expo-router'
-import React, { useEffect, useState } from 'react'
-import { Linking, Platform } from 'react-native'
+import { Button, SemanticColor, Stack, Text, useIsWideLayout } from '@beezyworks/design'
+import { router, useLocalSearchParams } from 'expo-router'
+import React, { useEffect } from 'react'
+import { Linking, Platform, useWindowDimensions } from 'react-native'
 
 import { Centered } from '@/components/Centered'
 import { Page } from '@/components/Page'
 import { usePageTitle } from '@/components/PageTitle'
+import { Select } from '@/components/Select'
 import { SignIn } from '@/features/account/SignIn'
 import { useAccount } from '@/features/account/store'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { siddurShulUrl } from '@/lib/config'
 import { CalendarTab } from './CalendarTab'
 import { CholimTab } from './CholimTab'
-import { ChangesTab } from './ChangesTab'
-import { EventsTab } from './EventsTab'
+import { EventsSection } from './EventsSection'
 import { NoticesTab } from './NoticesTab'
-import { Preview } from './Preview'
+import { isSection, SECTIONS, type SectionKey } from './sections'
 import { ShulTab } from './ShulTab'
+import { Sidebar } from './Sidebar'
 import { useAdmin } from './store'
 import { TeamTab } from './TeamTab'
-
-type Tab = 'times' | 'events' | 'changes' | 'sponsors' | 'cholim' | 'shul' | 'team'
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'times', label: 'Times' },
-  { key: 'events', label: 'Events' },
-  { key: 'changes', label: 'This week' },
-  { key: 'sponsors', label: 'Sponsors' },
-  { key: 'cholim', label: 'Refuah shleimah' },
-  { key: 'shul', label: 'Shul' },
-  { key: 'team', label: 'Team & displays' },
-]
+import { ThisWeekSection } from './ThisWeekSection'
+import { ZmanimSection } from './ZmanimSection'
 
 /** Where gabbaim set up and maintain their shul. */
 export function AdminScreen({ slug }: { slug: string }) {
   const status = useAccount((s) => s.status)
-  const { load, loaded, loadError, schedule, profile, dirty, save, saveError, saveDraft, discard } = useAdmin()
-  const [tab, setTab] = useState<Tab>('times')
+  const { load, loaded, loadError, schedule, profile, dirty, save, saveError, persist, discard, editing } = useAdmin()
+  const params = useLocalSearchParams<{ s?: string }>()
+  const section: SectionKey = isSection(params.s) ? params.s : 'week'
   const wide = useIsWideLayout()
+  const { height } = useWindowDimensions()
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
   usePageTitle(profile ? `${profile.name.en} · Manage · Beitecha` : 'Manage · Beitecha')
 
@@ -46,12 +39,13 @@ export function AdminScreen({ slug }: { slug: string }) {
   }, [status, slug, load])
 
   // Don't lose unsaved edits to a closed tab.
+  const unsaved = dirty || !!editing?.changed
   useEffect(() => {
-    if (Platform.OS !== 'web' || !dirty) return
+    if (Platform.OS !== 'web' || !unsaved) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
+  }, [unsaved])
 
   if (status === 'unknown') return <Centered loading />
   if (status === 'signedOut')
@@ -66,97 +60,100 @@ export function AdminScreen({ slug }: { slug: string }) {
   if (loadError) return <Centered title="Couldn’t load" body={loadError.message} />
   if (!loaded || !schedule || !profile || loaded.slug !== slug) return <Centered loading />
 
-  const editor = (
-    <Stack gap="lg">
-      {tab === 'times' && <EventsTab today={today} />}
-      {tab === 'events' && <CalendarTab today={today} />}
-      {tab === 'changes' && <ChangesTab today={today} />}
-      {tab === 'sponsors' && <NoticesTab today={today} />}
-      {tab === 'cholim' && <CholimTab today={today} />}
-      {tab === 'shul' && <ShulTab />}
-      {tab === 'team' && <TeamTab />}
-    </Stack>
-  )
-  // The sheet prints the published schedule, so save the draft first.
+  const go = (s: SectionKey) => {
+    if (s === section) return
+    // An open event with changes would be lost on the way out.
+    if (editing?.changed && Platform.OS === 'web' && !window.confirm(`Drop your changes to ${editing.event.name.en || 'this'}?`)) return
+    useAdmin.setState({ editing: null })
+    router.setParams({ s })
+  }
+  // The sheet prints the published schedule, so save first.
   const printWeek = async () => {
-    if (dirty) await saveDraft()
+    if (dirty) await persist()
     if (!useAdmin.getState().dirty) router.push(`/${slug}/print`)
   }
-  const showPreview = tab === 'times' || tab === 'shul'
-  // On a wide screen the preview docks beside the (width-capped) editor column; each scrolls on its own.
-  const aside =
-    wide && showPreview ? (
-      <Stack width={420} borderColor={SemanticColor.BorderDefault} background={SemanticColor.SurfaceCard}>
-        <ScrollStack padding="lg" gap="md">
-          <Text variant="sectionHeader">Preview</Text>
-          <Preview schedule={schedule} today={today} />
-        </ScrollStack>
-      </Stack>
-    ) : undefined
+  const statusText =
+    save === 'saving' ? 'Saving…' : save === 'error' || save === 'conflict' ? 'Not saved' : save === 'saved' ? 'Saved · displays update within 5 minutes' : 'All saved'
+
+  const body = (
+    <>
+      {section === 'week' && <ThisWeekSection today={today} onSection={go} />}
+      {section === 'minyanim' && <EventsSection kind="tefila" today={today} />}
+      {section === 'shiurim' && <EventsSection kind="shiur" today={today} />}
+      {section === 'programs' && <EventsSection kind="other" today={today} />}
+      {section === 'events' && <CalendarTab today={today} />}
+      {section === 'zmanim' && <ZmanimSection />}
+      {section === 'notices' && <NoticesTab today={today} />}
+      {section === 'cholim' && <CholimTab today={today} />}
+      {section === 'shul' && <ShulTab />}
+      {section === 'team' && <TeamTab />}
+    </>
+  )
 
   return (
-    <Screen aside={aside}>
-      <Stack fill>
-        <Stack
-          direction="row"
-          align="center"
-          gap="md"
-          paddingHorizontal="lg"
-          paddingVertical="md"
-          wrap
-          borderBottomWidth="hairline"
-          borderColor={SemanticColor.BorderDefault}
-          background={SemanticColor.SurfaceCard}
-        >
-          <Stack gap="none">
-            <Text variant="title">{profile.name.en}</Text>
+    <Stack direction={wide ? 'row' : 'column'} height={Platform.OS === 'web' ? height : undefined} fill={Platform.OS !== 'web'} background={SemanticColor.SurfaceBackground}>
+      {wide ? (
+        <Sidebar
+          shulName={profile.name.en}
+          status={statusText}
+          section={section}
+          onSection={go}
+          onDisplay={() => router.push(`/${slug}/display`)}
+          onSiddur={() => Linking.openURL(siddurShulUrl(slug))}
+          onPrint={printWeek}
+        />
+      ) : (
+        <Stack direction="row" align="center" gap="md" padding="md" background={SemanticColor.SurfaceSelected}>
+          <Stack grow gap="none">
+            <Text variant="headline" numberOfLines={1}>
+              {profile.name.en}
+            </Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
-              {save === 'saving'
-                ? 'Saving…'
-                : save === 'saved' && !dirty
-                  ? 'Saved; displays update within 5 minutes'
-                  : dirty
-                    ? 'Unsaved changes'
-                    : 'Up to date'}
+              {statusText}
             </Text>
           </Stack>
-          <Stack grow />
-          <Button variant="ghost" size="sm" title="Siddur page" icon="external-link" onPress={() => Linking.openURL(siddurShulUrl(slug))} />
-          <Button variant="ghost" size="sm" title="Display" icon="external-link" onPress={() => router.push(`/${slug}/display`)} />
-          <Button variant="ghost" size="sm" title="Print this week" icon="print" onPress={printWeek} />
-          {dirty && <Button variant="secondary" size="sm" title="Discard" onPress={discard} />}
-          <Button size="sm" title="Save" disabled={!dirty || save === 'saving'} loading={save === 'saving'} onPress={() => saveDraft()} />
+          <Select value={section} options={SECTIONS.map((s) => ({ value: s.key, label: s.label }))} onChange={(s) => go(s as SectionKey)} />
         </Stack>
+      )}
+      <Stack grow width={wide ? 0 : undefined} height={wide ? undefined : 0}>
         {save === 'conflict' && (
           <Stack direction="row" align="center" gap="md" padding="md" background={SemanticColor.AccentAlertFaded} wrap>
             <Text variant="body">Someone else saved changes while you were editing.</Text>
             <Stack grow />
             <Button variant="secondary" size="sm" title="Load theirs (drop mine)" onPress={discard} />
-            <Button size="sm" title="Save mine over theirs" onPress={() => saveDraft(true)} />
+            <Button size="sm" title="Save mine over theirs" onPress={() => persist(true)} />
           </Stack>
         )}
         {save === 'error' && (
-          <Stack padding="md" background={SemanticColor.AccentAlertFaded}>
-            <Text variant="body">
-              {saveError}
-            </Text>
+          <Stack direction="row" align="center" gap="md" padding="md" background={SemanticColor.AccentAlertFaded} wrap>
+            <Stack grow>
+              <Text variant="body">Couldn’t save: {saveError}</Text>
+            </Stack>
+            <Button size="sm" title="Try again" onPress={() => persist()} />
           </Stack>
         )}
-        <Stack direction="row" wrap gap="xs" paddingHorizontal="lg" paddingTop="md">
-          {TABS.map((t) => (
-            <Chip key={t.key} label={t.label} selected={tab === t.key} onPress={() => setTab(t.key)} />
-          ))}
+        <Stack grow height={0}>
+          {body}
         </Stack>
-        <ScrollStack key={tab} padding="lg" gap="lg">
-          {editor}
-          {showPreview && !aside && (
-            <Stack gap="md">
-              <Text variant="sectionHeader">Preview</Text>
-              <Preview schedule={schedule} today={today} />
+        {dirty && (
+          <Stack
+            direction="row"
+            align="center"
+            gap="md"
+            paddingHorizontal="xl"
+            paddingVertical="md"
+            borderTopWidth="hairline"
+            borderColor={SemanticColor.BorderDefault}
+            background={SemanticColor.SurfaceCard}
+          >
+            <Stack grow>
+              <Text variant="body">You have unsaved changes.</Text>
             </Stack>
-          )}
-        </ScrollStack>
+            <Button variant="secondary" title="Cancel" onPress={discard} />
+            <Button title="Save" loading={save === 'saving'} disabled={save === 'saving'} onPress={() => persist()} />
+          </Stack>
+        )}
       </Stack>
-    </Screen>
+    </Stack>
   )
 }

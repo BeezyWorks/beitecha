@@ -14,6 +14,7 @@ import {
 } from '@beitecha/engine'
 
 import { aiReference, checkRule, CLOCK, DATE, extractJson, isObj, parseEventList } from './aiSetup'
+import { withSponsorText } from './forms'
 
 // ---------------------------------------------------------------------------
 // Prompts and parsers for one thing at a time: an event, a rule, a one-time event, a notice.
@@ -228,8 +229,10 @@ const NOTICE_SCHEMA = `{ "notices": [
     "eventId"?: string, // what a sponsorship is for, or what a reminder is about: an id from the list below
     "sponsors"?: "day" | "notices", // a sponsorship of no event: the day's learning ("day", the default) or the notices
     "title"?: { "en": string, "he"?: string }, // for a sponsorship: what's sponsored ("Kiddush")
-    "text": { "en": string, "he"?: string }, // the notice itself; for a sponsorship who sponsors it and why:
-      // "The Cohen family, in honor of Sarah's bas mitzvah". A Hebrew dedication (לע"נ…) goes in "he".
+    "sponsoredBy"?: { "en": string }, // for a sponsorship: who, "the Cohen family"
+    "inHonorOf"?: { "en": string }, // for a sponsorship: why, the words after "in honor of": "Sarah's bas mitzvah"
+    "text": { "en": string, "he"?: string }, // the notice itself; for a sponsorship the whole line:
+      // "Sponsored by the Cohen family, in honor of Sarah's bas mitzvah". A Hebrew dedication (לע"נ…) goes in "he".
     "link"?: "https://…"
   }
 ] }`
@@ -269,16 +272,18 @@ export function parseNotices(text: string, eventIds: string[]): Parsed<Notice[]>
     const n = isObj(raw) ? raw : {}
     const text = localized(n.text)
     const title = localized(n.title)
+    const sponsoredBy = n.kind === 'sponsor' ? localized(n.sponsoredBy) : undefined
+    const inHonorOf = sponsoredBy && localized(n.inHonorOf)
     const at = `Notice ${i + 1}${title ? ` (${title.en})` : ''}`
     if (!(NOTICE_KINDS as readonly unknown[]).includes(n.kind)) errors.push(`${at}: "kind" must be one of ${NOTICE_KINDS.join(', ')}`)
-    if (!text) errors.push(`${at}: needs "text"`)
+    if (!text && !sponsoredBy) errors.push(`${at}: needs "text"`)
     if (!str(n.from) || !DATE.test(n.from as string)) errors.push(`${at}: "from" must be "YYYY-MM-DD"`)
     if (n.to !== undefined && (!str(n.to) || !DATE.test(n.to as string) || (n.to as string) < (n.from as string)))
       errors.push(`${at}: "to" must be "YYYY-MM-DD", on or after "from"`)
     if (n.eventId !== undefined && !eventIds.includes(n.eventId as string)) errors.push(`${at}: no event "${n.eventId}"; use an id from the list`)
     if (n.sponsors !== undefined && n.sponsors !== 'day' && n.sponsors !== 'notices') errors.push(`${at}: "sponsors" must be "day" or "notices"`)
     if (n.link !== undefined && !/^https:\/\/\S+$/.test(String(n.link))) errors.push(`${at}: "link" must start https://`)
-    return {
+    return withSponsorText({
       id: '',
       kind: n.kind as Notice['kind'],
       from: n.from as DateString,
@@ -286,9 +291,11 @@ export function parseNotices(text: string, eventIds: string[]): Parsed<Notice[]>
       ...(str(n.eventId) && { eventId: n.eventId as string }),
       ...(n.kind === 'sponsor' && !n.eventId && n.sponsors === 'notices' && { sponsors: 'notices' as const }),
       ...(title && { title }),
+      ...(sponsoredBy && { sponsoredBy }),
+      ...(inHonorOf && { inHonorOf }),
       text: text ?? { en: '' },
       ...(str(n.link) && { link: n.link as string }),
-    }
+    })
   })
   return errors.length ? { ok: false, errors } : { ok: true, value: notices }
 }

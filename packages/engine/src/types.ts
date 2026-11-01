@@ -369,6 +369,13 @@ export interface Notice {
   /** What a sponsorship without an event is for: the day (default, "today's learning") or the notices themselves. */
   sponsors?: 'day' | 'notices'
   title?: Localized
+  /**
+   * A sponsorship's who and why: "the Greenblat family", "in honor of her mother's third yahrzeit" (the words after
+   * "in honor of"). The printed week shows `sponsoredBy` beside the event; `text` still holds the whole line, for
+   * every other surface and for clients that don't know these.
+   */
+  sponsoredBy?: Localized
+  inHonorOf?: Localized
   text: Localized
   /** An `https` link for details or to sign up. */
   link?: string

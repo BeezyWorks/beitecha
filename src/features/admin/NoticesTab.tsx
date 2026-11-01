@@ -8,7 +8,7 @@ import { NoticeCard } from '@/features/luach/NoticeCard'
 import { AiAssist } from './AiAssist'
 import { noticePrompt, parseNotices } from './aiItems'
 import { DateField } from './DateField'
-import { adminLabel, linkProblem, sponsorTarget, withNoticeKind, withSponsorTarget, type SponsorTarget } from './forms'
+import { adminLabel, linkProblem, sponsorTarget, withNoticeKind, withSponsorTarget, withSponsorText, type SponsorTarget } from './forms'
 import { newId, useAdmin } from './store'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -74,7 +74,7 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
   const target = sponsorTarget(n)
   const copy = KIND[n.kind]
   const valid =
-    n.text.en.trim() &&
+    (n.text.en.trim() || (n.kind === 'sponsor' && n.sponsoredBy?.en.trim())) &&
     DATE_RE.test(n.from) &&
     (!n.to || (DATE_RE.test(n.to) && n.to >= n.from)) &&
     !linkProblem(n.link ?? '') &&
@@ -145,7 +145,27 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
         value={n.title?.en ?? ''}
         onChangeText={(en) => setN({ ...n, title: en ? { en } : undefined })}
       />
-      <Field label={copy.text} placeholder={copy.textHint} value={n.text.en} onChangeText={(en) => setN({ ...n, text: { ...n.text, en } })} multiline />
+      {n.kind === 'sponsor' && (
+        <>
+          <Field
+            label="Sponsored by"
+            placeholder="the Greenblat family"
+            help="The printed week shows this beside what’s sponsored"
+            value={n.sponsoredBy?.en ?? ''}
+            onChangeText={(en) => setN({ ...n, sponsoredBy: en ? { en } : undefined })}
+          />
+          <Field
+            label="In honor of (optional)"
+            placeholder="Mrs. Greenblat’s mother’s third yahrzeit"
+            value={n.inHonorOf?.en ?? ''}
+            onChangeText={(en) => setN({ ...n, inHonorOf: en ? { en } : undefined })}
+          />
+        </>
+      )}
+      {/* A sponsorship from before "Sponsored by" keeps its own line until one is named. */}
+      {(n.kind !== 'sponsor' || (!n.sponsoredBy && !!initial.text.en)) && (
+        <Field label={copy.text} placeholder={copy.textHint} value={n.text.en} onChangeText={(en) => setN({ ...n, text: { ...n.text, en } })} multiline />
+      )}
       <Field
         label="Hebrew line (optional)"
         placeholder="לעילוי נשמת…"
@@ -179,7 +199,7 @@ function NoticeForm({ initial, today, onDone }: { initial: Notice; today: DateSt
           title="Done"
           disabled={!valid}
           onPress={() => {
-            upsertNotice({ ...n, text: { ...n.text, en: n.text.en.trim() } })
+            upsertNotice(withSponsorText({ ...n, text: { ...n.text, en: n.text.en.trim() } }))
             onDone()
           }}
         />

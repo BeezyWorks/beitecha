@@ -55,6 +55,7 @@ const STRINGS = {
   en: {
     cancelled: 'Cancelled',
     sponsored: 'Sponsored',
+    sponsoredBy: 'Sponsored by',
     announcement: 'Announcement',
     next: 'Next',
     tomorrow: 'Tomorrow',
@@ -84,6 +85,7 @@ const STRINGS = {
   he: {
     cancelled: 'בוטל',
     sponsored: 'בחסות',
+    sponsoredBy: 'בחסות',
     announcement: 'הודעה',
     next: 'הבא',
     tomorrow: 'מחר',

@@ -47,9 +47,9 @@ export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: b
   return (
     <Stack grow gap="lg">
       <Masthead {...week} />
-      <ShabbosPanel friday={friday} erevShabbos={erevShabbos} shabbos={days[6]} />
+      <ShabbosPanel friday={friday} erevShabbos={erevShabbos} shabbos={days[6]} notices={notices} />
       {withNotices && notices.length > 0 && <Notices notices={notices} />}
-      <WeekdayGrid days={weekdays} />
+      <WeekdayGrid days={weekdays} notices={notices} />
       <ZmanimGrid days={days} />
       <Stack grow />
       {(withNotices || !notices.length) && <Footer slug={week.slug} />}
@@ -122,10 +122,12 @@ function ShabbosPanel({
   friday,
   erevShabbos,
   shabbos,
+  notices,
 }: {
   friday: DaySchedule
   erevShabbos: Occurrence[]
   shabbos: DaySchedule
+  notices: Notice[]
 }) {
   const t = useT()
   const candles = friday.zmanim.candleLighting
@@ -155,6 +157,7 @@ function ShabbosPanel({
           />
           <Rows
             events={erevShabbos}
+            sponsors={sponsorsOn(t, notices, friday)}
             zman={candles === undefined ? undefined : { id: 'candleLighting', minutes: candles }}
           />
         </Stack>
@@ -168,6 +171,7 @@ function ShabbosPanel({
           />
           <Rows
             events={shabbos.events}
+            sponsors={sponsorsOn(t, notices, shabbos)}
             zman={havdalah === undefined ? undefined : { id: 'havdalah', minutes: havdalah }}
           />
         </Stack>
@@ -219,8 +223,34 @@ function Heading({ en, he }: { en: string; he: string }) {
   )
 }
 
+/** Who sponsors each of a day's events, by event id: "Sponsored by the Greenblats". */
+function sponsorsOn(t: T, notices: Notice[], day: DaySchedule) {
+  const by = new Map<string, string>()
+  for (const e of day.events)
+    for (const n of notices)
+      if (
+        n.kind === 'sponsor' &&
+        n.eventId === e.eventId &&
+        n.from <= day.date &&
+        // A one-time event's sponsorship can go up before it and lasts until it.
+        (day.date <= (n.to ?? n.from) || (!n.to && e.source === 'added'))
+      ) {
+        const line = n.sponsoredBy ? `${t.s.sponsoredBy} ${t.text(n.sponsoredBy)}` : t.text(n.text)
+        by.set(e.eventId, by.has(e.eventId) ? `${by.get(e.eventId)} · ${line}` : line)
+      }
+  return by
+}
+
 /** A day's events as name … time rows, with one zman slotted in at its time. */
-function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; minutes: Minutes } }) {
+function Rows({
+  events,
+  sponsors,
+  zman,
+}: {
+  events: Occurrence[]
+  sponsors: Map<string, string>
+  zman?: { id: ZmanId; minutes: Minutes }
+}) {
   const t = useT()
   type Row = {
     key: string
@@ -229,6 +259,7 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
     /** "after Shacharis", instead of a time. */
     said?: string
     note?: string
+    sponsor?: string
     cancelled?: boolean
     lit?: boolean
   }
@@ -243,6 +274,7 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
         ? `${t.s.cancelled} — ${t.text(e.note)}`
         : t.s.cancelled
       : e.note && t.text(e.note),
+    sponsor: sponsors.get(e.eventId),
   }))
   if (zman) {
     const at = rows.findIndex((r) => r.minutes !== null && r.minutes > zman.minutes)
@@ -265,7 +297,8 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
           paddingVertical={3}
           opacity={r.cancelled ? 0.6 : 1}
         >
-          <Stack grow gap="none">
+          {/* Takes what the time leaves: a long note or sponsor wraps instead of pushing the time off the sheet. */}
+          <Stack grow width={0} gap="none">
             <Stack direction="row" align="center" gap="sm">
               <Text
                 variant={r.lit ? 'itemHeader' : 'item'}
@@ -288,6 +321,11 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
                 {r.note}
               </Text>
             )}
+            {!!r.sponsor && !r.cancelled && (
+              <Text variant="caption" color={SemanticColor.TextAccent}>
+                {r.sponsor}
+              </Text>
+            )}
           </Stack>
           <Text variant="headline" color={r.lit ? SemanticColor.TextAccent : undefined}>
             {r.said ?? (r.cancelled ? '—' : r.minutes === null ? '—' : t.clock(r.minutes))}
@@ -299,8 +337,9 @@ function Rows({ events, zman }: { events: Occurrence[]; zman?: { id: ZmanId; min
 }
 
 /** Sunday to Friday morning: a row per minyan or shiur, a column per day. */
-function WeekdayGrid({ days }: { days: DaySchedule[] }) {
+function WeekdayGrid({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) {
   const t = useT()
+  const sponsors = days.map((d) => sponsorsOn(t, notices, d))
   const ids: string[] = []
   const first = new Map<string, Occurrence>()
   for (const d of days)
@@ -322,8 +361,9 @@ function WeekdayGrid({ days }: { days: DaySchedule[] }) {
           const name = first.get(id)!.name
           return (
             <TableRow key={id} label={<RowName name={name} />}>
-              {days.map((d) => {
+              {days.map((d, i) => {
                 const e = d.events.find((x) => x.eventId === id)
+                const sponsor = e && !e.cancelled && sponsors[i].get(id)
                 return (
                   <Cell key={d.date} day={d}>
                     {!e ? (
@@ -351,6 +391,16 @@ function WeekdayGrid({ days }: { days: DaySchedule[] }) {
                         color={SemanticColor.TextSecondary}
                       >
                         {t.text(e.note)}
+                      </Text>
+                    )}
+                    {!!sponsor && (
+                      <Text
+                        variant="caption"
+                        align="center"
+                        numberOfLines={2}
+                        color={SemanticColor.TextAccent}
+                      >
+                        {sponsor}
                       </Text>
                     )}
                   </Cell>

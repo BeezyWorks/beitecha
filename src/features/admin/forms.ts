@@ -292,9 +292,20 @@ export function withSponsorTarget(n: Notice, t: SponsorTarget): Notice {
   return t.kind === 'notices' ? { ...rest, sponsors: 'notices' } : rest
 }
 
-/** A notice of another kind keeps only what that kind uses: a sponsorship's target, a reminder's event. */
+/**
+ * A sponsorship's whole line from who and why, "Sponsored by the Greenblats, in honor of…", into `text.en` (the
+ * Hebrew line stays the gabbai's own). Without a sponsor named, `text` is left as written.
+ */
+export function withSponsorText(n: Notice): Notice {
+  const by = n.sponsoredBy?.en.trim()
+  if (n.kind !== 'sponsor' || !by) return n
+  const honor = n.inHonorOf?.en.trim()
+  return { ...n, text: { ...n.text, en: `Sponsored by ${by}${honor ? `, in honor of ${honor}` : ''}` } }
+}
+
+/** A notice of another kind keeps only what that kind uses: a sponsorship's target and who and why, a reminder's event. */
 export function withNoticeKind(n: Notice, kind: Notice['kind']): Notice {
-  const { eventId, sponsors: _s, ...rest } = n
+  const { eventId, sponsors: _s, sponsoredBy: _b, inHonorOf: _h, ...rest } = n
   if (kind === 'sponsor') return { ...n, kind }
   return kind === 'reminder' && eventId ? { ...rest, kind, eventId } : { ...rest, kind }
 }

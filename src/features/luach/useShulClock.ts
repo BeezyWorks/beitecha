@@ -2,7 +2,10 @@ import { nowMinutesIn, todayIn, type DateString, type Minutes } from '@beitecha/
 import { useEffect, useState } from 'react'
 
 /** Today and the time of day *in the shul's time zone*, not the viewer's. */
-export function useShulClock(timeZone: string | undefined, tickMs = 15_000): { today: DateString; minutes: Minutes; seconds: number } {
+export function useShulClock(
+  timeZone: string | undefined,
+  tickMs = 15_000,
+): { today: DateString; minutes: Minutes; seconds: number } {
   const read = () => {
     const tz = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
     const now = new Date()

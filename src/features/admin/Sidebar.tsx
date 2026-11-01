@@ -11,7 +11,17 @@ const APPEARANCES: { key: Appearance; label: string }[] = [
   { key: 'dark', label: 'Dark' },
 ]
 
-function NavRow({ label, selected, icon, onPress }: { label: string; selected?: boolean; icon?: 'external-link' | 'print'; onPress: () => void }) {
+function NavRow({
+  label,
+  selected,
+  icon,
+  onPress,
+}: {
+  label: string
+  selected?: boolean
+  icon?: 'external-link' | 'print'
+  onPress: () => void
+}) {
   return (
     <Touchable onPress={onPress} accessibilityLabel={label} accessibilityState={{ selected }}>
       <Stack
@@ -24,7 +34,10 @@ function NavRow({ label, selected, icon, onPress }: { label: string; selected?: 
         background={selected ? SemanticColor.AccentTint : undefined}
       >
         <Stack grow>
-          <Text variant={selected ? 'bodyStrong' : 'body'} color={selected ? SemanticColor.TextAccent : undefined}>
+          <Text
+            variant={selected ? 'bodyStrong' : 'body'}
+            color={selected ? SemanticColor.TextAccent : undefined}
+          >
             {label}
           </Text>
         </Stack>
@@ -51,7 +64,11 @@ export function Sidebar({
 }) {
   const { appearance, setAppearance } = useAppearance()
   return (
-    <Stack width={240} background={SemanticColor.SurfaceSelected} borderColor={SemanticColor.BorderDefault}>
+    <Stack
+      width={240}
+      background={SemanticColor.SurfaceSelected}
+      borderColor={SemanticColor.BorderDefault}
+    >
       <ScrollStack padding="md" gap="xs">
         <Stack gap="none" paddingHorizontal="md" paddingVertical="sm">
           <Text variant="title" numberOfLines={2}>
@@ -71,7 +88,12 @@ export function Sidebar({
               </Stack>
             )}
             {g.sections.map((s) => (
-              <NavRow key={s.key} label={s.label} selected={s.key === section} onPress={() => onSection(s.key)} />
+              <NavRow
+                key={s.key}
+                label={s.label}
+                selected={s.key === section}
+                onPress={() => onSection(s.key)}
+              />
             ))}
           </Stack>
         ))}
@@ -90,7 +112,12 @@ export function Sidebar({
           <NavRow label="Siddur page" icon="external-link" onPress={onSiddur} />
         </Stack>
         <Stack paddingHorizontal="sm" paddingTop="lg">
-          <Segments options={APPEARANCES} value={appearance} onChange={setAppearance} accessibilityLabel="Appearance" />
+          <Segments
+            options={APPEARANCES}
+            value={appearance}
+            onChange={setAppearance}
+            accessibilityLabel="Appearance"
+          />
         </Stack>
       </ScrollStack>
     </Stack>

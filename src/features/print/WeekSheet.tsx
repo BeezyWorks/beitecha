@@ -25,6 +25,7 @@ import React from 'react'
 
 import { Struck } from '@/components/Print'
 import { makeT, useT } from '@/features/luach/language'
+import { SponsorName, sponsorsNotices } from '@/features/luach/SponsorName'
 import {
   erevShabbosEvents,
   type InlineZman,
@@ -1101,9 +1102,14 @@ function NoticeBlock({ notice: n }: { notice: Notice }) {
           )}
         </Stack>
       )}
-      <Text variant="bodySerif" rtl={t.nameRtl && !!n.text.he}>
-        {t.text(n.text)}
-      </Text>
+      {sponsorsNotices(n) && (
+        <SponsorName notice={n} variant="bodySerif" strongVariant={strong(t)} />
+      )}
+      {!!t.text(n.text) && (
+        <Text variant="bodySerif" rtl={t.nameRtl && !!n.text.he}>
+          {t.text(n.text)}
+        </Text>
+      )}
       {t.bothNames && !!n.text.he && (
         <Text variant="bodySerif" rtl>
           {n.text.he}

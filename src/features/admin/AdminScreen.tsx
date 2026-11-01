@@ -29,7 +29,19 @@ import { ZmanimSection } from './ZmanimSection'
 /** Where gabbaim set up and maintain their shul. */
 export function AdminScreen({ slug }: { slug: string }) {
   const status = useAccount((s) => s.status)
-  const { load, loaded, loadError, schedule, profile, dirty, save, saveError, persist, discard, editing } = useAdmin()
+  const {
+    load,
+    loaded,
+    loadError,
+    schedule,
+    profile,
+    dirty,
+    save,
+    saveError,
+    persist,
+    discard,
+    editing,
+  } = useAdmin()
   const params = useLocalSearchParams<{ s?: string }>()
   const section: SectionKey = isSection(params.s) ? params.s : 'week'
   const wide = useIsWideLayout()
@@ -58,20 +70,37 @@ export function AdminScreen({ slug }: { slug: string }) {
       </Page>
     )
   if (loadError?.status === 403)
-    return <Centered title="Not on the team" body="You’re signed in, but not as a gabbai of this shul. Ask its owner for an invitation." />
-  if (loadError?.status === 404) return <Centered title="No such shul" body={`Nothing lives at /${slug}.`} />
+    return (
+      <Centered
+        title="Not on the team"
+        body="You’re signed in, but not as a gabbai of this shul. Ask its owner for an invitation."
+      />
+    )
+  if (loadError?.status === 404)
+    return <Centered title="No such shul" body={`Nothing lives at /${slug}.`} />
   if (loadError) return <Centered title="Couldn’t load" body={loadError.message} />
   if (!loaded || !schedule || !profile || loaded.slug !== slug) return <Centered loading />
 
   const go = (s: SectionKey) => {
     if (s === section) return
     // An open event with changes would be lost on the way out.
-    if (editing?.changed && Platform.OS === 'web' && !window.confirm(`Drop your changes to ${editing.event.name.en || 'this'}?`)) return
+    if (
+      editing?.changed &&
+      Platform.OS === 'web' &&
+      !window.confirm(`Drop your changes to ${editing.event.name.en || 'this'}?`)
+    )
+      return
     useAdmin.setState({ editing: null })
     router.setParams({ s })
   }
   const statusText =
-    save === 'saving' ? 'Saving…' : save === 'error' || save === 'conflict' ? 'Not saved' : save === 'saved' ? 'Saved · displays update within 5 minutes' : 'All saved'
+    save === 'saving'
+      ? 'Saving…'
+      : save === 'error' || save === 'conflict'
+        ? 'Not saved'
+        : save === 'saved'
+          ? 'Saved · displays update within 5 minutes'
+          : 'All saved'
 
   const body = (
     <>
@@ -92,7 +121,12 @@ export function AdminScreen({ slug }: { slug: string }) {
   )
 
   return (
-    <Stack direction={wide ? 'row' : 'column'} height={Platform.OS === 'web' ? height : undefined} fill={Platform.OS !== 'web'} background={SemanticColor.SurfaceBackground}>
+    <Stack
+      direction={wide ? 'row' : 'column'}
+      height={Platform.OS === 'web' ? height : undefined}
+      fill={Platform.OS !== 'web'}
+      background={SemanticColor.SurfaceBackground}
+    >
       {wide ? (
         <Sidebar
           shulName={profile.name.en}
@@ -102,7 +136,13 @@ export function AdminScreen({ slug }: { slug: string }) {
           onSiddur={() => Linking.openURL(siddurShulUrl(slug))}
         />
       ) : (
-        <Stack direction="row" align="center" gap="md" padding="md" background={SemanticColor.SurfaceSelected}>
+        <Stack
+          direction="row"
+          align="center"
+          gap="md"
+          padding="md"
+          background={SemanticColor.SurfaceSelected}
+        >
           <Stack grow gap="none">
             <Text variant="headline" numberOfLines={1}>
               {profile.name.en}
@@ -111,20 +151,43 @@ export function AdminScreen({ slug }: { slug: string }) {
               {statusText}
             </Text>
           </Stack>
-          <Select value={section} options={SECTIONS.map((s) => ({ value: s.key, label: s.label }))} onChange={(s) => go(s as SectionKey)} />
+          <Select
+            value={section}
+            options={SECTIONS.map((s) => ({ value: s.key, label: s.label }))}
+            onChange={(s) => go(s as SectionKey)}
+          />
         </Stack>
       )}
       <Stack grow width={wide ? 0 : undefined} height={wide ? undefined : 0}>
         {save === 'conflict' && (
-          <Stack direction="row" align="center" gap="md" padding="md" background={SemanticColor.AccentAlertFaded} wrap>
+          <Stack
+            direction="row"
+            align="center"
+            gap="md"
+            padding="md"
+            background={SemanticColor.AccentAlertFaded}
+            wrap
+          >
             <Text variant="body">Someone else saved changes while you were editing.</Text>
             <Stack grow />
-            <Button variant="secondary" size="sm" title="Load theirs (drop mine)" onPress={discard} />
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Load theirs (drop mine)"
+              onPress={discard}
+            />
             <Button size="sm" title="Save mine over theirs" onPress={() => persist(true)} />
           </Stack>
         )}
         {save === 'error' && (
-          <Stack direction="row" align="center" gap="md" padding="md" background={SemanticColor.AccentAlertFaded} wrap>
+          <Stack
+            direction="row"
+            align="center"
+            gap="md"
+            padding="md"
+            background={SemanticColor.AccentAlertFaded}
+            wrap
+          >
             <Stack grow>
               <Text variant="body">Couldn’t save: {saveError}</Text>
             </Stack>
@@ -149,7 +212,12 @@ export function AdminScreen({ slug }: { slug: string }) {
               <Text variant="body">You have unsaved changes.</Text>
             </Stack>
             <Button variant="secondary" title="Cancel" onPress={discard} />
-            <Button title="Save" loading={save === 'saving'} disabled={save === 'saving'} onPress={() => persist()} />
+            <Button
+              title="Save"
+              loading={save === 'saving'}
+              disabled={save === 'saving'}
+              onPress={() => persist()}
+            />
           </Stack>
         )}
       </Stack>

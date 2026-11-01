@@ -1,5 +1,12 @@
 import { Button, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { civilDateShort, DEFAULT_ANNOUNCE_WEEKS, type DateString, type Exception, WEEKDAYS, weekdayOf } from '@beitecha/engine'
+import {
+  civilDateShort,
+  DEFAULT_ANNOUNCE_WEEKS,
+  type DateString,
+  type Exception,
+  WEEKDAYS,
+  weekdayOf,
+} from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { Field } from '@/components/Field'
@@ -29,9 +36,14 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
   const [x, setX] = useState(initial)
   const [time, setTime] = useState(clockOf(initial))
   const [end, setEnd] = useState(endOf(initial))
-  const setEvent = (patch: Partial<DatedEvent['event']>) => setX({ ...x, event: { ...x.event, ...patch } })
+  const setEvent = (patch: Partial<DatedEvent['event']>) =>
+    setX({ ...x, event: { ...x.event, ...patch } })
   const valid =
-    x.event.name.en.trim() && DATE_RE.test(x.date) && time && (!end || end > time) && !linkProblem(x.event.link ?? '')
+    x.event.name.en.trim() &&
+    DATE_RE.test(x.date) &&
+    time &&
+    (!end || end > time) &&
+    !linkProblem(x.event.link ?? '')
   return (
     <Card gap="md">
       <Stack direction="row" gap="md" wrap>
@@ -53,7 +65,11 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
       </Stack>
       <Stack direction="row" gap="md" align="end" wrap>
         <Stack width={180}>
-          <DateField label="Date" value={x.date} onChange={(date) => date && setX({ ...x, date })} />
+          <DateField
+            label="Date"
+            value={x.date}
+            onChange={(date) => date && setX({ ...x, date })}
+          />
         </Stack>
         <ClockField value={time} onChange={setTime} placeholder="7:00 PM" />
         <ClockField value={end} onChange={setEnd} placeholder="Ends" />
@@ -99,7 +115,8 @@ function EventForm({ initial, onDone }: { initial: DatedEvent; onDone: () => voi
 export function CalendarTab({ today }: { today: DateString }) {
   const exceptions = useAdmin((s) => s.schedule?.exceptions)
   const timeFormat = useAdmin((s) => s.schedule?.settings.timeFormat)
-  const announceWeeks = useAdmin((s) => s.schedule?.settings.announceWeeks) ?? DEFAULT_ANNOUNCE_WEEKS
+  const announceWeeks =
+    useAdmin((s) => s.schedule?.settings.announceWeeks) ?? DEFAULT_ANNOUNCE_WEEKS
   const removeException = useAdmin((s) => s.removeException)
   const upsertException = useAdmin((s) => s.upsertException)
   const schedule = useAdmin((s) => s.schedule)
@@ -111,7 +128,9 @@ export function CalendarTab({ today }: { today: DateString }) {
   const { clock } = makeT('en', timeFormat)
   const when = (x: DatedEvent) => `${x.date} ${clockOf(x) ?? ''}`
   const events = exceptions.filter(isDatedEvent)
-  const upcoming = events.filter((x) => x.date >= today).sort((a, b) => when(a).localeCompare(when(b)))
+  const upcoming = events
+    .filter((x) => x.date >= today)
+    .sort((a, b) => when(a).localeCompare(when(b)))
   const past = events.filter((x) => x.date < today).sort((a, b) => when(b).localeCompare(when(a)))
   const timeLabel = (x: DatedEvent) => {
     const hhmm = clockOf(x)
@@ -121,7 +140,10 @@ export function CalendarTab({ today }: { today: DateString }) {
   }
 
   return (
-    <SectionPage title="Dates & events" intro="One-time events: a dinner, a Chanukah party, a guest speaker.">
+    <SectionPage
+      title="Dates & events"
+      intro="One-time events: a dinner, a Chanukah party, a guest speaker."
+    >
       {editing ? (
         <EventForm initial={editing} onDone={() => setEditing(null)} />
       ) : (
@@ -131,7 +153,13 @@ export function CalendarTab({ today }: { today: DateString }) {
             title="Add an event"
             onPress={() => {
               const id = newId()
-              setEditing({ id, date: today, type: 'add', event: { id: `event-${id}`, name: { en: '' }, kind: 'other' }, time: { clock: '19:00' } })
+              setEditing({
+                id,
+                date: today,
+                type: 'add',
+                event: { id: `event-${id}`, name: { en: '' }, kind: 'other' },
+                time: { clock: '19:00' },
+              })
             }}
           />
           <Button variant="ghost" title="Add with AI" onPress={() => setAi(!ai)} />
@@ -147,8 +175,8 @@ export function CalendarTab({ today }: { today: DateString }) {
             <Stack gap="xs">
               {list.map((x, i) => (
                 <Text key={i} variant="body">
-                  <Text variant="bodyStrong">{x.event.name.en}</Text> · {WEEKDAYS[weekdayOf(x.date)].en}, {civilDateShort(x.date)} ·{' '}
-                  {timeLabel(x)}
+                  <Text variant="bodyStrong">{x.event.name.en}</Text> ·{' '}
+                  {WEEKDAYS[weekdayOf(x.date)].en}, {civilDateShort(x.date)} · {timeLabel(x)}
                   {endOf(x) ? `–${timeLabel({ ...x, time: { clock: endOf(x)! } })}` : ''}
                   {x.event.room ? ` · ${x.event.room}` : ''}
                   {x.event.location ? ` · ${x.event.location}` : ''}
@@ -169,7 +197,8 @@ export function CalendarTab({ today }: { today: DateString }) {
       {!editing && <AnnouncedCard today={today} />}
       {!upcoming.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>
-          Nothing coming up. Events show on their day on the display, the printed week, the calendar feed and in the Siddur.
+          Nothing coming up. Events show on their day on the display, the printed week, the calendar
+          feed and in the Siddur.
         </Text>
       )}
       {upcoming.map((x) => (
@@ -199,8 +228,20 @@ export function CalendarTab({ today }: { today: DateString }) {
             </Text>
           )}
           <Stack direction="row" gap="sm">
-            <Button variant="ghost" size="sm" icon="edit" title="Edit" onPress={() => setEditing(x)} />
-            <Button variant="ghost" size="sm" icon="delete" title="Delete" onPress={() => removeException(x.id)} />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="edit"
+              title="Edit"
+              onPress={() => setEditing(x)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="delete"
+              title="Delete"
+              onPress={() => removeException(x.id)}
+            />
           </Stack>
         </Card>
       ))}
@@ -213,7 +254,12 @@ export function CalendarTab({ today }: { today: DateString }) {
                 {x.date} · {x.event.name.en}
               </Text>
               <Stack grow />
-              <Button variant="ghost" size="sm" title="Remove" onPress={() => removeException(x.id)} />
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Remove"
+                onPress={() => removeException(x.id)}
+              />
             </Stack>
           ))}
         </Card>

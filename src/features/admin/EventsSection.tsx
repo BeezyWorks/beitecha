@@ -888,9 +888,7 @@ export function EventsSection({ kind, today }: { kind: EventKind; today: DateStr
 
   return (
     <Stack direction="row" grow height={0}>
-      <Stack width={260}>
-        {listPane}
-      </Stack>
+      <Stack width={260}>{listPane}</Stack>
       <Stack width={1} background={SemanticColor.BorderDefault} />
       <Stack grow width={0}>
         {open ? (

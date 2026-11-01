@@ -19,7 +19,10 @@ export function InviteScreen() {
   if (status === 'signedOut')
     return (
       <Page>
-        <SignIn returnTo={`/invite/${token}`} reason="You’ve been invited to help manage a shul on Beitecha. Sign in to accept." />
+        <SignIn
+          returnTo={`/invite/${token}`}
+          reason="You’ve been invited to help manage a shul on Beitecha. Sign in to accept."
+        />
       </Page>
     )
 
@@ -35,7 +38,10 @@ export function InviteScreen() {
   }
 
   return (
-    <Centered title="Join the team" body={error ?? 'You’ve been invited to help manage a shul’s schedule.'}>
+    <Centered
+      title="Join the team"
+      body={error ?? 'You’ve been invited to help manage a shul’s schedule.'}
+    >
       {!error && <Button title="Accept invitation" loading={busy} onPress={accept} />}
     </Centered>
   )

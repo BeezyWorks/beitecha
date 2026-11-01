@@ -1,11 +1,4 @@
-import {
-  Button,
-  Card,
-  SemanticColor,
-  Stack,
-  Text,
-  ToggleSwitch,
-} from '@beezyworks/design'
+import { Button, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import type { Language } from '@beitecha/engine'
 import { router } from 'expo-router'
 import React, { useState } from 'react'
@@ -59,7 +52,13 @@ export function NewShulScreen() {
   const address = slugTouched ? slug : slugify(name)
   const latitude = Number(lat)
   const longitude = Number(lng)
-  const ready = name.trim() && address.length >= 3 && lat && lng && Number.isFinite(latitude) && Number.isFinite(longitude)
+  const ready =
+    name.trim() &&
+    address.length >= 3 &&
+    lat &&
+    lng &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude)
 
   const locate = () =>
     navigator.geolocation?.getCurrentPosition(
@@ -67,7 +66,10 @@ export function NewShulScreen() {
         setLat(p.coords.latitude.toFixed(4))
         setLng(p.coords.longitude.toFixed(4))
       },
-      () => setError('Couldn’t get your location. Enter it by hand (right-click the shul on Google Maps to copy it).'),
+      () =>
+        setError(
+          'Couldn’t get your location. Enter it by hand (right-click the shul on Google Maps to copy it).',
+        ),
     )
 
   const create = async () => {
@@ -76,7 +78,10 @@ export function NewShulScreen() {
     try {
       const { slug: created } = await api.create({
         slug: address,
-        profile: { name: { en: name.trim(), ...(nameHe.trim() ? { he: nameHe.trim() } : {}) }, ...(city.trim() ? { city: city.trim() } : {}) },
+        profile: {
+          name: { en: name.trim(), ...(nameHe.trim() ? { he: nameHe.trim() } : {}) },
+          ...(city.trim() ? { city: city.trim() } : {}),
+        },
         location: { latitude, longitude, timeZone: timeZone.trim(), israel },
         language,
         minchaMaariv: combined ? 'combined' : 'separate',
@@ -97,8 +102,18 @@ export function NewShulScreen() {
         </Text>
       </Stack>
       <Card gap="md">
-        <Field label="Name" placeholder="Young Israel of Lakewood" value={name} onChangeText={setName} />
-        <Field label="Hebrew name (optional)" placeholder="בית הכנסת" value={nameHe} onChangeText={setNameHe} />
+        <Field
+          label="Name"
+          placeholder="Young Israel of Lakewood"
+          value={name}
+          onChangeText={setName}
+        />
+        <Field
+          label="Hebrew name (optional)"
+          placeholder="בית הכנסת"
+          value={nameHe}
+          onChangeText={setNameHe}
+        />
         <Field label="City" placeholder="Lakewood, NJ" value={city} onChangeText={setCity} />
         <Field
           label="Address on Beitecha"
@@ -145,13 +160,30 @@ export function NewShulScreen() {
         <Text variant="body" color={SemanticColor.TextSecondary}>
           Zmanim are worked out for the shul’s exact spot and its local time zone.
         </Text>
-        <Button variant="secondary" title="Use my current location" icon="navigation" onPress={locate} />
+        <Button
+          variant="secondary"
+          title="Use my current location"
+          icon="navigation"
+          onPress={locate}
+        />
         <Stack direction="row" gap="md">
           <Stack grow>
-            <Field label="Latitude" value={lat} onChangeText={setLat} keyboardType="numeric" placeholder="40.0821" />
+            <Field
+              label="Latitude"
+              value={lat}
+              onChangeText={setLat}
+              keyboardType="numeric"
+              placeholder="40.0821"
+            />
           </Stack>
           <Stack grow>
-            <Field label="Longitude" value={lng} onChangeText={setLng} keyboardType="numeric" placeholder="-74.2097" />
+            <Field
+              label="Longitude"
+              value={lng}
+              onChangeText={setLng}
+              keyboardType="numeric"
+              placeholder="-74.2097"
+            />
           </Stack>
         </Stack>
         <Field
@@ -164,7 +196,11 @@ export function NewShulScreen() {
         <Stack direction="row" align="center" gap="md">
           <Text variant="body">In Eretz Yisrael (one day Yom Tov)</Text>
           <Stack grow />
-          <ToggleSwitch value={israel} onValueChange={setIsrael} accessibilityLabel="In Eretz Yisrael" />
+          <ToggleSwitch
+            value={israel}
+            onValueChange={setIsrael}
+            accessibilityLabel="In Eretz Yisrael"
+          />
         </Stack>
       </Card>
       {!!error && (
@@ -172,7 +208,13 @@ export function NewShulScreen() {
           {error}
         </Text>
       )}
-      <Button title="Create shul" size="lg" loading={busy} disabled={!ready || busy} onPress={create} />
+      <Button
+        title="Create shul"
+        size="lg"
+        loading={busy}
+        disabled={!ready || busy}
+        onPress={create}
+      />
     </Page>
   )
 }

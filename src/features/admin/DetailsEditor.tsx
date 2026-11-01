@@ -1,5 +1,11 @@
 import { Chip, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { AUDIENCES, AUDIENCE_LABELS, CATEGORY_LABELS, EVENT_CATEGORIES, type EventDef } from '@beitecha/engine'
+import {
+  AUDIENCES,
+  AUDIENCE_LABELS,
+  CATEGORY_LABELS,
+  EVENT_CATEGORIES,
+  type EventDef,
+} from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
 import { Field } from '@/components/Field'
@@ -10,7 +16,8 @@ type Details = Omit<EventDef, 'rules'>
 const GUESSED = 'Guessed from the name; pick one to set it.'
 
 /** A Localized's English, or the field cleared. */
-const en = (value: string, was?: { en: string; he?: string }) => (value ? { ...was, en: value } : undefined)
+const en = (value: string, was?: { en: string; he?: string }) =>
+  value ? { ...was, en: value } : undefined
 
 /**
  * What the Siddur shows beside a shiur or program's time: what kind it is, who it's for, who gives it,
@@ -42,7 +49,12 @@ export function DetailsEditor({
           </Text>
           <Stack direction="row" wrap gap="xs">
             {EVENT_CATEGORIES.map((c) => (
-              <Chip key={c} label={CATEGORY_LABELS[c].en} selected={category.value === c} onPress={() => onChange({ category: c })} />
+              <Chip
+                key={c}
+                label={CATEGORY_LABELS[c].en}
+                selected={category.value === c}
+                onPress={() => onChange({ category: c })}
+              />
             ))}
           </Stack>
         </Stack>
@@ -53,7 +65,12 @@ export function DetailsEditor({
         </Text>
         <Stack direction="row" wrap gap="xs">
           {AUDIENCES.map((a) => (
-            <Chip key={a} label={AUDIENCE_LABELS[a].en} selected={audience.value === a} onPress={() => onChange({ audience: a })} />
+            <Chip
+              key={a}
+              label={AUDIENCE_LABELS[a].en}
+              selected={audience.value === a}
+              onPress={() => onChange({ audience: a })}
+            />
           ))}
         </Stack>
       </Stack>
@@ -135,7 +152,9 @@ export function describeDetails(event: Details): string {
   const category = categoryChoice(event).value
   const audience = audienceChoice(event).value
   return [
-    event.kind === 'other' && category && category !== 'program' ? CATEGORY_LABELS[category].en : undefined,
+    event.kind === 'other' && category && category !== 'program'
+      ? CATEGORY_LABELS[category].en
+      : undefined,
     audience !== 'everyone' ? AUDIENCE_LABELS[audience].en : undefined,
     event.speaker?.en,
     event.location,

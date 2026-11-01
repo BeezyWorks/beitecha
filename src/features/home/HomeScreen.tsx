@@ -24,9 +24,10 @@ export function HomeScreen() {
           בשבתך בביתך ובלכתך בדרך
         </Text>
         <Text variant="bodySerifLarge">
-          Your shul’s minyanim, shiurim and sponsors from one set of rules. Set them up once, and Beitecha works out
-          every day’s times from the zmanim and the calendar. It puts them on the monitor in the lobby, on a page
-          anyone can open by scanning a QR code, and in their calendar.
+          Your shul’s minyanim, shiurim and sponsors from one set of rules. Set them up once, and
+          Beitecha works out every day’s times from the zmanim and the calendar. It puts them on the
+          monitor in the lobby, on a page anyone can open by scanning a QR code, and in their
+          calendar.
         </Text>
       </Stack>
 
@@ -46,7 +47,8 @@ export function HomeScreen() {
         <Card gap="md">
           <Text variant="sectionHeader">For gabbaim</Text>
           <Text variant="body" color={SemanticColor.TextSecondary}>
-            Sign in with your Baderech account (the same one as the Siddur) to set up or manage a shul.
+            Sign in with your Baderech account (the same one as the Siddur) to set up or manage a
+            shul.
           </Text>
           <SignIn returnTo="/" />
         </Card>
@@ -70,14 +72,25 @@ function MyShuls() {
   return (
     <Stack gap="sm">
       {shuls.map((s) => (
-        <Card key={s.slug} direction="row" align="center" gap="md" onPress={() => router.push(`/${s.slug}/admin`)}>
+        <Card
+          key={s.slug}
+          direction="row"
+          align="center"
+          gap="md"
+          onPress={() => router.push(`/${s.slug}/admin`)}
+        >
           <Stack grow gap="xs">
             <Text variant="headline">{s.name.en}</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               /{s.slug} · {s.role === 'owner' ? 'Owner' : 'Editor'}
             </Text>
           </Stack>
-          <Button variant="secondary" size="sm" title="Siddur page" onPress={() => Linking.openURL(siddurShulUrl(s.slug))} />
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Siddur page"
+            onPress={() => Linking.openURL(siddurShulUrl(s.slug))}
+          />
         </Card>
       ))}
     </Stack>
@@ -94,9 +107,21 @@ function FindShul() {
   }, [q])
   return (
     <Stack gap="sm">
-      <TextField variant="boxed" size="lg" placeholder="Find a shul" value={q} onChangeText={setQ} autoCorrect={false} />
+      <TextField
+        variant="boxed"
+        size="lg"
+        placeholder="Find a shul"
+        value={q}
+        onChangeText={setQ}
+        autoCorrect={false}
+      />
       {results?.map((r) => (
-        <Card key={r.slug} onPress={() => Linking.openURL(siddurShulUrl(r.slug))} gap="xs" paddingVertical={14}>
+        <Card
+          key={r.slug}
+          onPress={() => Linking.openURL(siddurShulUrl(r.slug))}
+          gap="xs"
+          paddingVertical={14}
+        >
           <Text variant="headline">{r.name.en}</Text>
           {!!r.city && (
             <Text variant="caption" color={SemanticColor.TextSecondary}>

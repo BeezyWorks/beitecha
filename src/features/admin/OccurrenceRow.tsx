@@ -77,7 +77,10 @@ export function OccurrenceRow({
           {!actionsOnly && (
             <>
               <Stack width={compact ? 72 : 88}>
-                <Text variant="bodyStrong" color={o.cancelled ? SemanticColor.TextDanger : undefined}>
+                <Text
+                  variant="bodyStrong"
+                  color={o.cancelled ? SemanticColor.TextDanger : undefined}
+                >
                   {o.cancelled ? '—' : o.minutes === null ? '?' : clock(o.minutes)}
                 </Text>
               </Stack>

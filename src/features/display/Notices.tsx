@@ -9,6 +9,7 @@ import type {
 import React from 'react'
 
 import { makeT, useT } from '@/features/luach/language'
+import { SponsorName, sponsorsNotices } from '@/features/luach/SponsorName'
 import { useRotation } from './Panels'
 
 /** The refuah shleimah heading is in Hebrew whenever the page or its names are. */
@@ -103,9 +104,19 @@ function NoticePage({
           {when}
         </Text>
       </Stack>
-      <Text variant="headerTitleWide" numberOfLines={3} color={SemanticColor.TextPrimary}>
-        {t.text(n.text)}
-      </Text>
+      {sponsorsNotices(n) && (
+        <SponsorName
+          notice={n}
+          variant="titleLarge"
+          strongVariant="headerTitleWide"
+          color={SemanticColor.TextPrimary}
+        />
+      )}
+      {!!t.text(n.text) && (
+        <Text variant="headerTitleWide" numberOfLines={3} color={SemanticColor.TextPrimary}>
+          {t.text(n.text)}
+        </Text>
+      )}
       {t.bothNames && !!n.text.he && (
         <Text variant="pageHeader" rtl numberOfLines={2} color={SemanticColor.TextSecondary}>
           {n.text.he}

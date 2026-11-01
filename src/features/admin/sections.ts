@@ -14,35 +14,36 @@ export type SectionKey =
   | 'shul'
   | 'team'
 
-export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; label: string }[] }[] = [
-  { sections: [{ key: 'week', label: 'This week' }] },
-  {
-    title: 'Schedule',
-    sections: [
-      { key: 'minyanim', label: 'Minyanim' },
-      { key: 'shiurim', label: 'Shiurim' },
-      { key: 'programs', label: 'Kiddush & programs' },
-      { key: 'events', label: 'Dates & events' },
-      { key: 'zmanim', label: 'Zmanim' },
-    ],
-  },
-  {
-    title: 'Announcements',
-    sections: [
-      { key: 'notices', label: 'Sponsors & notices' },
-      { key: 'cholim', label: 'Refuah shleimah' },
-      { key: 'yahrzeits', label: 'Yahrzeits' },
-    ],
-  },
-  {
-    title: 'Shul',
-    sections: [
-      { key: 'display', label: 'Lobby display' },
-      { key: 'shul', label: 'Shul settings' },
-      { key: 'team', label: 'Team & displays' },
-    ],
-  },
-]
+export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; label: string }[] }[] =
+  [
+    { sections: [{ key: 'week', label: 'This week' }] },
+    {
+      title: 'Schedule',
+      sections: [
+        { key: 'minyanim', label: 'Minyanim' },
+        { key: 'shiurim', label: 'Shiurim' },
+        { key: 'programs', label: 'Kiddush & programs' },
+        { key: 'events', label: 'Dates & events' },
+        { key: 'zmanim', label: 'Zmanim' },
+      ],
+    },
+    {
+      title: 'Announcements',
+      sections: [
+        { key: 'notices', label: 'Sponsors & notices' },
+        { key: 'cholim', label: 'Refuah shleimah' },
+        { key: 'yahrzeits', label: 'Yahrzeits' },
+      ],
+    },
+    {
+      title: 'Shul',
+      sections: [
+        { key: 'display', label: 'Lobby display' },
+        { key: 'shul', label: 'Shul settings' },
+        { key: 'team', label: 'Team & displays' },
+      ],
+    },
+  ]
 
 /** Under "See it" in the sidebar: the sheet as it prints. */
 export const PRINT_SECTION = { key: 'print' as const, label: 'Print' }

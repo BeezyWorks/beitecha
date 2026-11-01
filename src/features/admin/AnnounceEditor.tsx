@@ -27,7 +27,8 @@ const choiceOf = (event: Announce): Choice =>
 const weeksOf = (n: number | undefined) =>
   n === undefined ? undefined : Math.min(Math.max(0, Math.round(n)), MAX_ANNOUNCE_WEEKS)
 
-const weeksText = (weeks: number) => (weeks === 0 ? 'its week' : `${weeks} week${weeks === 1 ? '' : 's'} ahead`)
+const weeksText = (weeks: number) =>
+  weeks === 0 ? 'its week' : `${weeks} week${weeks === 1 ? '' : 's'} ahead`
 
 /** "Announced 3 weeks ahead" for a dated event's caption, or '' when it isn't listed early. */
 export function announceLabel(event: Announce, defaultWeeks: number) {

@@ -15,15 +15,15 @@ export function SignIn({ returnTo, reason }: { returnTo: string; reason?: string
         onSignIn={({ email, password }) => account.signInEmail(email, password)}
         onSignUp={({ name, email, password }) => account.signUpEmail(name, email, password)}
         onForgotPassword={(email) => account.requestPasswordReset(email)}
-        header={
-          reason ? (
-            <Text variant="body">
-              {reason}
-            </Text>
-          ) : undefined
-        }
+        header={reason ? <Text variant="body">{reason}</Text> : undefined}
       />
-      {DEV_AUTH && <Button variant="secondary" title="Continue as a dev user" onPress={() => account.signInDev('Gabbai')} />}
+      {DEV_AUTH && (
+        <Button
+          variant="secondary"
+          title="Continue as a dev user"
+          onPress={() => account.signInDev('Gabbai')}
+        />
+      )}
     </Stack>
   )
 }

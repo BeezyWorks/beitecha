@@ -3,6 +3,7 @@ import type { Notice, NoticeCategory } from '@beitecha/engine'
 import React from 'react'
 
 import { useT } from './language'
+import { SponsorName, sponsorsNotices } from './SponsorName'
 
 /** A sponsorship, announcement, reminder, mazal tov or condolence. */
 export function NoticeCard({
@@ -35,7 +36,9 @@ export function NoticeCard({
       <Stack direction="row" align="center" gap="sm">
         <Badge
           label={noticeTag(notice, categories)}
-          tone={notice.kind === 'sponsor' ? 'accent' : notice.kind === 'simcha' ? 'success' : 'neutral'}
+          tone={
+            notice.kind === 'sponsor' ? 'accent' : notice.kind === 'simcha' ? 'success' : 'neutral'
+          }
         />
         {!!notice.title && (
           <Text variant={big ? 'titleLarge' : 'bodyStrong'}>{text(notice.title)}</Text>
@@ -45,12 +48,21 @@ export function NoticeCard({
           {when}
         </Text>
       </Stack>
-      <Text
-        variant={big ? 'headerTitleWide' : 'bodySerifLarge'}
-        color={big ? SemanticColor.TextPrimary : undefined}
-      >
-        {text(notice.text)}
-      </Text>
+      {sponsorsNotices(notice) && (
+        <SponsorName
+          notice={notice}
+          variant={big ? 'titleLarge' : 'bodySerif'}
+          strongVariant={big ? 'headerTitleWide' : 'bodyStrong'}
+        />
+      )}
+      {!!text(notice.text) && (
+        <Text
+          variant={big ? 'headerTitleWide' : 'bodySerifLarge'}
+          color={big ? SemanticColor.TextPrimary : undefined}
+        >
+          {text(notice.text)}
+        </Text>
+      )}
       {bothNames && !!notice.text.he && (
         <Text variant={big ? 'titleLarge' : 'bodySerif'} rtl>
           {notice.text.he}

@@ -32,7 +32,9 @@ describe('parseClockInput', () => {
     ['715', '07:15'],
   ])('%s → %s', (input, out) => expect(parseClockInput(input)).toBe(out))
 
-  it.each(['25:00', '13pm', '6:75', 'soon'])('rejects %s', (input) => expect(parseClockInput(input)).toBeNull())
+  it.each(['25:00', '13pm', '6:75', 'soon'])('rejects %s', (input) =>
+    expect(parseClockInput(input)).toBeNull(),
+  )
 })
 
 describe('round trips', () => {
@@ -63,14 +65,23 @@ describe('round trips', () => {
   })
 
   it('keeps "except" days', () => {
-    const c: Condition = { all: [{ weekday: [0, 1, 2, 3, 4] }, { not: { any: [{ tag: 'roshChodesh' }, { tag: 'fast' }] } }] }
+    const c: Condition = {
+      all: [
+        { weekday: [0, 1, 2, 3, 4] },
+        { not: { any: [{ tag: 'roshChodesh' }, { tag: 'fast' }] } },
+      ],
+    }
     expect(formToCondition(conditionToForm(c)!)).toEqual(c)
   })
 
   it('handles clamps and custom weeks', () => {
     const t: TimeExpr = {
       round: {
-        clamp: { weekly: { offset: -10, of: { zman: 'sunset' } }, pick: 'latest', days: [0, 1, 2, 3] },
+        clamp: {
+          weekly: { offset: -10, of: { zman: 'sunset' } },
+          pick: 'latest',
+          days: [0, 1, 2, 3],
+        },
         min: { clock: '13:30' },
         max: { clock: '19:00' },
       },
@@ -81,7 +92,11 @@ describe('round trips', () => {
   })
 
   it('keeps rounding with the trend', () => {
-    const t: TimeExpr = { round: { weekly: { offset: -10, of: { zman: 'plag' } }, pick: 'earliest' }, to: 5, mode: 'withTrend' }
+    const t: TimeExpr = {
+      round: { weekly: { offset: -10, of: { zman: 'plag' } }, pick: 'earliest' },
+      to: 5,
+      mode: 'withTrend',
+    }
     expect(formToTime(timeToForm(t)!)).toEqual(t)
   })
 
@@ -94,19 +109,40 @@ describe('round trips', () => {
 
 describe('local holidays in conditions', () => {
   it('round-trips a local holiday beside others', () => {
-    const c: Condition = { all: [{ any: [{ localHoliday: 'thanksgiving' }, { tag: 'legalHoliday' }] }, { not: { weekday: [6] } }] }
+    const c: Condition = {
+      all: [
+        { any: [{ localHoliday: 'thanksgiving' }, { tag: 'legalHoliday' }] },
+        { not: { weekday: [6] } },
+      ],
+    }
     expect(formToCondition(conditionToForm(c)!)).toEqual(c)
   })
 })
 
 describe('event details', () => {
   it('shows the name’s guess until the gabbai picks', () => {
-    expect(categoryChoice({ name: { en: 'Kiddush' }, kind: 'other' })).toEqual({ value: 'meal', guessed: true })
-    expect(categoryChoice({ name: { en: 'Kiddush' }, kind: 'other', category: 'program' })).toEqual({ value: 'program', guessed: false })
-    expect(categoryChoice({ name: { en: 'Daf Yomi' }, kind: 'shiur' })).toEqual({ value: undefined, guessed: false })
-    expect(audienceChoice({ name: { en: 'Pirchei' }, kind: 'other' })).toEqual({ value: 'kids', guessed: true })
-    expect(audienceChoice({ name: { en: 'Pirchei' }, kind: 'other', audience: 'everyone' })).toEqual({ value: 'everyone', guessed: false })
-    expect(audienceChoice({ name: { en: 'Daf Yomi' }, kind: 'shiur' })).toEqual({ value: 'everyone', guessed: true })
+    expect(categoryChoice({ name: { en: 'Kiddush' }, kind: 'other' })).toEqual({
+      value: 'meal',
+      guessed: true,
+    })
+    expect(categoryChoice({ name: { en: 'Kiddush' }, kind: 'other', category: 'program' })).toEqual(
+      { value: 'program', guessed: false },
+    )
+    expect(categoryChoice({ name: { en: 'Daf Yomi' }, kind: 'shiur' })).toEqual({
+      value: undefined,
+      guessed: false,
+    })
+    expect(audienceChoice({ name: { en: 'Pirchei' }, kind: 'other' })).toEqual({
+      value: 'kids',
+      guessed: true,
+    })
+    expect(
+      audienceChoice({ name: { en: 'Pirchei' }, kind: 'other', audience: 'everyone' }),
+    ).toEqual({ value: 'everyone', guessed: false })
+    expect(audienceChoice({ name: { en: 'Daf Yomi' }, kind: 'shiur' })).toEqual({
+      value: 'everyone',
+      guessed: true,
+    })
   })
 
   it('reads a length and checks a link', () => {
@@ -125,7 +161,12 @@ describe('how a time is said', () => {
   it('round-trips every choice', () => {
     expect(saidToForm(undefined)).toEqual({ mode: 'auto' })
     expect(saidToForm(null)).toEqual({ mode: 'none' })
-    for (const r of [undefined, null, { between: ['mincha', 'maariv'] as [string, string] }, { after: 'maariv' }]) {
+    for (const r of [
+      undefined,
+      null,
+      { between: ['mincha', 'maariv'] as [string, string] },
+      { after: 'maariv' },
+    ]) {
       expect(formToSaid(saidToForm(r))).toEqual(r)
     }
   })
@@ -160,11 +201,18 @@ describe('notices', () => {
 })
 
 describe('notice links', () => {
-  const base: Notice = { id: 'n', kind: 'announcement', from: '2026-11-06', text: { en: 'Shiur tonight' } }
+  const base: Notice = {
+    id: 'n',
+    kind: 'announcement',
+    from: '2026-11-06',
+    text: { en: 'Shiur tonight' },
+  }
   const shiur = { title: { en: 'Download the shiur' }, url: 'https://example.org/shiur' }
 
   it('brings up an older single link untitled', () => {
-    expect(noticeLinks({ ...base, link: 'https://example.org' })).toEqual([{ title: { en: '' }, url: 'https://example.org' }])
+    expect(noticeLinks({ ...base, link: 'https://example.org' })).toEqual([
+      { title: { en: '' }, url: 'https://example.org' },
+    ])
     expect(noticeLinks(base)).toEqual([])
   })
 

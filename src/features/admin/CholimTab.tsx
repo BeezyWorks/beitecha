@@ -61,7 +61,10 @@ export function CholimTab({ today }: { today: DateString }) {
   const replace = (c: Choleh) => setCholim(cholim.map((x) => (x.id === c.id ? c : x)))
 
   return (
-    <SectionPage title="Refuah shleimah" intro="Names for the Mi Shebeirach, shown on the display and the printed week.">
+    <SectionPage
+      title="Refuah shleimah"
+      intro="Names for the Mi Shebeirach, shown on the display and the printed week."
+    >
       <Card gap="md">
         <Field
           label="Add names"

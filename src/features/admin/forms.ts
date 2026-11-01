@@ -122,7 +122,9 @@ function atomsToCondition(atoms: Atom[]): Condition {
 
 export function formToCondition(form: ConditionForm): Condition | undefined {
   const include = form.include.length ? atomsToCondition(form.include) : undefined
-  const exclude = form.exclude.length ? ({ not: atomsToCondition(form.exclude) } as Condition) : undefined
+  const exclude = form.exclude.length
+    ? ({ not: atomsToCondition(form.exclude) } as Condition)
+    : undefined
   if (include && exclude) return { all: [include, exclude] }
   return include ?? exclude
 }
@@ -197,7 +199,12 @@ function sourceToExpr(s: Source): TimeExpr {
 
 export function formToTime(form: TimeForm): TimeExpr {
   const items = form.sources.map(sourceToExpr)
-  let e: TimeExpr = items.length === 1 ? items[0] : form.combine === 'earliest' ? { earliest: items } : { latest: items }
+  let e: TimeExpr =
+    items.length === 1
+      ? items[0]
+      : form.combine === 'earliest'
+        ? { earliest: items }
+        : { latest: items }
   if (form.weekly) {
     const sameAsDefault = form.weekly.days.join() === DEFAULT_WEEK.join()
     e = { weekly: e, pick: form.weekly.pick, ...(sameAsDefault ? {} : { days: form.weekly.days }) }
@@ -223,7 +230,8 @@ export function zmanLabel(id: ZmanKey, custom: CustomZman[] = []): string {
 }
 
 /** What the admin calls an event: the gabbai's own name for it ("Shabbos Mincha"), else the name everyone sees. */
-export const adminLabel = (e: Pick<EventDef, 'name' | 'adminName'>) => e.adminName?.trim() || e.name.en
+export const adminLabel = (e: Pick<EventDef, 'name' | 'adminName'>) =>
+  e.adminName?.trim() || e.name.en
 
 // ---------------------------------------------------------------------------
 // Event details: guessed from the name until the gabbai says otherwise.
@@ -301,7 +309,8 @@ export function formToSaid(f: SaidForm): Rule['relative'] {
 // ---------------------------------------------------------------------------
 // What a sponsorship is for.
 
-export type SponsorTarget = { kind: 'event'; eventId: string } | { kind: 'day' } | { kind: 'notices' }
+export type SponsorTarget =
+  { kind: 'event'; eventId: string } | { kind: 'day' } | { kind: 'notices' }
 
 export function sponsorTarget(n: Notice): SponsorTarget {
   if (n.eventId) return { kind: 'event', eventId: n.eventId }
@@ -311,7 +320,11 @@ export function sponsorTarget(n: Notice): SponsorTarget {
 export function withSponsorTarget(n: Notice, t: SponsorTarget): Notice {
   const { eventId: _e, sponsors: _s, ...rest } = n
   if (t.kind === 'event') return { ...rest, eventId: t.eventId }
-  return t.kind === 'notices' ? { ...rest, sponsors: 'notices' } : rest
+  if (t.kind === 'notices') {
+    const { title: _t, ...untitled } = rest
+    return { ...untitled, sponsors: 'notices' }
+  }
+  return rest
 }
 
 /**
@@ -322,7 +335,12 @@ export function withSponsorText(n: Notice): Notice {
   const by = n.sponsoredBy?.en.trim()
   if (n.kind !== 'sponsor' || !by) return n
   const honor = n.inHonorOf?.en.trim()
-  return { ...n, text: { ...n.text, en: `Sponsored by ${by}${honor ? `, in honor of ${honor}` : ''}` } }
+  // The announcements' sponsor is shown as a name with the dedication under it, as written.
+  if (n.sponsors === 'notices' && !n.eventId) return { ...n, text: { ...n.text, en: honor ?? '' } }
+  return {
+    ...n,
+    text: { ...n.text, en: `Sponsored by ${by}${honor ? `, in honor of ${honor}` : ''}` },
+  }
 }
 
 /**

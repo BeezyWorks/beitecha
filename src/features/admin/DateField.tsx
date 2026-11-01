@@ -40,7 +40,9 @@ export function DateField({
           <Stack grow>
             <GregorianDateField value={toDate(value)} onChange={(d) => onChange(fromDate(d))} />
           </Stack>
-          {unsetLabel && <Button variant="ghost" size="sm" title="Clear" onPress={() => onChange(undefined)} />}
+          {unsetLabel && (
+            <Button variant="ghost" size="sm" title="Clear" onPress={() => onChange(undefined)} />
+          )}
         </Stack>
       ) : (
         <Stack direction="row">

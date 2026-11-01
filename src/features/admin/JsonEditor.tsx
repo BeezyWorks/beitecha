@@ -2,7 +2,13 @@ import { SemanticColor, Stack, Text, TextField } from '@beezyworks/design'
 import React, { useEffect, useState } from 'react'
 
 /** Raw JSON for rules the forms can't express. Applies on every valid edit. */
-export function JsonEditor({ value, onChange }: { value: unknown; onChange: (v: unknown) => void }) {
+export function JsonEditor({
+  value,
+  onChange,
+}: {
+  value: unknown
+  onChange: (v: unknown) => void
+}) {
   const [text, setText] = useState(() => JSON.stringify(value ?? null, null, 2))
   const [error, setError] = useState<string | null>(null)
 

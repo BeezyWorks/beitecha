@@ -212,12 +212,14 @@ export function NoticeForm({
           />
         </Stack>
       )}
-      <Field
-        label={copy.title}
-        placeholder={copy.titleHint}
-        value={n.title?.en ?? ''}
-        onChangeText={(en) => setN({ ...n, title: en ? { en } : undefined })}
-      />
+      {!(n.kind === 'sponsor' && target.kind === 'notices') && (
+        <Field
+          label={copy.title}
+          placeholder={copy.titleHint}
+          value={n.title?.en ?? ''}
+          onChangeText={(en) => setN({ ...n, title: en ? { en } : undefined })}
+        />
+      )}
       {n.kind === 'sponsor' && (
         <>
           <Field
@@ -228,7 +230,7 @@ export function NoticeForm({
             onChangeText={(en) => setN({ ...n, sponsoredBy: en ? { en } : undefined })}
           />
           <Field
-            label="In honor of (optional)"
+            label={target.kind === 'notices' ? 'Dedication (optional)' : 'In honor of (optional)'}
             placeholder="Mrs. Greenblat’s mother’s third yahrzeit"
             value={n.inHonorOf?.en ?? ''}
             onChangeText={(en) => setN({ ...n, inHonorOf: en ? { en } : undefined })}

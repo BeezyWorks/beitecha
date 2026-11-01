@@ -270,8 +270,7 @@ function build(
   if (!p.hebrewName && !p.en && !p.he) errors.push(`${label}: needs a name`)
   if (p.gregorian && !DATE.test(p.gregorian))
     errors.push(`${label}: the Gregorian date must be YYYY-MM-DD`)
-  if (!p.hebrew && !p.gregorian)
-    errors.push(`${label}: needs a date, Hebrew or Gregorian`)
+  if (!p.hebrew && !p.gregorian) errors.push(`${label}: needs a date, Hebrew or Gregorian`)
   if (p.hebrew && !isRealHebrewDate(p.hebrew))
     errors.push(`${label}: that Hebrew date doesn’t exist`)
   if (errors.length > before) return []

@@ -48,7 +48,10 @@ export function TeamTab() {
                 </Text>
               )}
             </Stack>
-            <Badge label={m.role === 'owner' ? 'Owner' : 'Editor'} tone={m.role === 'owner' ? 'accent' : 'neutral'} />
+            <Badge
+              label={m.role === 'owner' ? 'Owner' : 'Editor'}
+              tone={m.role === 'owner' ? 'accent' : 'neutral'}
+            />
             {(owner || m.userId === me?.id) && (
               <Button
                 variant="ghost"
@@ -66,8 +69,18 @@ export function TeamTab() {
         ))}
         {owner && (
           <Stack direction="row" gap="sm" wrap paddingTop="sm">
-            <Button variant="secondary" size="sm" title="Invite an editor" onPress={() => makeInvite('editor')} />
-            <Button variant="ghost" size="sm" title="Invite an owner" onPress={() => makeInvite('owner')} />
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Invite an editor"
+              onPress={() => makeInvite('editor')}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Invite an owner"
+              onPress={() => makeInvite('owner')}
+            />
           </Stack>
         )}
         {invite && (
@@ -90,7 +103,8 @@ export function TeamTab() {
       <Card gap="sm">
         <Text variant="sectionHeader">Displays</Text>
         <Text variant="body" color={SemanticColor.TextSecondary}>
-          Open this on the monitor’s browser and leave it. Add ?theme=dark for a dark screen, or ?label=Lobby to name it here.
+          Open this on the monitor’s browser and leave it. Add ?theme=dark for a dark screen, or
+          ?label=Lobby to name it here.
         </Text>
         <Text variant="bodyStrong" selectable>
           {SITE_URL}/{slug}/display
@@ -106,7 +120,10 @@ export function TeamTab() {
               <Stack key={d.id} direction="row" align="center" gap="sm">
                 <Text variant="body">{d.label ?? `Display ${d.id.slice(0, 6)}`}</Text>
                 <Stack grow />
-                <Badge label={live ? 'On' : `Last seen ${ago(d.lastSeen)}`} tone={live ? 'success' : 'neutral'} />
+                <Badge
+                  label={live ? 'On' : `Last seen ${ago(d.lastSeen)}`}
+                  tone={live ? 'success' : 'neutral'}
+                />
               </Stack>
             )
           })

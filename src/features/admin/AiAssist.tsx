@@ -55,7 +55,14 @@ export function AiAssist<T>({
   }
 
   return (
-    <Stack gap="md" padding="md" radius="md" background={SemanticColor.SurfaceBackground} borderWidth={1} borderColor={SemanticColor.BorderDefault}>
+    <Stack
+      gap="md"
+      padding="md"
+      radius="md"
+      background={SemanticColor.SurfaceBackground}
+      borderWidth={1}
+      borderColor={SemanticColor.BorderDefault}
+    >
       <Stack direction="row" align="center" gap="sm">
         <Stack grow gap="none">
           <Text variant="bodyStrong">{title}</Text>
@@ -70,7 +77,13 @@ export function AiAssist<T>({
         <Text variant="label" color={SemanticColor.TextSecondary}>
           1. What you want, in your own words
         </Text>
-        <TextField variant="boxed" multiline placeholder={example} value={request} onChangeText={setRequest} />
+        <TextField
+          variant="boxed"
+          multiline
+          placeholder={example}
+          value={request}
+          onChangeText={setRequest}
+        />
         <Stack direction="row" gap="sm" wrap>
           <Button
             size="sm"
@@ -109,7 +122,11 @@ export function AiAssist<T>({
               • {p}
             </Text>
           ))}
-          {problems.length > 8 && <Text variant="caption" color={SemanticColor.TextPrimary}>…and {problems.length - 8} more</Text>}
+          {problems.length > 8 && (
+            <Text variant="caption" color={SemanticColor.TextPrimary}>
+              …and {problems.length - 8} more
+            </Text>
+          )}
           <Stack direction="row">
             <Button
               variant="secondary"

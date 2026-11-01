@@ -39,7 +39,12 @@ ${r || '(The gabbai will write it in the next message.)'}
 /** The other events by id, for anchoring a time on one ("30 minutes before Mincha") or sponsoring it. */
 function eventIndex(events: EventDef[]): string {
   if (!events.length) return '  (none)'
-  return events.map((e) => `  ${e.id}: ${e.adminName ? `${e.adminName}, shown as ${e.name.en}` : e.name.en} (${e.kind === 'tefila' ? `minyan, ${e.tefila}` : e.kind})`).join('\n')
+  return events
+    .map(
+      (e) =>
+        `  ${e.id}: ${e.adminName ? `${e.adminName}, shown as ${e.name.en}` : e.name.en} (${e.kind === 'tefila' ? `minyan, ${e.tefila}` : e.kind})`,
+    )
+    .join('\n')
 }
 
 /** The coming days in words, so an AI can turn "this Shabbos" or "Chanukah" into dates. */
@@ -47,7 +52,10 @@ function comingDays(schedule: Schedule, today: DateString, days: number): string
   return new Calendar(schedule)
     .range(today, days)
     .map((d) => {
-      const extra = [...d.holidays.map((h) => h.en), ...(d.weekday === 6 && d.parsha ? [`Parshas ${d.parsha.en}`] : [])]
+      const extra = [
+        ...d.holidays.map((h) => h.en),
+        ...(d.weekday === 6 && d.parsha ? [`Parshas ${d.parsha.en}`] : []),
+      ]
       return `  ${d.date} ${WEEKDAYS[d.weekday].en}, ${d.hebrew.en}${extra.length ? ` · ${extra.join(', ')}` : ''}`
     })
     .join('\n')
@@ -64,7 +72,12 @@ function json(text: string): Parsed<unknown> {
 // ---------------------------------------------------------------------------
 // A regular event (a minyan, a shiur, the Kiddush): a new one, or changes to one.
 
-export function eventPrompt(schedule: Schedule, profile: ShulProfile, event: EventDef | null, ask: string): string {
+export function eventPrompt(
+  schedule: Schedule,
+  profile: ShulProfile,
+  event: EventDef | null,
+  ask: string,
+): string {
   const others = schedule.events.filter((e) => e.id !== event?.id)
   const what = event
     ? `change one event, "${event.name.en}" (id "${event.id}"). Its current JSON is below.`
@@ -89,7 +102,13 @@ export function parseEvents(text: string, zmanim?: ReadonlySet<string>): Parsed<
   const data = json(text)
   if (!data.ok) return data
   const v = data.value
-  const list = Array.isArray(v) ? v : isObj(v) && Array.isArray(v.events) ? v.events : isObj(v) && 'rules' in v ? [v] : null
+  const list = Array.isArray(v)
+    ? v
+    : isObj(v) && Array.isArray(v.events)
+      ? v.events
+      : isObj(v) && 'rules' in v
+        ? [v]
+        : null
   if (!list) return { ok: false, errors: ['Expected { "events": [ … ] }.'] }
   const result = parseEventList(list, zmanim)
   return result.ok ? { ok: true, value: result.events } : result
@@ -98,7 +117,13 @@ export function parseEvents(text: string, zmanim?: ReadonlySet<string>): Parsed<
 // ---------------------------------------------------------------------------
 // One rule of an event: "on these days, at this time".
 
-export function rulePrompt(schedule: Schedule, profile: ShulProfile, event: EventDef, index: number | null, ask: string): string {
+export function rulePrompt(
+  schedule: Schedule,
+  profile: ShulProfile,
+  event: EventDef,
+  index: number | null,
+  ask: string,
+): string {
   const what =
     index === null
       ? `add one rule to "${event.name.en}": the days it covers and its time on them.`
@@ -123,8 +148,14 @@ export function parseRule(text: string, zmanim?: ReadonlySet<string>): Parsed<Ru
   const data = json(text)
   if (!data.ok) return data
   const v = data.value
-  const rule = isObj(v) && isObj(v.rule) ? v.rule : isObj(v) && Array.isArray(v.rules) && v.rules.length === 1 ? v.rules[0] : v
-  if (!isObj(rule) || !('time' in rule)) return { ok: false, errors: ['Expected { "rule": { "when": …, "time": … } }.'] }
+  const rule =
+    isObj(v) && isObj(v.rule)
+      ? v.rule
+      : isObj(v) && Array.isArray(v.rules) && v.rules.length === 1
+        ? v.rules[0]
+        : v
+  if (!isObj(rule) || !('time' in rule))
+    return { ok: false, errors: ['Expected { "rule": { "when": …, "time": … } }.'] }
   const errors: string[] = []
   checkRule(rule, 'The rule', errors, zmanim)
   return errors.length ? { ok: false, errors } : { ok: true, value: rule as unknown as Rule }
@@ -151,7 +182,12 @@ const ONE_TIME_SCHEMA = `{ "events": [
   }
 ] }`
 
-export function oneTimePrompt(schedule: Schedule, profile: ShulProfile, today: DateString, ask: string): string {
+export function oneTimePrompt(
+  schedule: Schedule,
+  profile: ShulProfile,
+  today: DateString,
+  ask: string,
+): string {
   return `You are helping the gabbai of ${profile.name.en} add one-time events (a dinner, a party, a guest speaker) to their shul's calendar in Beitecha. The gabbai may paste a flyer or message; take the events from it.
 
 ${HOW_TO_ANSWER('{ "events": [ … ] } in the format below')}
@@ -167,14 +203,27 @@ ${request(ask)}`
 }
 
 const str = (v: unknown) => typeof v === 'string' && v.trim() !== ''
-const localized = (v: unknown) => (typeof v === 'string' ? (v.trim() ? { en: v.trim() } : undefined) : isObj(v) && str(v.en) ? (v as { en: string; he?: string }) : undefined)
+const localized = (v: unknown) =>
+  typeof v === 'string'
+    ? v.trim()
+      ? { en: v.trim() }
+      : undefined
+    : isObj(v) && str(v.en)
+      ? (v as { en: string; he?: string })
+      : undefined
 
 /** One-time events from an AI's answer, ready for the schedule once each gets an id. */
 export function parseOneTime(text: string): Parsed<DatedEvent[]> {
   const data = json(text)
   if (!data.ok) return data
   const v = data.value
-  const list = Array.isArray(v) ? v : isObj(v) && Array.isArray(v.events) ? v.events : isObj(v) ? [v] : []
+  const list = Array.isArray(v)
+    ? v
+    : isObj(v) && Array.isArray(v.events)
+      ? v.events
+      : isObj(v)
+        ? [v]
+        : []
   if (!list.length) return { ok: false, errors: ['Expected { "events": [ … ] }.'] }
   const errors: string[] = []
   const events = list.map((raw: unknown, i: number): DatedEvent => {
@@ -182,15 +231,20 @@ export function parseOneTime(text: string): Parsed<DatedEvent[]> {
     const name = localized(e.name)
     const at = name ? `"${name.en}"` : `Event ${i + 1}`
     if (!name) errors.push(`${at}: needs a name`)
-    if (!str(e.date) || !DATE.test(e.date as string)) errors.push(`${at}: "date" must be "YYYY-MM-DD"`)
-    if (!str(e.time) || !CLOCK.test(e.time as string)) errors.push(`${at}: "time" must be "HH:MM", 24-hour`)
-    if (e.end !== undefined && (!str(e.end) || !CLOCK.test(e.end as string))) errors.push(`${at}: "end" must be "HH:MM", 24-hour`)
+    if (!str(e.date) || !DATE.test(e.date as string))
+      errors.push(`${at}: "date" must be "YYYY-MM-DD"`)
+    if (!str(e.time) || !CLOCK.test(e.time as string))
+      errors.push(`${at}: "time" must be "HH:MM", 24-hour`)
+    if (e.end !== undefined && (!str(e.end) || !CLOCK.test(e.end as string)))
+      errors.push(`${at}: "end" must be "HH:MM", 24-hour`)
     if (e.category !== undefined && !(EVENT_CATEGORIES as readonly unknown[]).includes(e.category))
       errors.push(`${at}: "category" must be "program" or "meal"`)
     if (e.audience !== undefined && !(AUDIENCES as readonly unknown[]).includes(e.audience))
       errors.push(`${at}: "audience" must be men, women, kids or teens`)
-    if (e.link !== undefined && !/^https:\/\/\S+$/.test(String(e.link))) errors.push(`${at}: "link" must start https://`)
-    const opt = <K extends string>(k: K, value: unknown) => (value === undefined ? {} : { [k]: value })
+    if (e.link !== undefined && !/^https:\/\/\S+$/.test(String(e.link)))
+      errors.push(`${at}: "link" must start https://`)
+    const opt = <K extends string>(k: K, value: unknown) =>
+      value === undefined ? {} : { [k]: value }
     return {
       id: '',
       date: e.date as DateString,
@@ -239,9 +293,18 @@ const NOTICE_SCHEMA = `{ "notices": [
   }
 ] }`
 
-export function noticePrompt(schedule: Schedule, profile: ShulProfile, today: DateString, ask: string): string {
+export function noticePrompt(
+  schedule: Schedule,
+  profile: ShulProfile,
+  today: DateString,
+  ask: string,
+): string {
   const weekly = schedule.events.filter((e) => e.kind !== 'tefila' && e.visibility !== 'internal')
-  const oneTime = schedule.exceptions.flatMap((x) => (x.type === 'add' && x.date >= today ? [`  ${x.event.id}: ${x.event.name.en} (on ${x.date})`] : []))
+  const oneTime = schedule.exceptions.flatMap((x) =>
+    x.type === 'add' && x.date >= today
+      ? [`  ${x.event.id}: ${x.event.name.en} (on ${x.date})`]
+      : [],
+  )
   const events = [...weekly.map((e) => `  ${e.id}: ${e.name.en} (every week)`), ...oneTime]
   const categories = schedule.settings.noticeCategories ?? []
   return `You are helping the gabbai of ${profile.name.en} put sponsorships and notices on their shul's display, printed week and Siddur page in Beitecha. The gabbai may paste a message, an email or a list; take each sponsorship or notice from it, keeping the wording warm and short.
@@ -270,11 +333,21 @@ ${request(ask)}`
  * Notices from an AI's answer, ready for the schedule once each gets an id. `eventIds` and `categoryIds` are the ones
  * it may name.
  */
-export function parseNotices(text: string, eventIds: string[], categoryIds: string[] = []): Parsed<Notice[]> {
+export function parseNotices(
+  text: string,
+  eventIds: string[],
+  categoryIds: string[] = [],
+): Parsed<Notice[]> {
   const data = json(text)
   if (!data.ok) return data
   const v = data.value
-  const list = Array.isArray(v) ? v : isObj(v) && Array.isArray(v.notices) ? v.notices : isObj(v) && 'text' in v ? [v] : []
+  const list = Array.isArray(v)
+    ? v
+    : isObj(v) && Array.isArray(v.notices)
+      ? v.notices
+      : isObj(v) && 'text' in v
+        ? [v]
+        : []
   if (!list.length) return { ok: false, errors: ['Expected { "notices": [ … ] }.'] }
   const errors: string[] = []
   const notices = list.map((raw: unknown, i: number): Notice => {
@@ -284,24 +357,36 @@ export function parseNotices(text: string, eventIds: string[], categoryIds: stri
     const sponsoredBy = n.kind === 'sponsor' ? localized(n.sponsoredBy) : undefined
     const inHonorOf = sponsoredBy && localized(n.inHonorOf)
     const at = `Notice ${i + 1}${title ? ` (${title.en})` : ''}`
-    if (!(NOTICE_KINDS as readonly unknown[]).includes(n.kind)) errors.push(`${at}: "kind" must be one of ${NOTICE_KINDS.join(', ')}`)
+    if (!(NOTICE_KINDS as readonly unknown[]).includes(n.kind))
+      errors.push(`${at}: "kind" must be one of ${NOTICE_KINDS.join(', ')}`)
     if (!text && !sponsoredBy) errors.push(`${at}: needs "text"`)
-    if (!str(n.from) || !DATE.test(n.from as string)) errors.push(`${at}: "from" must be "YYYY-MM-DD"`)
-    if (n.to !== undefined && (!str(n.to) || !DATE.test(n.to as string) || (n.to as string) < (n.from as string)))
+    if (!str(n.from) || !DATE.test(n.from as string))
+      errors.push(`${at}: "from" must be "YYYY-MM-DD"`)
+    if (
+      n.to !== undefined &&
+      (!str(n.to) || !DATE.test(n.to as string) || (n.to as string) < (n.from as string))
+    )
       errors.push(`${at}: "to" must be "YYYY-MM-DD", on or after "from"`)
-    if (n.eventId !== undefined && !eventIds.includes(n.eventId as string)) errors.push(`${at}: no event "${n.eventId}"; use an id from the list`)
-    if (n.category !== undefined && !categoryIds.includes(n.category as string)) errors.push(`${at}: no category "${n.category}"; use an id from the list`)
-    else if (n.category !== undefined && n.kind !== 'announcement') errors.push(`${at}: only an announcement has a "category"`)
-    if (n.sponsors !== undefined && n.sponsors !== 'day' && n.sponsors !== 'notices') errors.push(`${at}: "sponsors" must be "day" or "notices"`)
-    if (n.link !== undefined && !/^https:\/\/\S+$/.test(String(n.link))) errors.push(`${at}: "link" must start https://`)
+    if (n.eventId !== undefined && !eventIds.includes(n.eventId as string))
+      errors.push(`${at}: no event "${n.eventId}"; use an id from the list`)
+    if (n.category !== undefined && !categoryIds.includes(n.category as string))
+      errors.push(`${at}: no category "${n.category}"; use an id from the list`)
+    else if (n.category !== undefined && n.kind !== 'announcement')
+      errors.push(`${at}: only an announcement has a "category"`)
+    if (n.sponsors !== undefined && n.sponsors !== 'day' && n.sponsors !== 'notices')
+      errors.push(`${at}: "sponsors" must be "day" or "notices"`)
+    if (n.link !== undefined && !/^https:\/\/\S+$/.test(String(n.link)))
+      errors.push(`${at}: "link" must start https://`)
     const links = (Array.isArray(n.links) ? n.links : []).map((raw: unknown) => {
       const l = isObj(raw) ? raw : {}
       const linkTitle = localized(l.title)
       if (!linkTitle) errors.push(`${at}: each link needs a "title" saying what scanning it does`)
-      if (!str(l.url) || !/^https:\/\/\S+$/.test(l.url as string)) errors.push(`${at}: each link's "url" must start https://`)
+      if (!str(l.url) || !/^https:\/\/\S+$/.test(l.url as string))
+        errors.push(`${at}: each link's "url" must start https://`)
       return { title: linkTitle ?? { en: '' }, url: String(l.url ?? '') }
     })
-    if (n.links !== undefined && !Array.isArray(n.links)) errors.push(`${at}: "links" must be a list`)
+    if (n.links !== undefined && !Array.isArray(n.links))
+      errors.push(`${at}: "links" must be a list`)
     return withSponsorText({
       id: '',
       kind: n.kind as Notice['kind'],
@@ -309,7 +394,9 @@ export function parseNotices(text: string, eventIds: string[], categoryIds: stri
       ...(str(n.to) && n.to !== n.from && { to: n.to as DateString }),
       ...(str(n.category) && { category: n.category as string }),
       ...(str(n.eventId) && { eventId: n.eventId as string }),
-      ...(n.kind === 'sponsor' && !n.eventId && n.sponsors === 'notices' && { sponsors: 'notices' as const }),
+      ...(n.kind === 'sponsor' &&
+        !n.eventId &&
+        n.sponsors === 'notices' && { sponsors: 'notices' as const }),
       ...(title && { title }),
       ...(sponsoredBy && { sponsoredBy }),
       ...(inHonorOf && { inHonorOf }),

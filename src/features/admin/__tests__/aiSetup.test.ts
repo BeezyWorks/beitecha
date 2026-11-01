@@ -93,8 +93,16 @@ describe('parseAiImport', () => {
   })
 
   it('wants each minyan’s tefila, unless its name already says', () => {
-    const minyan = (name: string, extra = {}) => ({ id: name.toLowerCase(), name: { en: name }, kind: 'tefila', rules: [], ...extra })
-    const result = parseAiImport(JSON.stringify([minyan('Early'), minyan('Late', { tefila: 'musaf' }), minyan('Arvit')]))
+    const minyan = (name: string, extra = {}) => ({
+      id: name.toLowerCase(),
+      name: { en: name },
+      kind: 'tefila',
+      rules: [],
+      ...extra,
+    })
+    const result = parseAiImport(
+      JSON.stringify([minyan('Early'), minyan('Late', { tefila: 'musaf' }), minyan('Arvit')]),
+    )
     expect(result).toEqual({
       ok: false,
       errors: [
@@ -102,7 +110,9 @@ describe('parseAiImport', () => {
         '"Late": "tefila" must be shacharis, mincha, maariv or minchaMaariv',
       ],
     })
-    const ok = parseAiImport(JSON.stringify([minyan('Early', { tefila: 'shacharis' }), minyan('Arvit')]))
+    const ok = parseAiImport(
+      JSON.stringify([minyan('Early', { tefila: 'shacharis' }), minyan('Arvit')]),
+    )
     expect(ok.ok && ok.events.map((e) => e.tefila)).toEqual(['shacharis', 'maariv'])
   })
 
@@ -130,16 +140,33 @@ describe('custom zmanim', () => {
     ...sampleSchedule,
     settings: {
       ...sampleSchedule.settings,
-      zmanim: { custom: [{ id: 'tzeis72', name: { he: 'צאת ע״ב', en: 'Tzeis 72' }, from: 'sunset' as const, minutes: 72 }] },
+      zmanim: {
+        custom: [
+          {
+            id: 'tzeis72',
+            name: { he: 'צאת ע״ב', en: 'Tzeis 72' },
+            from: 'sunset' as const,
+            minutes: 72,
+          },
+        ],
+      },
     },
   }
   const maariv = JSON.stringify([
-    { id: 'maariv', name: { en: 'Maariv' }, kind: 'tefila', rules: [{ time: { zman: 'tzeis72' } }] },
+    {
+      id: 'maariv',
+      name: { en: 'Maariv' },
+      kind: 'tefila',
+      rules: [{ time: { zman: 'tzeis72' } }],
+    },
   ])
 
   it('lists the shul’s own in the prompt and accepts them in an answer', () => {
     expect(buildAiPrompt(schedule, profile)).toContain("tzeis72: Tzeis 72 (this shul's own)")
     expect(parseAiImport(maariv, zmanIds(schedule)).ok).toBe(true)
-    expect(parseAiImport(maariv)).toEqual({ ok: false, errors: ['"Maariv" rule 1: unknown zman "tzeis72"'] })
+    expect(parseAiImport(maariv)).toEqual({
+      ok: false,
+      errors: ['"Maariv" rule 1: unknown zman "tzeis72"'],
+    })
   })
 })

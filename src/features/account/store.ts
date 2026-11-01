@@ -54,7 +54,10 @@ export const useAccount = create<AccountState>((set) => ({
     const token = tokenStore.get()
     if (!token) return set({ status: 'signedOut', user: null })
     if (DEV_AUTH && token.startsWith('dev-')) {
-      return set({ status: 'signedIn', user: { id: token, name: token.slice(4), email: `${token}@localhost` } })
+      return set({
+        status: 'signedIn',
+        user: { id: token, name: token.slice(4), email: `${token}@localhost` },
+      })
     }
     try {
       const data = await auth('/get-session')

@@ -100,7 +100,6 @@ export function ShulTab() {
       />
 
       <LocalHolidaysCard settings={schedule.settings} onChange={setSettings} />
-
     </SectionPage>
   )
 }

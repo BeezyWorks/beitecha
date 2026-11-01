@@ -18,10 +18,22 @@ const SHOWN: {
   label: string
   help: string
 }[] = [
-  { key: 'zmanimTable', label: 'Zmanim table', help: 'The week’s zmanim, day by day, on the front.' },
+  {
+    key: 'zmanimTable',
+    label: 'Zmanim table',
+    help: 'The week’s zmanim, day by day, on the front.',
+  },
   { key: 'shiurim', label: 'Shiurim', help: 'The week’s shiurim.' },
-  { key: 'comingUp', label: 'Coming up', help: 'Dated events a few weeks ahead, and any set to always.' },
-  { key: 'notices', label: 'Sponsors & announcements', help: 'Including sponsors on minyanim and shiurim.' },
+  {
+    key: 'comingUp',
+    label: 'Coming up',
+    help: 'Dated events a few weeks ahead, and any set to always.',
+  },
+  {
+    key: 'notices',
+    label: 'Sponsors & announcements',
+    help: 'Including sponsors on minyanim and shiurim.',
+  },
   { key: 'yahrzeits', label: 'Yahrzeits', help: 'Those kept this week.' },
   { key: 'cholim', label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
 ]

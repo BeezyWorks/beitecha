@@ -1,4 +1,15 @@
-import { guessTefila, type Choleh, type EventDef, type Exception, type Notice, type NoticeCategory, type Schedule, type ShulProfile, type Yahrzeit, type YahrzeitSettings } from '@beitecha/engine'
+import {
+  guessTefila,
+  type Choleh,
+  type EventDef,
+  type Exception,
+  type Notice,
+  type NoticeCategory,
+  type Schedule,
+  type ShulProfile,
+  type Yahrzeit,
+  type YahrzeitSettings,
+} from '@beitecha/engine'
 import { create } from 'zustand'
 
 import { api, ApiError, type ShulAdmin } from '@/lib/api'
@@ -59,7 +70,9 @@ export const newId = () => Math.random().toString(36).slice(2, 10)
 /** Minyanim saved before they had a tefila get the one their name says; the next save keeps it. */
 const withTefilos = (s: Schedule): Schedule => ({
   ...s,
-  events: s.events.map((e) => (e.kind === 'tefila' && !e.tefila ? { ...e, tefila: guessTefila(e) } : e)),
+  events: s.events.map((e) =>
+    e.kind === 'tefila' && !e.tefila ? { ...e, tefila: guessTefila(e) } : e,
+  ),
 })
 
 /** The schedule as it would be with the open event saved, for previews. */
@@ -69,7 +82,9 @@ export function previewSchedule(s: Pick<AdminState, 'schedule' | 'editing'>): Sc
   const { event, isNew } = editing
   return {
     ...schedule,
-    events: isNew ? [...schedule.events, event] : schedule.events.map((e) => (e.id === event.id ? event : e)),
+    events: isNew
+      ? [...schedule.events, event]
+      : schedule.events.map((e) => (e.id === event.id ? event : e)),
   }
 }
 
@@ -83,7 +98,9 @@ export const useAdmin = create<AdminState>((set, get) => {
     void get().persist()
   }
   const replaceIn = <T extends { id: string }>(list: T[], item: T) =>
-    list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item]
+    list.some((x) => x.id === item.id)
+      ? list.map((x) => (x.id === item.id ? item : x))
+      : [...list, item]
 
   return {
     slug: null,
@@ -100,11 +117,22 @@ export const useAdmin = create<AdminState>((set, get) => {
       set({ slug, loadError: null })
       try {
         const loaded = await api.admin(slug)
-        set({ loaded, profile: loaded.profile, schedule: withTefilos(loaded.schedule), dirty: false, save: 'idle', saveError: null, editing: null })
+        set({
+          loaded,
+          profile: loaded.profile,
+          schedule: withTefilos(loaded.schedule),
+          dirty: false,
+          save: 'idle',
+          saveError: null,
+          editing: null,
+        })
       } catch (e) {
         set({
           loaded: null,
-          loadError: { status: e instanceof ApiError ? e.status : 0, message: e instanceof Error ? e.message : String(e) },
+          loadError: {
+            status: e instanceof ApiError ? e.status : 0,
+            message: e instanceof Error ? e.message : String(e),
+          },
         })
       }
     },
@@ -121,7 +149,10 @@ export const useAdmin = create<AdminState>((set, get) => {
     saveEditing: async () => {
       const { editing, schedule } = get()
       if (!editing || !schedule) return
-      set({ schedule: previewSchedule({ schedule, editing }), editing: { ...editing, isNew: false, changed: false } })
+      set({
+        schedule: previewSchedule({ schedule, editing }),
+        editing: { ...editing, isNew: false, changed: false },
+      })
       await get().persist()
     },
     cancelEditing: () => {
@@ -129,7 +160,9 @@ export const useAdmin = create<AdminState>((set, get) => {
       if (!editing) return
       // A new one that's dropped closes; an existing one goes back to what's saved.
       const saved = schedule?.events.find((e) => e.id === editing.event.id)
-      set({ editing: editing.isNew || !saved ? null : { event: saved, isNew: false, changed: false } })
+      set({
+        editing: editing.isNew || !saved ? null : { event: saved, isNew: false, changed: false },
+      })
     },
 
     removeEvent: (id) => {
@@ -148,7 +181,8 @@ export const useAdmin = create<AdminState>((set, get) => {
         return { ...s, events }
       }),
     upsertException: (x) => commit((s) => ({ ...s, exceptions: replaceIn(s.exceptions, x) })),
-    removeException: (id) => commit((s) => ({ ...s, exceptions: s.exceptions.filter((x) => x.id !== id) })),
+    removeException: (id) =>
+      commit((s) => ({ ...s, exceptions: s.exceptions.filter((x) => x.id !== id) })),
     upsertNotice: (n) => commit((s) => ({ ...s, notices: replaceIn(s.notices, n) })),
     removeNotice: (id) => commit((s) => ({ ...s, notices: s.notices.filter((x) => x.id !== id) })),
     setCholim: (cholim) => commit((s) => ({ ...s, cholim })),

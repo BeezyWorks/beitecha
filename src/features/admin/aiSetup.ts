@@ -361,7 +361,8 @@ function balancedBlocks(text: string): string[] {
     } else if (c === '"' && depth > 0) inString = true
     else if (c === '{' || c === '[') {
       if (depth++ === 0) from = i
-    } else if ((c === '}' || c === ']') && depth > 0 && --depth === 0) out.push(text.slice(from, i + 1))
+    } else if ((c === '}' || c === ']') && depth > 0 && --depth === 0)
+      out.push(text.slice(from, i + 1))
   }
   return out
 }

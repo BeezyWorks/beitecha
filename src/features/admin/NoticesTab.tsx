@@ -212,7 +212,7 @@ export function NoticeForm({
           />
         </Stack>
       )}
-      {!(n.kind === 'sponsor' && target.kind === 'notices') && (
+      {n.kind !== 'sponsor' && (
         <Field
           label={copy.title}
           placeholder={copy.titleHint}

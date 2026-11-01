@@ -77,8 +77,18 @@ export interface WeekProps {
   shabbosZmanim: { friday: InlineZman[]; shabbos: InlineZman[] }
 }
 
-/** Shiurim have their own timetable with the announcements; the front keeps to the minyanim. */
+/** Weekday shiurim have their own timetable with the announcements; the front's weekday grid keeps to the minyanim. */
 const notShiur = (e: Occurrence) => e.kind !== 'shiur'
+
+/** The days the shiurim list covers: Shabbos's (Friday from chatzos, and Shabbos itself) are on the Shabbos timeline. */
+const shiurDays = (days: DaySchedule[]): DaySchedule[] => {
+  const erevShabbos = erevShabbosEvents(days[5])
+  return days
+    .slice(0, 6)
+    .map((d) =>
+      d === days[5] ? { ...d, events: d.events.filter((e) => !erevShabbos.includes(e)) } : d,
+    )
+}
 
 /** Whether the week has anything for the announcements side. */
 export const hasAnnouncements = ({
@@ -93,7 +103,7 @@ export const hasAnnouncements = ({
   comingUp.length > 0 ||
   cholim.length > 0 ||
   yahrzeits.length > 0 ||
-  (shiurim && days.some((d) => d.events.some((e) => !notShiur(e))))
+  (shiurim && shiurDays(days).some((d) => d.events.some((e) => !notShiur(e))))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
 export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: boolean }) {
@@ -147,8 +157,8 @@ function announcementBlocks({
   shiurim: showShiurim,
 }: WeekProps): { key: string; node: React.ReactNode }[] {
   const blocks: { key: string; node: React.ReactNode }[] = []
-  if (showShiurim && days.some((d) => d.events.some((e) => !notShiur(e))))
-    blocks.push({ key: 'shiurim', node: <Shiurim days={days} notices={notices} /> })
+  if (showShiurim && shiurDays(days).some((d) => d.events.some((e) => !notShiur(e))))
+    blocks.push({ key: 'shiurim', node: <Shiurim days={shiurDays(days)} notices={notices} /> })
   if (comingUp.length > 0) blocks.push({ key: 'comingUp', node: <ComingUp items={comingUp} /> })
   if (notices.length > 0)
     blocks.push({
@@ -249,7 +259,7 @@ function ShabbosBlock({
   zmanim: WeekProps['shabbosZmanim']
 }) {
   const t = useT()
-  const groups = shabbosGroups(friday, shabbos, zmanim, notShiur)
+  const groups = shabbosGroups(friday, shabbos, zmanim)
   if (groups.length === 0) return null
   const holidays = [...new Set([...friday.holidays, ...shabbos.holidays].map(t.text))]
   const sponsors = new Map([

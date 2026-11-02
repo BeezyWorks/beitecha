@@ -33,7 +33,7 @@ const holidayName = (e: { render(l: string): string }): Localized => ({
 })
 
 /**
- * The extra zmanim for the week starting `sunday`: for each public fast (not Yom Kippur) when it begins (alos; on Tish'a
+ * The extra zmanim for the `days` (default a week) starting `sunday`: for each public fast (not Yom Kippur) when it begins (alos; on Tish'a
  * B'Av the sunset before, plus chatzos) and ends (`zmanim.fastEnds`), and for Erev Pesach the last times to eat and burn
  * chametz. A Tish'a B'Av on Sunday begins Shabbos at sunset, so it belongs to the week before too. Empty most weeks.
  */
@@ -41,15 +41,16 @@ export function specialZmanim(
   sunday: DateString,
   settings: ShulSettings,
   localHolidays: LocalHoliday[] = [],
+  days = 7,
 ): SpecialZmanimGroup[] {
   const groups: SpecialZmanimGroup[] = []
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i <= days; i++) {
     const date = addDays(sunday, i)
     const info = dayInfo(date, settings, localHolidays)
     const fast = info.holidays.find(isPublicFast)
     const tishaBav = fast?.getDesc() === "Tish'a B'Av"
-    // Next Sunday's fast is this week's only when it starts before, on Shabbos's sunset.
-    if (fast && (i < 7 || tishaBav)) {
+    // The day after the range's fast is its only when it starts before, on Shabbos's sunset.
+    if (fast && (i < days || tishaBav)) {
       const times = zmanimFor(date, settings)
       const begin = tishaBav ? zmanimFor(addDays(date, -1), settings).sunset : times.alos
       const row = (id: keyof typeof WORDS, at: Minutes | undefined, on = date): SpecialZman[] =>
@@ -64,7 +65,7 @@ export function specialZmanim(
         ],
       })
     }
-    const erevPesach = i < 7 && info.holidays.find((e) => e.getDesc() === 'Erev Pesach')
+    const erevPesach = i < days && info.holidays.find((e) => e.getDesc() === 'Erev Pesach')
     if (erevPesach) {
       const c = chametzZmanim(date, settings)
       // Erev Pesach on Shabbos: chametz is eaten that morning but burned on Friday.

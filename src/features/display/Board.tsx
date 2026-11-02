@@ -3,6 +3,7 @@ import {
   ampm,
   type Choleh,
   type DaySchedule,
+  type SpecialZmanimGroup,
   DEFAULT_SHABBOS_ZMANIM,
   type DisplaySetup,
   type Minutes,
@@ -23,7 +24,14 @@ import { useT } from '@/features/luach/language'
 import { Pill } from '@/features/luach/Pill'
 import { siddurShulUrl } from '@/lib/config'
 import { NoticeRotator } from './Notices'
-import { inlineZmanim, ShabbosPanel, Today, todayHeight, Zmanim } from './Panels'
+import {
+  inlineZmanim,
+  ShabbosPanel,
+  SpecialZmanimPanel,
+  Today,
+  todayHeight,
+  Zmanim,
+} from './Panels'
 import { blockOn, shabbosFocused, shabbosSpan } from './setup'
 
 /** The canvases `DisplayScreen` scales to the screen: small enough that the DL's type ramp reads across a lobby. */
@@ -69,6 +77,8 @@ export interface BoardProps {
   anniversarySettings?: OccasionSettings
   /** The zmanim listed among the Shabbos minyanim (`settings.print.shabbosZmanim`). */
   shabbosZmanim?: { friday: ZmanKey[]; shabbos: ZmanKey[] }
+  /** This week's fast or Erev Pesach zmanim (`specialZmanim`), shown below Shabbos until they've passed. */
+  specialZmanim?: SpecialZmanimGroup[]
 }
 
 /**
@@ -92,6 +102,7 @@ export function Board({
   anniversaries,
   anniversarySettings,
   shabbosZmanim = DEFAULT_SHABBOS_ZMANIM,
+  specialZmanim = [],
 }: BoardProps) {
   const portrait = setup.orientation === 'portrait'
   const on = (block: Parameters<typeof blockOn>[1]) => blockOn(setup, block)
@@ -126,6 +137,17 @@ export function Board({
       columns={focus || portrait ? 2 : 1}
       grow
     />
+  )
+  const upcoming = specialZmanim.filter((g) => g.rows.some((r) => r.date >= day.date))
+  const special = on('specialZmanim') && upcoming.length > 0 && (
+    <SpecialZmanimPanel groups={upcoming} today={day.date} minutes={minutes} />
+  )
+  // Below Shabbos, which takes the room the box leaves.
+  const shabbosColumn = (shabbos || special) && (
+    <Stack grow gap={GAP}>
+      {shabbos}
+      {special}
+    </Stack>
   )
   const rotator = (height?: number) =>
     hasNotices && (
@@ -171,7 +193,7 @@ export function Board({
         {focus ? (
           <>
             {today && <Stack height={PORTRAIT_TODAY_H}>{today}</Stack>}
-            {shabbos && <Stack grow>{shabbos}</Stack>}
+            {shabbosColumn}
           </>
         ) : (
           <>
@@ -183,7 +205,7 @@ export function Board({
                 {today}
               </Stack>
             )}
-            {shabbos && <Stack grow>{shabbos}</Stack>}
+            {shabbosColumn}
             {zmanim && <Zmanim day={day} minutes={minutes} columns={3} />}
           </>
         )}
@@ -203,8 +225,8 @@ export function Board({
     return (
       <Stack fill direction="row" padding={PAD} gap={GAP}>
         {hero}
-        <Stack grow width={0}>
-          {shabbos}
+        <Stack grow width={0} gap={GAP}>
+          {shabbosColumn}
         </Stack>
         {(today || rot) && (
           <Stack width={FOCUS_SIDE_W} gap={GAP}>
@@ -217,7 +239,7 @@ export function Board({
 
   // Today and this Shabbos in the middle (Today as tall as its rows, Shabbos the rest), the zmanim and the notices at
   // the right; an empty column gives its width away.
-  const middle = today || shabbos
+  const middle = today || shabbosColumn
   const right = zmanim || rot
   const cap = CANVAS.landscape.height - 2 * PAD - GAP - SHABBOS_MIN_H
   return (
@@ -230,7 +252,7 @@ export function Board({
               {today}
             </Stack>
           )}
-          {shabbos && <Stack grow>{shabbos}</Stack>}
+          {shabbosColumn}
         </Stack>
       )}
       {right && (

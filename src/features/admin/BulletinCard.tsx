@@ -1,5 +1,7 @@
 import { Button, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
+  BULLETIN_SECTIONS,
+  type BulletinSection,
   DEFAULT_SHABBOS_ZMANIM,
   type PrintSettings,
   type ShulSettings,
@@ -12,6 +14,27 @@ import { Select } from '@/components/Select'
 import { zmanLabel } from './forms'
 
 const ADD = ''
+
+const SECTION_NAMES: Record<BulletinSection, string> = {
+  shabbos: 'Shabbos',
+  specialZmanim: 'Fast & Pesach zmanim',
+  notices: 'Sponsors & announcements',
+  weekdays: 'Weekday minyanim',
+  zmanimTable: 'Zmanim table',
+  shiurim: 'Shiurim',
+  comingUp: 'Coming up',
+  remembrance: 'Yahrzeits & refuah shleimah',
+  celebrations: 'Birthdays & anniversaries',
+}
+
+/** The automatic layout as a list: the times on the first page, the rest on the second. */
+const AUTO_LAYOUT: { section: BulletinSection; page: number }[] = BULLETIN_SECTIONS.map(
+  (section) => ({
+    section,
+    page: ['shabbos', 'specialZmanim', 'weekdays', 'zmanimTable'].includes(section) ? 1 : 2,
+  }),
+)
+const PAGE_CHOICES = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `Page ${n}` }))
 
 const SHOWN: {
   key:
@@ -112,8 +135,68 @@ export function BulletinCard({
     )
   }
 
+  const layout = print.layout
+  const move = (i: number, by: number) => {
+    if (!layout) return
+    const next = [...layout]
+    const [item] = next.splice(i, 1)
+    next.splice(i + by, 0, item)
+    set({ layout: next })
+  }
+  const setPage = (i: number, page: number) =>
+    set({ layout: layout?.map((row, j) => (j === i ? { ...row, page } : row)) })
+
   return (
     <Card gap="md">
+      <Text variant="sectionHeader">Bulletin: page layout</Text>
+      <Stack direction="row" align="center" gap="md">
+        <Stack grow>
+          <Text variant="body">Choose what goes on each page</Text>
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            Off: the times go on the front and the announcements behind.
+          </Text>
+        </Stack>
+        <ToggleSwitch
+          value={!!layout}
+          onValueChange={(on) => set({ layout: on ? AUTO_LAYOUT : undefined })}
+          accessibilityLabel="Choose what goes on each page"
+        />
+      </Stack>
+      {layout && (
+        <>
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            Each section goes on its page, top to bottom in this order. A section with nothing to
+            show that week, or a page left empty, is skipped. Content shrinks to fit its page.
+          </Text>
+          {layout.map((row, i) => (
+            <Stack key={row.section} direction="row" align="center" gap="md">
+              <Stack grow>
+                <Text variant="body">{SECTION_NAMES[row.section]}</Text>
+              </Stack>
+              <Select
+                accessibilityLabel={`Page for ${SECTION_NAMES[row.section]}`}
+                value={String(row.page)}
+                options={PAGE_CHOICES}
+                onChange={(v) => setPage(i, Number(v))}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Up"
+                disabled={i === 0}
+                onPress={() => move(i, -1)}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Down"
+                disabled={i === layout.length - 1}
+                onPress={() => move(i, 1)}
+              />
+            </Stack>
+          ))}
+        </>
+      )}
       <Text variant="sectionHeader">Bulletin: what to show</Text>
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         What goes on the sheet. Anything with nothing to show that week is left out anyway.

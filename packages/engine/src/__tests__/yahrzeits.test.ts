@@ -29,6 +29,13 @@ describe('yahrzeit dates', () => {
 })
 
 describe('yahrzeitsBetween', () => {
+  it('keeps one with no year and no civil date on the same Hebrew day every year', () => {
+    const noYear: Yahrzeit = { id: 'n', displayName: { en: 'N' }, hebrew: { day: 18, month: 8 } }
+    for (const hyear of [5787, 5788]) {
+      const date = hebrewToGregorian({ day: 18, month: 8, year: hyear })
+      expect(yahrzeitsBetween([noYear], date, date).map((u) => u.date)).toEqual([date])
+    }
+  })
   it('finds the next one, never the year of the passing', () => {
     expect(yahrzeitsBetween([menachem], '2020-10-30', '2020-11-10')).toEqual([])
     const next = yahrzeitsBetween([menachem], '2026-10-25', '2026-11-10')

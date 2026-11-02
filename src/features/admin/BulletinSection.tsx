@@ -7,7 +7,7 @@ import {
   Text,
   useIsWideLayout,
 } from '@beezyworks/design'
-import { startOfWeek, type DateString } from '@beitecha/engine'
+import { WEEKDAYS, type Weekday } from '@beitecha/engine'
 import React from 'react'
 
 import {
@@ -25,7 +25,9 @@ import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { BulletinSheets, bulletinLayout } from '@/features/bulletin/BulletinSheets'
 import { BulletinToolbar } from '@/features/bulletin/BulletinToolbar'
+import { weekContaining, type DateRange } from '@/features/bulletin/range'
 import { useWeek } from '@/features/bulletin/useWeek'
+import { BulletinBandCard } from './BulletinBandCard'
 import { BulletinCard } from './BulletinCard'
 import { useAdmin } from './store'
 
@@ -45,9 +47,9 @@ export function BulletinSection({ slug }: { slug: string }) {
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
   const [paper, setPaper] = React.useState<Paper | null>(null)
   const [full, setFull] = React.useState(false)
-  const sunday = startOfWeek(today)
   if (!profile || !schedule) return null
 
+  const range = weekContaining(today, schedule.settings.print)
   const chosen = paper ?? paperFor(schedule.settings.location.timeZone)
   const print = schedule.settings.print ?? {}
   const layout = bulletinLayout(print)
@@ -86,6 +88,34 @@ export function BulletinSection({ slug }: { slug: string }) {
               onChange={setPaper}
               accessibilityLabel="Paper size"
             />
+          </Stack>
+          <Stack gap="xs">
+            <Text variant="label" color={SemanticColor.TextSecondary}>
+              Usual week
+            </Text>
+            <Stack direction="row" gap="sm" align="center" wrap>
+              <Select
+                accessibilityLabel="First day"
+                value={String(print.weekStart ?? 0)}
+                options={WEEKDAYS.map((d, i) => ({ value: String(i), label: d.en }))}
+                onChange={(d) =>
+                  set({ weekStart: Number(d) === 0 ? undefined : (Number(d) as Weekday) })
+                }
+              />
+              <Text variant="body">to</Text>
+              <Select
+                accessibilityLabel="Last day"
+                value={String(print.weekEnd ?? 6)}
+                options={WEEKDAYS.map((d, i) => ({ value: String(i), label: d.en }))}
+                onChange={(d) =>
+                  set({ weekEnd: Number(d) === 6 ? undefined : (Number(d) as Weekday) })
+                }
+              />
+            </Stack>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              The days a bulletin covers, e.g. Friday to Thursday. For one bulletin on other days,
+              open it in full screen and use Dates.
+            </Text>
           </Stack>
           <Stack gap="xs">
             <Text variant="label" color={SemanticColor.TextSecondary}>
@@ -148,6 +178,14 @@ export function BulletinSection({ slug }: { slug: string }) {
             </Text>
           </Stack>
         </Card>
+        {(['header', 'footer'] as const).map((kind) => (
+          <BulletinBandCard
+            key={kind}
+            kind={kind}
+            settings={schedule.settings}
+            onChange={(settings) => setSchedule({ ...schedule, settings })}
+          />
+        ))}
         <BulletinCard
           settings={schedule.settings}
           onChange={(settings) => setSchedule({ ...schedule, settings })}
@@ -172,7 +210,7 @@ export function BulletinSection({ slug }: { slug: string }) {
           onPress={() => setFull(true)}
         />
       </Stack>
-      <SheetPreview slug={slug} sunday={sunday} paper={chosen} width={RAIL - 32} />
+      <SheetPreview slug={slug} range={range} paper={chosen} width={RAIL - 32} />
     </ScrollStack>
   )
 
@@ -196,7 +234,7 @@ export function BulletinSection({ slug }: { slug: string }) {
       {full && (
         <FullScreen
           slug={slug}
-          initialSunday={sunday}
+          initialRange={range}
           paper={chosen}
           onPaper={setPaper}
           onClose={() => setFull(false)}
@@ -207,9 +245,9 @@ export function BulletinSection({ slug }: { slug: string }) {
 }
 
 /** The draft's week as it would print, in the shul's language and brand. */
-function useSheet(slug: string, sunday: DateString) {
+function useSheet(slug: string, range: DateRange) {
   const { profile, schedule } = useAdmin()
-  const week = useWeek(slug, profile ?? undefined, schedule ?? undefined, sunday)
+  const week = useWeek(slug, profile ?? undefined, schedule ?? undefined, range)
   if (!profile || !schedule || !week) return null
   const t = makeT(schedule.settings.language, schedule.settings.timeFormat, schedule.settings.names)
   return { week, t, profile, ...bulletinLayout(schedule.settings.print) }
@@ -218,16 +256,16 @@ function useSheet(slug: string, sunday: DateString) {
 /** The sheets shrunk to `width`, laid out at full size, so what's here is what prints. */
 function SheetPreview({
   slug,
-  sunday,
+  range,
   paper,
   width,
 }: {
   slug: string
-  sunday: DateString
+  range: DateRange
   paper: Paper
   width: number
 }) {
-  const sheet = useSheet(slug, sunday)
+  const sheet = useSheet(slug, range)
   const inner = React.useRef<HTMLDivElement>(null)
   const [height, setHeight] = React.useState(0)
   const k = width / SHEET_PX[paper].width
@@ -261,7 +299,7 @@ function SheetPreview({
             }}
           >
             <BulletinSheets
-              key={`${sunday}|${paper}|${maxPages}|${textSize}`}
+              key={`${range.from}|${range.to}|${paper}|${maxPages}|${textSize}`}
               week={week}
               paper={paper}
               rtl={t.rtl}
@@ -278,19 +316,20 @@ function SheetPreview({
 /** The sheets over the whole admin, the draft as it stands, with the print button. */
 function FullScreen({
   slug,
-  initialSunday,
+  initialRange,
   paper,
   onPaper,
   onClose,
 }: {
   slug: string
-  initialSunday: DateString
+  initialRange: DateRange
   paper: Paper
   onPaper: (paper: Paper) => void
   onClose: () => void
 }) {
-  const [sunday, setSunday] = React.useState(initialSunday)
-  const sheet = useSheet(slug, sunday)
+  const [range, setRange] = React.useState(initialRange)
+  const sheet = useSheet(slug, range)
+  const { schedule } = useAdmin()
   if (!sheet) return null
   const { week, t, profile, maxPages, textSize, ink } = sheet
   return (
@@ -300,8 +339,9 @@ function FullScreen({
           paper={paper}
           toolbar={
             <BulletinToolbar
-              sunday={sunday}
-              onSunday={setSunday}
+              range={range}
+              onRange={setRange}
+              usual={weekContaining(range.from, schedule?.settings.print)}
               paper={paper}
               onPaper={onPaper}
               leading={
@@ -311,7 +351,7 @@ function FullScreen({
           }
         >
           <BulletinSheets
-            key={`${sunday}|${paper}|${maxPages}|${textSize}`}
+            key={`${range.from}|${range.to}|${paper}|${maxPages}|${textSize}`}
             week={week}
             paper={paper}
             rtl={t.rtl}

@@ -1,6 +1,5 @@
 import {
   addDays,
-  isRealHebrewDate,
   isRealMonthDay,
   NOTICE_KINDS,
   noticeLastDay,
@@ -8,7 +7,6 @@ import {
   TEFILA_TYPES,
   timeFormatProblem,
   todayIn,
-  type HebrewDate,
   type HebrewMonthDay,
   type NoticeKind,
   type Schedule,
@@ -152,7 +150,7 @@ export function scheduleProblem(s: unknown): string | null {
       const dn = isObject(y.displayName) ? y.displayName.en || y.displayName.he : ''
       if (!(typeof y.hebrewName === 'string' && y.hebrewName.trim()) && !dn)
         return 'every yahrzeit needs a name'
-      if (!isRealHebrewDate(y.hebrew as unknown as HebrewDate))
+      if (!isRealMonthDay(y.hebrew as unknown as HebrewMonthDay))
         return 'every yahrzeit needs a real Hebrew date'
     }
   }

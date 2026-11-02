@@ -12,7 +12,12 @@ import {
   NOTICE_LABELS,
   type Occurrence,
   parseDate,
+  type BandPages,
+  type BulletinBand,
+  type BulletinSection,
+  type PrintSettings,
   type ShulProfile,
+  type SpecialZmanimGroup,
   type OccasionSettings,
   type UpcomingOccasion,
   type UpcomingYahrzeit,
@@ -25,7 +30,7 @@ import {
 } from '@beitecha/engine'
 import React from 'react'
 
-import { Struck } from '@/components/Bulletin'
+import { bandShows, Logo, Struck } from '@/components/Bulletin'
 import { makeT, useT } from '@/features/luach/language'
 import {
   occasionList,
@@ -58,15 +63,26 @@ const WORDS = {
   shabbosMorning: { en: 'Shabbos morning', he: 'שבת בבוקר' },
   shabbosAfternoon: { en: 'Shabbos afternoon', he: 'שבת אחר הצהריים' },
   changed: { en: 'Changed this week', he: 'שינויים השבוע' },
+  office: { en: 'Office', he: 'משרד' },
+  rabbi: { en: 'Rabbi', he: 'הרב' },
 } satisfies Record<string, Localized>
 /** Marks a time that was changed for this week only. */
 const CHANGED = '◆'
 
+export interface ShabbosPair {
+  friday: DaySchedule
+  shabbos: DaySchedule
+  /** Zmanim listed among Friday night's and Shabbos day's minyanim (`settings.print.shabbosZmanim`). */
+  zmanim: { friday: InlineZman[]; shabbos: InlineZman[] }
+}
+
 export interface WeekProps {
   slug: string
   profile: ShulProfile
-  /** Sunday to Shabbos. */
+  /** Every day of the bulletin, in order (usually a week). */
   days: DaySchedule[]
+  /** Each Shabbos in `days`, with its Friday (which may be the day before the first) and its zmanim. */
+  shabbos: ShabbosPair[]
   notices: Notice[]
   /** The shul's announcement categories, each its own heading. */
   categories?: NoticeCategory[]
@@ -86,26 +102,37 @@ export interface WeekProps {
   zmanimTable: boolean
   /** The week's shiurim on the announcements side. */
   shiurim: boolean
-  /** Zmanim listed among Friday night's and Shabbos day's minyanim (`settings.print.shabbosZmanim`). */
-  shabbosZmanim: { friday: InlineZman[]; shabbos: InlineZman[] }
+  /** A fast's or Erev Pesach's zmanim this week, boxed below Shabbos. */
+  specialZmanim: SpecialZmanimGroup[]
+  /** Which page each section goes on (`settings.print.layout`); absent = the automatic layout. */
+  layout?: PrintSettings['layout']
+  /** The header and footer (`settings.print.header` / `footer`). */
+  header?: BulletinBand
+  footer?: BulletinBand
 }
 
 /** Weekday shiurim have their own timetable with the announcements; the front's weekday grid keeps to the minyanim. */
 const notShiur = (e: Occurrence) => e.kind !== 'shiur'
 
 /** The days the shiurim list covers: Shabbos's (Friday from chatzos, and Shabbos itself) are on the Shabbos timeline. */
-const shiurDays = (days: DaySchedule[]): DaySchedule[] => {
-  const erevShabbos = erevShabbosEvents(days[5])
-  return days
-    .slice(0, 6)
-    .map((d) =>
-      d === days[5] ? { ...d, events: d.events.filter((e) => !erevShabbos.includes(e)) } : d,
-    )
-}
+const shiurDays = (days: DaySchedule[], shabbos: ShabbosPair[]): DaySchedule[] =>
+  withoutShabbos(days, shabbos)
+
+/** The days but for Shabbos itself, Fridays before one without what is on Shabbos's timeline. */
+const withoutShabbos = (days: DaySchedule[], shabbos: ShabbosPair[]): DaySchedule[] =>
+  days
+    .filter((d) => d.weekday !== 6)
+    .map((d) => {
+      const pair = shabbos.find((p) => p.friday.date === d.date)
+      if (!pair) return d
+      const erev = erevShabbosEvents(d)
+      return { ...d, events: d.events.filter((e) => !erev.includes(e)) }
+    })
 
 /** Whether the week has anything for the announcements side. */
 export const hasAnnouncements = ({
   days,
+  shabbos,
   notices,
   comingUp,
   cholim,
@@ -116,6 +143,7 @@ export const hasAnnouncements = ({
 }: Pick<
   WeekProps,
   | 'days'
+  | 'shabbos'
   | 'notices'
   | 'comingUp'
   | 'cholim'
@@ -130,44 +158,68 @@ export const hasAnnouncements = ({
   yahrzeits.length > 0 ||
   birthdays.length > 0 ||
   anniversaries.length > 0 ||
-  (shiurim && shiurDays(days).some((d) => d.events.some((e) => !notShiur(e))))
+  (shiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !notShiur(e))))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
 export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: boolean }) {
-  const t = useT()
   const { days, notices } = week
-  const friday = days[5]
-  const erevShabbos = erevShabbosEvents(friday)
-  const weekdays = days.slice(0, 6).map((d) => ({
-    ...d,
-    events: d.events.filter((e) => notShiur(e) && !(d === friday && erevShabbos.includes(e))),
-  }))
   return (
     <Stack grow gap="lg">
-      <Masthead {...week} />
-      <ShabbosBlock
-        friday={friday}
-        shabbos={days[6]}
-        notices={notices}
-        zmanim={week.shabbosZmanim}
-      />
+      <Masthead {...week} pages={withNotices ? 1 : undefined} />
+      <ShabbosBlocks pairs={week.shabbos} notices={notices} />
+      <SpecialZmanimBlock groups={week.specialZmanim} />
       {withNotices && <Announcements {...week} />}
-      <EventGrid days={weekdays} notices={notices} en={t.s.weekdays} he={HE.s.weekdays} />
+      <WeekdayGrid {...week} />
       {week.zmanimTable && <ZmanimGrid days={days} />}
       <Stack grow />
-      {withNotices && <Footer slug={week.slug} />}
+      {withNotices && <Footer {...week} page={1} pages={1} />}
     </Stack>
   )
+}
+
+/** The weekday minyanim, Sunday to Friday; Erev Shabbos's and the shiurim are elsewhere. */
+function WeekdayGrid({ days, shabbos, notices }: WeekProps) {
+  const t = useT()
+  const weekdays = withoutShabbos(days, shabbos).map((d) => ({
+    ...d,
+    events: d.events.filter(notShiur),
+  }))
+  if (weekdays.length === 0) return null
+  return <EventGrid days={weekdays} notices={notices} en={t.s.weekdays} he={HE.s.weekdays} />
+}
+
+/** Each section of the week that has something to print, as a block that can go on any page (`print.layout`). */
+export function sectionBlocks(week: WeekProps): { key: BulletinSection; node: React.ReactNode }[] {
+  const { days, notices } = week
+  const own: { key: BulletinSection; node: React.ReactNode }[] = [
+    {
+      key: 'shabbos',
+      node: <ShabbosBlocks pairs={week.shabbos} notices={notices} />,
+    },
+    ...(week.specialZmanim.length > 0
+      ? [
+          {
+            key: 'specialZmanim' as const,
+            node: <SpecialZmanimBlock groups={week.specialZmanim} />,
+          },
+        ]
+      : []),
+    { key: 'weekdays', node: <WeekdayGrid {...week} /> },
+    ...(week.zmanimTable
+      ? [{ key: 'zmanimTable' as const, node: <ZmanimGrid days={days} /> }]
+      : []),
+  ]
+  return [...own, ...announcementBlocks(week)]
 }
 
 /** The back: the week's shiurim, what's coming up, sponsorships and announcements. */
 export function NoticesSide(week: WeekProps) {
   return (
     <Stack grow gap="lg">
-      <Masthead {...week} />
+      <Masthead {...week} pages={1} />
       <Announcements {...week} />
       <Stack grow />
-      <Footer slug={week.slug} />
+      <Footer {...week} page={1} pages={1} />
     </Stack>
   )
 }
@@ -175,6 +227,7 @@ export function NoticesSide(week: WeekProps) {
 /** The announcements side's parts in order, each a block that can start a page of its own. */
 function announcementBlocks({
   days,
+  shabbos,
   notices,
   categories,
   comingUp,
@@ -186,10 +239,13 @@ function announcementBlocks({
   anniversaries,
   anniversarySettings,
   shiurim: showShiurim,
-}: WeekProps): { key: string; node: React.ReactNode }[] {
-  const blocks: { key: string; node: React.ReactNode }[] = []
-  if (showShiurim && shiurDays(days).some((d) => d.events.some((e) => !notShiur(e))))
-    blocks.push({ key: 'shiurim', node: <Shiurim days={shiurDays(days)} notices={notices} /> })
+}: WeekProps): { key: BulletinSection; node: React.ReactNode }[] {
+  const blocks: { key: BulletinSection; node: React.ReactNode }[] = []
+  if (showShiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !notShiur(e))))
+    blocks.push({
+      key: 'shiurim',
+      node: <Shiurim days={shiurDays(days, shabbos)} notices={notices} />,
+    })
   if (comingUp.length > 0) blocks.push({ key: 'comingUp', node: <ComingUp items={comingUp} /> })
   if (notices.length > 0)
     blocks.push({
@@ -233,37 +289,109 @@ export function useNoticesParts(week: WeekProps) {
   return {
     head: <Masthead {...week} />,
     blocks: announcementBlocks(week),
-    foot: <Footer slug={week.slug} />,
+    top: <HeaderBand {...week} />,
+    topWhere: week.header?.pages ?? HEADER_PAGES,
+    bottom: <FooterBand {...week} />,
+    bottomWhere: week.footer?.pages ?? FOOTER_PAGES,
   }
 }
 
 // ---------------------------------------------------------------------------
 
-function Masthead({ profile, days }: WeekProps) {
+/** Where the header and footer go when the shul hasn't said. */
+const HEADER_PAGES: BandPages = 'first'
+const FOOTER_PAGES: BandPages = 'last'
+
+/** A header or footer's phone numbers and email in one line. */
+function contactLine(t: T, band: BulletinBand) {
+  return [
+    band.officePhone && `${t.text(WORDS.office)} ${band.officePhone}`,
+    band.rabbiPhone && `${band.rabbi ? '' : `${t.text(WORDS.rabbi)} `}${band.rabbiPhone}`,
+    band.email,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/**
+ * Who the shul is: its logo beside its name, its rabbi, address and how to reach it. The header starts from the
+ * shul's own name and address; the footer shows only what was filled in.
+ */
+function Identity({
+  band,
+  profile,
+  header,
+}: {
+  band?: BulletinBand
+  profile: ShulProfile
+  header: boolean
+}) {
   const t = useT()
-  const [sunday, shabbos] = [days[0], days[6]]
+  const name = band?.name?.en || band?.name?.he ? band.name! : header ? profile.name : undefined
+  const address =
+    band?.address || (header ? [profile.address, profile.city].filter(Boolean).join(', ') : '')
+  const rabbi = band?.rabbi
+    ? `${t.text(WORDS.rabbi)} ${band.rabbi.replace(/^(rabbi|הרב)\s+/i, '')}`
+    : ''
+  const lines = [rabbi, address, contactLine(t, band ?? {})].filter(Boolean)
+  if (!name && !band?.logo && lines.length === 0) return null
+  return (
+    <Stack direction="row" align="center" gap="md" grow width={0}>
+      {!!band?.logo && <Logo src={band.logo} size={header ? 64 : 44} />}
+      <Stack grow width={0} gap="none">
+        {!!name && (
+          <Text
+            variant={header ? 'pageHeader' : 'sectionHeader'}
+            rtl={t.nameRtl && !!name.he}
+            align={t.rtl ? undefined : 'left'}
+          >
+            {t.text(name)}
+          </Text>
+        )}
+        {!!name && header && t.bothNames && !!name.he && (
+          <Text variant="itemHeader" rtl align="left" color={SemanticColor.TextAccent}>
+            {name.he}
+          </Text>
+        )}
+        {lines.map((line) => (
+          <Text key={line} variant="body" color={SemanticColor.TextSecondary}>
+            {line}
+          </Text>
+        ))}
+      </Stack>
+    </Stack>
+  )
+}
+
+/** The header on pages after the first (and the last page, where it is shown there only): who the shul is, over a rule. */
+export function HeaderBand({ profile, header }: WeekProps) {
+  return (
+    <Stack gap="sm">
+      <Identity band={header} profile={profile} header />
+      <Stack height={3} radius="sm" background={SemanticColor.AccentPrimary} />
+    </Stack>
+  )
+}
+
+/**
+ * The first page's top: the header beside the week's dates, over a rule. `pages` is how many sheets there are,
+ * when known (a header set to the last page only shows on the first sheet if that is the last too).
+ */
+export function Masthead({
+  profile,
+  days,
+  shabbos: pairs,
+  header,
+  pages,
+}: WeekProps & { pages?: number }) {
+  const t = useT()
+  // Titled by the first Shabbos in it, else by the last day.
+  const [sunday, shabbos] = [days[0], pairs[0]?.shabbos ?? days[days.length - 1]]
+  const identity = bandShows(header?.pages ?? HEADER_PAGES, 1, pages)
   return (
     <Stack gap="sm">
       <Stack direction="row" align="end" gap="lg">
-        <Stack grow width={0} gap="none">
-          <Text
-            variant="pageHeader"
-            rtl={t.nameRtl && !!profile.name.he}
-            align={t.rtl ? undefined : 'left'}
-          >
-            {t.text(profile.name)}
-          </Text>
-          {t.bothNames && !!profile.name.he && (
-            <Text variant="itemHeader" rtl align="left" color={SemanticColor.TextAccent}>
-              {profile.name.he}
-            </Text>
-          )}
-          {!!(profile.address || profile.city) && (
-            <Text variant="body" color={SemanticColor.TextSecondary}>
-              {[profile.address, profile.city].filter(Boolean).join(', ')}
-            </Text>
-          )}
-        </Stack>
+        {identity ? <Identity band={header} profile={profile} header /> : <Stack grow width={0} />}
         {/* The Gregorian and Hebrew ranges stacked on the same side, so they read as one date. */}
         <Stack align="end" gap="none">
           <Text
@@ -274,14 +402,26 @@ function Masthead({ profile, days }: WeekProps) {
             {t.dayTitle(shabbos)}
           </Text>
           <Text variant={strong(t)} color={SemanticColor.TextSecondary}>
-            {civilRange(t, sunday.date, shabbos.date)}
+            {civilRange(t, sunday.date, days[days.length - 1].date)}
           </Text>
           <Text variant={strong(t)} rtl color={SemanticColor.TextSecondary}>
-            {hebrewRange(sunday, shabbos)}
+            {hebrewRange(sunday, days[days.length - 1])}
           </Text>
         </Stack>
       </Stack>
       <Stack height={3} radius="sm" background={SemanticColor.AccentPrimary} />
+    </Stack>
+  )
+}
+
+/** Each Shabbos of the bulletin (usually one) as its own box. */
+function ShabbosBlocks({ pairs, notices }: { pairs: ShabbosPair[]; notices: Notice[] }) {
+  if (pairs.length === 0) return null
+  return (
+    <Stack gap="lg">
+      {pairs.map((p) => (
+        <ShabbosBlock key={p.shabbos.date} {...p} notices={notices} />
+      ))}
     </Stack>
   )
 }
@@ -299,7 +439,7 @@ function ShabbosBlock({
   friday: DaySchedule
   shabbos: DaySchedule
   notices: Notice[]
-  zmanim: WeekProps['shabbosZmanim']
+  zmanim: ShabbosPair['zmanim']
 }) {
   const t = useT()
   const groups = shabbosGroups(friday, shabbos, zmanim)
@@ -352,6 +492,40 @@ function ShabbosBlock({
       )}
       <Flow items={items} />
       <ChangedNote lines={changes} />
+    </Stack>
+  )
+}
+
+/** The week's fast and Pesach zmanim in a box of their own: a heading per fast or Erev Pesach, a row per time. */
+function SpecialZmanimBlock({ groups }: { groups: SpecialZmanimGroup[] }) {
+  const t = useT()
+  if (groups.length === 0) return null
+  return (
+    <Stack
+      radius="lg"
+      padding="md"
+      gap="sm"
+      borderWidth={1}
+      borderColor={SemanticColor.AccentPrimary}
+    >
+      {groups.map((g, i) => (
+        <Stack key={g.key} gap="none">
+          <Ruled spaced={i > 0}>
+            <Heading en={g.title.en} he={g.title.he} />
+          </Ruled>
+          {g.rows.map((r) => (
+            <Stack key={r.id} direction="row" align="center" gap="sm" paddingVertical={3}>
+              <Stack grow width={0}>
+                <NameLine name={r.name} />
+              </Stack>
+              <Text variant="caption" color={SemanticColor.TextSecondary}>
+                {t.weekday(weekdayOf(r.date))}
+              </Text>
+              <Text variant="item">{t.clock(r.minutes)}</Text>
+            </Stack>
+          ))}
+        </Stack>
+      ))}
     </Stack>
   )
 }
@@ -1214,9 +1388,30 @@ function NoticeBlock({ notice: n }: { notice: Notice }) {
   )
 }
 
-function Footer({ slug }: { slug: string }) {
+/** The footer on page `page` of `pages`, if the shul wants one there. */
+export function Footer(week: WeekProps & { page: number; pages?: number }) {
+  if (!bandShows(week.footer?.pages ?? FOOTER_PAGES, week.page, week.pages)) return null
+  return <FooterBand {...week} />
+}
+
+/** The footer itself: the shul's details, and a QR code with what scanning it does (by default the Siddur page). */
+export function FooterBand({ slug, profile, footer }: WeekProps) {
   const t = useT()
-  const url = siddurShulUrl(slug)
+  const qr = footer?.qr === undefined ? {} : footer.qr
+  const url = qr ? qr.url?.trim() || siddurShulUrl(slug) : null
+  const label = qr ? qr.label?.trim() || t.s.upToDate : ''
+  const hasDetails = !!(
+    footer &&
+    (footer.logo ||
+      footer.name?.en ||
+      footer.name?.he ||
+      footer.rabbi ||
+      footer.address ||
+      footer.officePhone ||
+      footer.rabbiPhone ||
+      footer.email)
+  )
+  if (!url && !hasDetails) return null
   return (
     <Stack
       direction="row"
@@ -1226,13 +1421,16 @@ function Footer({ slug }: { slug: string }) {
       borderTopWidth="hairline"
       borderColor={SemanticColor.BorderDefault}
     >
-      <QRCode value={url} size={QR} logo={false} />
-      <Stack grow gap="none">
-        <Text variant={strong(t)}>{t.s.upToDate}</Text>
-        <Text variant="body" color={SemanticColor.TextSecondary}>
-          {url.replace(/^https?:\/\//, '')}
-        </Text>
-      </Stack>
+      {!!url && <QRCode value={url} size={QR} logo={false} />}
+      {!!url && (
+        <Stack grow width={0} gap="none">
+          <Text variant={strong(t)}>{label}</Text>
+          <Text variant="body" color={SemanticColor.TextSecondary}>
+            {url.replace(/^https?:\/\//, '')}
+          </Text>
+        </Stack>
+      )}
+      {hasDetails && <Identity band={footer} profile={profile} header={false} />}
     </Stack>
   )
 }

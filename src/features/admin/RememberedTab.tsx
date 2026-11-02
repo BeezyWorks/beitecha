@@ -1,4 +1,13 @@
-import { Button, Card, Icon, SemanticColor, Stack, Text, Touchable } from '@beezyworks/design'
+import {
+  Button,
+  Card,
+  Icon,
+  SemanticColor,
+  Stack,
+  Text,
+  ToggleSwitch,
+  Touchable,
+} from '@beezyworks/design'
 import { makeT, type DateString, type Localized, type YahrzeitNames } from '@beitecha/engine'
 import React, { useState } from 'react'
 
@@ -15,6 +24,7 @@ export interface Remembered {
   id: string
   hebrewName?: string
   displayName?: Localized
+  hideFromBulletin?: boolean
 }
 
 /** What the shul sets about how a list shows; the same for all three. */
@@ -91,6 +101,32 @@ export function NameFields<T extends Remembered>({
         onChangeText={(he) => setDisplay({ he })}
       />
     </>
+  )
+}
+
+/** Whether this one is left off the printed bulletin. */
+export function BulletinToggle<T extends Remembered>({
+  value,
+  onChange,
+}: {
+  value: T
+  onChange: (next: T) => void
+}) {
+  return (
+    <Stack direction="row" align="center" gap="md">
+      <Stack grow>
+        <Text variant="body">Show on the bulletin</Text>
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          Turn off to leave this one off the printed bulletin. It still shows on the display and in
+          the Siddur.
+        </Text>
+      </Stack>
+      <ToggleSwitch
+        value={!value.hideFromBulletin}
+        onValueChange={(on) => onChange({ ...value, hideFromBulletin: on ? undefined : true })}
+        accessibilityLabel="Show on the bulletin"
+      />
+    </Stack>
   )
 }
 
@@ -296,6 +332,21 @@ export function RememberedTab<T extends Remembered, S extends RememberedSettings
             disabled={!items.length}
             onPress={() => download(`${c.many}.json`, io.json(items), 'application/json')}
           />
+          <Button
+            variant="secondary"
+            size="sm"
+            icon="delete"
+            title="Delete all"
+            disabled={!items.length}
+            onPress={() => {
+              if (
+                window.confirm(
+                  `Delete all ${items.length} ${c.many}?\n\nThis removes every one from the display, the bulletin and the Siddur once you save. It can’t be undone, so export them first if you might want them back.`,
+                )
+              )
+                save([])
+            }}
+          />
         </Stack>
         {importing && profile && (
           <AiAssist<T[]>
@@ -371,6 +422,7 @@ export function RememberedTab<T extends Remembered, S extends RememberedSettings
                       </Stack>
                       <Text variant="caption" color={SemanticColor.TextSecondary}>
                         {c.detail(p, next)}
+                        {p.hideFromBulletin ? ' · Not on the bulletin' : ''}
                       </Text>
                     </Stack>
                     <Button

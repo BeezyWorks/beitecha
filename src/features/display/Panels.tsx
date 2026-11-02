@@ -4,9 +4,11 @@ import {
   type Localized,
   type Minutes,
   type Occurrence,
+  type SpecialZmanimGroup,
   ZMAN_LABELS,
   type ZmanId,
   type ZmanKey,
+  weekdayOf,
   zmanimList,
 } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
@@ -521,5 +523,60 @@ function ShabbosEntry({
         </Text>
       )}
     </Stack>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Fast and Pesach zmanim
+
+const SPECIAL_TITLE: Localized = { en: 'Zmanim for the week', he: 'זמנים השבוע' }
+
+/** The week's fast or Erev Pesach zmanim in a small box, under Shabbos; times already past are dimmed. */
+export function SpecialZmanimPanel({
+  groups,
+  today,
+  minutes,
+}: {
+  groups: SpecialZmanimGroup[]
+  today: string
+  minutes: Minutes
+}) {
+  const t = useT()
+  return (
+    <Surface radius="xl" shadow="card">
+      <Stack padding="md" gap="xs">
+        <PanelHeading en={SPECIAL_TITLE.en} he={SPECIAL_TITLE.he ?? SPECIAL_TITLE.en} />
+        {groups.map((g) => (
+          <Stack key={g.key} gap="none">
+            <Text variant="headline" color={SemanticColor.TextAccent} rtl={t.nameRtl}>
+              {t.text(g.title)}
+            </Text>
+            {g.rows.map((r) => {
+              const past = r.date < today || (r.date === today && r.minutes < minutes)
+              return (
+                <Stack
+                  key={r.id}
+                  direction="row"
+                  align="center"
+                  gap="sm"
+                  paddingVertical={2}
+                  opacity={past ? 0.45 : 1}
+                >
+                  <Stack grow width={0}>
+                    <Text variant="headline" numberOfLines={1} color={SemanticColor.TextSecondary}>
+                      {t.text(r.name)}
+                    </Text>
+                  </Stack>
+                  <Text variant="caption" color={SemanticColor.TextSecondary}>
+                    {t.weekday(weekdayOf(r.date))}
+                  </Text>
+                  <Text variant="title">{t.clock(r.minutes)}</Text>
+                </Stack>
+              )
+            })}
+          </Stack>
+        ))}
+      </Stack>
+    </Surface>
   )
 }

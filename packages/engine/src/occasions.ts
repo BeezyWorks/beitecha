@@ -2,7 +2,9 @@ import { HDate, HebrewCalendar } from '@hebcal/core'
 
 import { formatDate, hostDate, parseDate } from './dates'
 import type { DateString, HebrewMonthDay, Occasion } from './types'
-import { gregorianToHebrew, hebrewToGregorian, isRealHebrewDate } from './yahrzeits'
+import { gregorianToHebrew, hebrewToGregorian, isRealHebrewDate, isRealMonthDay, originYear } from './yahrzeits'
+
+export { isRealMonthDay }
 
 /** A birthday or anniversary with both its dates worked out and which one it is kept by. */
 export interface ResolvedOccasion {
@@ -30,25 +32,6 @@ export function resolveOccasion(
   const by =
     wanted === 'gregorian' ? (gregorian ? 'gregorian' : 'hebrew') : hebrew ? 'hebrew' : 'gregorian'
   return { by, hebrew, gregorian }
-}
-
-/** Whether a Hebrew day and month exist in some year (a year, if given, must have them). */
-export function isRealMonthDay({ day, month, year }: HebrewMonthDay): boolean {
-  if (year !== undefined) return isRealHebrewDate({ day, month, year })
-  if (!Number.isInteger(day) || !Number.isInteger(month) || day < 1 || month < 1 || month > 13)
-    return false
-  return originYear({ day, month }) !== undefined
-}
-
-/** A year (long ago) the day and month exist in, with the right kind of Adar, standing in for the unknown birth year. */
-function originYear({ day, month }: HebrewMonthDay): number | undefined {
-  for (let year = 5000; year < 5100; year++) {
-    const leap = HDate.isLeapYear(year)
-    if (month === 13 && !leap) continue
-    if (month === 12 && leap) continue
-    if (isRealHebrewDate({ day, month, year })) return year
-  }
-  return undefined
 }
 
 const civil = (g: Date): DateString => formatDate(g.getFullYear(), g.getMonth() + 1, g.getDate())

@@ -1,12 +1,10 @@
 import { Card, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
-  addDays,
   Calendar,
   civilDateShort,
   DEFAULT_ANNOUNCE_WEEKS,
   type EventDef,
   MAX_ANNOUNCE_WEEKS,
-  startOfWeek,
   type DateString,
   WEEKDAYS,
   weekdayOf,
@@ -15,6 +13,7 @@ import React, { useMemo } from 'react'
 
 import { NumberField } from '@/components/NumberField'
 import { Segments } from '@/components/Segments'
+import { spanOf, weekContaining } from '@/features/bulletin/range'
 import { useAdmin } from './store'
 
 type Announce = Pick<EventDef, 'announce'>
@@ -79,10 +78,11 @@ export function AnnounceEditor({
 export function AnnouncedCard({ today }: { today: DateString }) {
   const schedule = useAdmin((s) => s.schedule)
   const commitSchedule = useAdmin((s) => s.commitSchedule)
-  const sunday = startOfWeek(today)
+  const week = weekContaining(today, schedule?.settings.print)
+  const span = spanOf(week)
   const thisWeek = useMemo(
-    () => (schedule ? new Calendar(schedule).announced(sunday) : []),
-    [schedule, sunday],
+    () => (schedule ? new Calendar(schedule).announced(week.from, span) : []),
+    [schedule, week.from, span],
   )
   if (!schedule) return null
   return (
@@ -110,7 +110,7 @@ export function AnnouncedCard({ today }: { today: DateString }) {
       {thisWeek.length > 0 && (
         <Stack gap="xs">
           <Text variant="bodyStrong">
-            On the sheet for {civilDateShort(sunday)} – {civilDateShort(addDays(sunday, 6))}
+            On the sheet for {civilDateShort(week.from)} – {civilDateShort(week.to)}
           </Text>
           {thisWeek.map(({ date, event }) => (
             <Text key={`${date}|${event.eventId}`} variant="body">

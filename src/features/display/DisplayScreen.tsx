@@ -1,5 +1,11 @@
 import { SemanticColor, Stack } from '@beezyworks/design'
-import { addDays, occasionsBetween, yahrzeitsBetween } from '@beitecha/engine'
+import {
+  addDays,
+  occasionsBetween,
+  specialZmanim,
+  startOfWeek,
+  yahrzeitsBetween,
+} from '@beitecha/engine'
 import React from 'react'
 
 import { Blackout } from '@/components/Blackout'
@@ -86,6 +92,7 @@ export function DisplayScreen({ slug, setup: setupId }: { slug: string; setup?: 
                 )}
                 anniversarySettings={feed.schedule.settings.anniversaries}
                 shabbosZmanim={feed.schedule.settings.print?.shabbosZmanim}
+                specialZmanim={specialZmanim(startOfWeek(days[0].date), feed.schedule.settings)}
               />
             )}
           </ScaleToFit>

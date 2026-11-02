@@ -29,7 +29,7 @@ import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { DateField } from './DateField'
-import { FormButtons, isNamed, NameFields, RememberedTab } from './RememberedTab'
+import { BulletinToggle, FormButtons, isNamed, NameFields, RememberedTab } from './RememberedTab'
 import { newId, useAdmin } from './store'
 
 const DAYS = Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
@@ -205,6 +205,7 @@ function OccasionForm({
           setO({ ...o, hebrew: undefined, gregorian: undefined, by: undefined, ...patch })
         }
       />
+      <BulletinToggle value={o} onChange={setO} />
       <FormButtons
         canSave={isNamed(o) && !!hebrew && isRealMonthDay(hebrew)}
         onSave={() => onDone(o)}

@@ -2,9 +2,9 @@ import {
   gregorianToHebrew,
   hebrewMonths,
   hebrewToGregorian,
-  isRealHebrewDate,
+  isRealMonthDay,
   type DateString,
-  type HebrewDate,
+  type HebrewMonthDay,
   type ShulProfile,
   type Yahrzeit,
 } from '@beitecha/engine'
@@ -83,17 +83,19 @@ export function monthFromText(text: string, year?: number): number | undefined {
   return HEBREW_MONTHS[key]
 }
 
-/** "18 Cheshvan 5781" (also "18 Cheshvan, 5781"). */
-export function parseHebrewDate(text: string): HebrewDate | undefined {
-  const m = /^\s*(\d{1,2})\s+(?:of\s+)?([^\d,]+?)[\s,]+(\d{4})\s*$/i.exec(text)
+/** "18 Cheshvan 5781" (also "18 Cheshvan, 5781"); the year may be left off. */
+export function parseHebrewDate(text: string): HebrewMonthDay | undefined {
+  const m = /^\s*(\d{1,2})\s+(?:of\s+)?([^\d,]+?)(?:[\s,]+(\d{4}))?\s*$/i.exec(text)
   if (!m) return undefined
-  const month = monthFromText(m[2], +m[3])
-  return month === undefined ? undefined : { day: +m[1], month, year: +m[3] }
+  const month = monthFromText(m[2], m[3] ? +m[3] : undefined)
+  return month === undefined ? undefined : { day: +m[1], month, ...(m[3] && { year: +m[3] }) }
 }
 
-const monthName = (h: HebrewDate) =>
-  hebrewMonths(h.year).find((m) => m.month === h.month)?.name ?? String(h.month)
-export const hebrewDateWords = (h: HebrewDate) => `${h.day} ${monthName(h)} ${h.year}`
+const monthName = (h: HebrewMonthDay) =>
+  hebrewMonths(h.year ?? (h.month === 13 ? 5779 : 5780)).find((m) => m.month === h.month)?.name ??
+  String(h.month)
+export const hebrewDateWords = (h: HebrewMonthDay) =>
+  `${h.day} ${monthName(h)}${h.year ? ` ${h.year}` : ''}`
 
 // ---------------------------------------------------------------------------
 // Export
@@ -115,7 +117,7 @@ export function yahrzeitsToCsv(list: Yahrzeit[]): string {
       y.displayName?.en ?? '',
       y.displayName?.he ?? '',
       hebrewDateWords(y.hebrew),
-      y.gregorian,
+      y.gregorian ?? '',
     ]
       .map(cell)
       .join(','),
@@ -129,8 +131,12 @@ export function yahrzeitsToJson(list: Yahrzeit[]): string {
       yahrzeits: list.map((y) => ({
         ...(y.hebrewName && { hebrewName: y.hebrewName }),
         ...(y.displayName && { displayName: y.displayName }),
-        hebrew: { day: y.hebrew.day, month: monthName(y.hebrew), year: y.hebrew.year },
-        gregorian: y.gregorian,
+        hebrew: {
+          day: y.hebrew.day,
+          month: monthName(y.hebrew),
+          ...(y.hebrew.year && { year: y.hebrew.year }),
+        },
+        ...(y.gregorian && { gregorian: y.gregorian }),
       })),
     },
     null,
@@ -221,9 +227,9 @@ function parseCsvRows(text: string): Parsed<Yahrzeit[]> {
   const errors: string[] = []
   if (at.hebrewName < 0 && at.displayEn < 0)
     errors.push('The header row needs a name column: hebrew_name and/or display_name.')
-  if (at.hebrewDate < 0 && at.gregorian < 0 && (at.day < 0 || at.month < 0 || at.year < 0))
+  if (at.hebrewDate < 0 && at.gregorian < 0 && (at.day < 0 || at.month < 0))
     errors.push(
-      'The header row needs a date column: hebrew_date ("18 Cheshvan 5781") and/or gregorian_date (YYYY-MM-DD).',
+      'The header row needs a date column: hebrew_date ("18 Cheshvan", year optional) and/or gregorian_date (YYYY-MM-DD).',
     )
   if (errors.length) return { ok: false, errors }
   const get = (r: string[], k: string) => (at[k] >= 0 ? (r[at[k]] ?? '').trim() : '')
@@ -231,17 +237,17 @@ function parseCsvRows(text: string): Parsed<Yahrzeit[]> {
   const out: Yahrzeit[] = []
   rows.slice(1).forEach((r, i) => {
     const label = `Row ${i + 2}${get(r, 'displayEn') || get(r, 'hebrewName') ? ` (${get(r, 'displayEn') || get(r, 'hebrewName')})` : ''}`
-    let hebrew: HebrewDate | undefined
+    let hebrew: HebrewMonthDay | undefined
     if (get(r, 'hebrewDate')) {
       hebrew = parseHebrewDate(get(r, 'hebrewDate'))
       if (!hebrew)
-        return void errors.push(`${label}: hebrew_date must look like "18 Cheshvan 5781"`)
+        return void errors.push(`${label}: hebrew_date must look like "18 Cheshvan" or "18 Cheshvan 5781"`)
     } else if (get(r, 'day') || get(r, 'month') || get(r, 'year')) {
-      const year = +get(r, 'year')
+      const year = get(r, 'year') ? +get(r, 'year') : undefined
       const month = monthFromText(get(r, 'month'), year)
       if (month === undefined)
         return void errors.push(`${label}: don’t know the Hebrew month "${get(r, 'month')}"`)
-      hebrew = { day: +get(r, 'day'), month, year }
+      hebrew = { day: +get(r, 'day'), month, ...(year && { year }) }
     }
     out.push(
       ...build(
@@ -266,7 +272,7 @@ function parseCsvRows(text: string): Parsed<Yahrzeit[]> {
 
 /** One person from either format, checked; their other date is derived from the one given. */
 function build(
-  p: { hebrewName: string; en: string; he: string; hebrew?: HebrewDate; gregorian: string },
+  p: { hebrewName: string; en: string; he: string; hebrew?: HebrewMonthDay; gregorian: string },
   label: string,
   errors: string[],
 ): Yahrzeit[] {
@@ -275,18 +281,22 @@ function build(
   if (p.gregorian && !DATE.test(p.gregorian))
     errors.push(`${label}: the Gregorian date must be YYYY-MM-DD`)
   if (!p.hebrew && !p.gregorian) errors.push(`${label}: needs a date, Hebrew or Gregorian`)
-  if (p.hebrew && !isRealHebrewDate(p.hebrew))
+  if (p.hebrew && !isRealMonthDay(p.hebrew))
     errors.push(`${label}: that Hebrew date doesn’t exist`)
   if (errors.length > before) return []
   const hebrew = p.hebrew ?? gregorianToHebrew(p.gregorian as DateString)
-  const gregorian = (DATE.test(p.gregorian) ? p.gregorian : hebrewToGregorian(hebrew)) as DateString
+  const gregorian: DateString | undefined = DATE.test(p.gregorian)
+    ? (p.gregorian as DateString)
+    : hebrew.year
+      ? hebrewToGregorian({ ...hebrew, year: hebrew.year })
+      : undefined
   return [
     {
       id: '',
       ...(p.hebrewName && { hebrewName: p.hebrewName }),
       ...((p.en || p.he) && { displayName: { en: p.en, ...(p.he && { he: p.he }) } }),
       hebrew,
-      gregorian,
+      ...(gregorian && { gregorian }),
     },
   ]
 }
@@ -316,15 +326,16 @@ function parseJsonList(data: unknown): Parsed<Yahrzeit[]> {
     const he = String(dn.he ?? '').trim()
     const hebrewName = String(y.hebrewName ?? '').trim()
     const label = `Person ${i + 1}${en || hebrewName ? ` (${en || hebrewName})` : ''}`
-    let hebrew: HebrewDate | undefined
+    let hebrew: HebrewMonthDay | undefined
     if (isObj(y.hebrew)) {
-      const month = monthFromText(String(y.hebrew.month ?? ''), Number(y.hebrew.year))
+      const year = y.hebrew.year ? Number(y.hebrew.year) : undefined
+      const month = monthFromText(String(y.hebrew.month ?? ''), year)
       if (month === undefined)
         return void errors.push(`${label}: don’t know the Hebrew month "${y.hebrew.month}"`)
-      hebrew = { day: Number(y.hebrew.day), month, year: Number(y.hebrew.year) }
+      hebrew = { day: Number(y.hebrew.day), month, ...(year && { year }) }
     } else if (typeof y.hebrew === 'string') {
       hebrew = parseHebrewDate(y.hebrew)
-      if (!hebrew) return void errors.push(`${label}: "hebrew" must look like "18 Cheshvan 5781"`)
+      if (!hebrew) return void errors.push(`${label}: "hebrew" must look like "18 Cheshvan" or "18 Cheshvan 5781"`)
     }
     out.push(
       ...build({ hebrewName, en, he, hebrew, gregorian: String(y.gregorian ?? '') }, label, errors),
@@ -375,9 +386,9 @@ One row per person:
 - hebrew_name: their Hebrew name with the father's name, in Hebrew letters: מנחם בן מימון. Leave empty if not given. Do not make one up.
 - display_name: the name people know them by, in English letters: Menachem Kohen. Leave empty if not given.
 - display_name_hebrew: the same name in Hebrew letters (מנחם כהן), only if the list gives it or the Hebrew is certain. Otherwise leave empty.
-- hebrew_date: the Hebrew date of the passing as day, month, year: 18 Cheshvan 5781. Use these month names: Nisan, Iyyar, Sivan, Tamuz, Av, Elul, Tishrei, Cheshvan, Kislev, Tevet, Shvat, Adar (in a plain year), Adar I and Adar II (in a leap year). The year is the full four digits (5781), never abbreviated. Leave empty if the list only has a civil date.
-- gregorian_date: the civil date of the passing as YYYY-MM-DD (2020-11-05). Leave empty if the list only has a Hebrew date.
-Each person needs at least one of the two dates; give both when the list does. Never guess a date. If someone's date is missing or you can't read it, leave that row out and say so after the CSV. Put any cell with a comma in double quotes. Keep Hebrew text as real Hebrew letters, without vowel points.
+- hebrew_date: the Hebrew date of the passing as day and month, and the year when the list has it: 18 Cheshvan 5781, or just 18 Cheshvan. The year is optional (the yahrzeit is kept on the same day every year either way); when given it is the full four digits (5781), never abbreviated. Use these month names: Nisan, Iyyar, Sivan, Tamuz, Av, Elul, Tishrei, Cheshvan, Kislev, Tevet, Shvat, Adar (in a plain year), Adar I and Adar II (in a leap year). Leave empty if the list only has a civil date.
+- gregorian_date: the civil date of the passing as YYYY-MM-DD (2020-11-05). Optional; leave empty if the list has none.
+Each person needs at least a Hebrew day and month or a civil date; give more when the list does. Never guess a date. If someone's date is missing or you can't read it, leave that row out and say so after the CSV. Put any cell with a comma in double quotes. Keep Hebrew text as real Hebrew letters, without vowel points.
 
 Example:
 
@@ -385,6 +396,7 @@ Example:
 ${COLUMNS.join(',')}
 מנחם בן מימון,Menachem Kohen,מנחם כהן,18 Cheshvan 5781,2020-11-05
 ,Sarah Levy,,,2019-03-14
+,David Katz,,5 Shvat,
 \`\`\`
 
 The gabbai's list:

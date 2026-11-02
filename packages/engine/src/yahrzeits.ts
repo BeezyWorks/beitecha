@@ -1,7 +1,7 @@
 import { HDate, HebrewCalendar, gematriya } from '@hebcal/core'
 
 import { formatDate, hostDate } from './dates'
-import type { DateString, HebrewDate, Yahrzeit, YahrzeitNames } from './types'
+import type { DateString, HebrewDate, HebrewMonthDay, Yahrzeit, YahrzeitNames } from './types'
 
 /** The civil date a Hebrew date falls on. */
 export function hebrewToGregorian({ day, month, year }: HebrewDate): DateString {
@@ -22,6 +22,25 @@ export function isRealHebrewDate({ day, month, year }: HebrewDate): boolean {
   return day <= HDate.daysInMonth(month, year)
 }
 
+/** Whether a Hebrew day and month exist in some year (a year, if given, must have them). */
+export function isRealMonthDay({ day, month, year }: HebrewMonthDay): boolean {
+  if (year !== undefined) return isRealHebrewDate({ day, month, year })
+  if (!Number.isInteger(day) || !Number.isInteger(month) || day < 1 || month < 1 || month > 13)
+    return false
+  return originYear({ day, month }) !== undefined
+}
+
+/** A year (long ago) the day and month exist in, with the right kind of Adar, standing in for the unknown birth year. */
+export function originYear({ day, month }: HebrewMonthDay): number | undefined {
+  for (let year = 5000; year < 5100; year++) {
+    const leap = HDate.isLeapYear(year)
+    if (month === 13 && !leap) continue
+    if (month === 12 && leap) continue
+    if (isRealHebrewDate({ day, month, year })) return year
+  }
+  return undefined
+}
+
 /** The months of a Hebrew year in calendar order from Tishrei, as `{ month, name }` (Adar I and II in a leap year). */
 export function hebrewMonths(year: number): { month: number; name: string }[] {
   const order = [7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6]
@@ -40,7 +59,10 @@ export function hebrewDateText(date: DateString, lang: 'en' | 'he' = 'en'): stri
 
 /** A yahrzeit as the date it is kept on in a Hebrew year (Hebcal's rules for Cheshvan, Kislev and Adar), if after the passing. */
 function keptIn(y: Yahrzeit, hyear: number): DateString | undefined {
-  const hd = HebrewCalendar.getYahrzeit(hyear, new HDate(y.hebrew.day, y.hebrew.month, y.hebrew.year))
+  // Without a year (or a civil date to find it from), a long-ago year the day exists in stands in for it.
+  const year =
+    y.hebrew.year ?? (y.gregorian ? gregorianToHebrew(y.gregorian).year : originYear(y.hebrew)!)
+  const hd = HebrewCalendar.getYahrzeit(hyear, new HDate(y.hebrew.day, y.hebrew.month, year))
   if (!hd) return undefined
   const g = hd.greg()
   return formatDate(g.getFullYear(), g.getMonth() + 1, g.getDate())
@@ -59,7 +81,7 @@ export function yahrzeitsBetween(list: Yahrzeit[] | undefined, from: DateString,
   const last = new HDate(hostDate(to)).getFullYear()
   const out: UpcomingYahrzeit[] = []
   for (const yahrzeit of list) {
-    if (!isRealHebrewDate(yahrzeit.hebrew)) continue
+    if (!isRealMonthDay(yahrzeit.hebrew)) continue
     for (let hyear = first; hyear <= last; hyear++) {
       const date = keptIn(yahrzeit, hyear)
       if (date && date >= from && date <= to) out.push({ date, yahrzeit })

@@ -1,8 +1,19 @@
 import { type PrintSettings } from '@beitecha/engine'
+import { Stack } from '@beezyworks/design'
 import React, { useRef, useState } from 'react'
 
-import { PagedSheets, BulletinSheet, type Paper } from '@/components/Bulletin'
-import { hasAnnouncements, TimesSide, useNoticesParts, type WeekProps } from './WeekSheet'
+import { bandShows, PagedSheets, BulletinSheet, type Paper } from '@/components/Bulletin'
+import { pagesOf } from './pages'
+import {
+  Footer,
+  HeaderBand,
+  hasAnnouncements,
+  Masthead,
+  sectionBlocks,
+  TimesSide,
+  useNoticesParts,
+  type WeekProps,
+} from './WeekSheet'
 
 /** Pages a sheet runs to when the shul hasn't said: the front, and a back when there are announcements. */
 export const DEFAULT_PAGES = 2
@@ -40,6 +51,16 @@ export function BulletinSheets({
   textSize: number
 }) {
   const parts = useNoticesParts(week)
+  if (week.layout)
+    return (
+      <ChosenSheets
+        week={week}
+        paper={paper}
+        rtl={rtl}
+        textSize={textSize}
+        grow={Number.isFinite(maxPages)}
+      />
+    )
   // A different week (or edit) lays everything out afresh.
   const seen = useRef({ week, n: 0 })
   if (seen.current.week !== week) seen.current = { week, n: seen.current.n + 1 }
@@ -84,6 +105,49 @@ export function BulletinSheets({
           head={<TimesSide {...week} withNotices={false} />}
         />
       )}
+    </>
+  )
+}
+
+/** The sheets of a layout the shul chose (`print.layout`): each page has the sections assigned to it, in order. */
+function ChosenSheets({
+  week,
+  paper,
+  rtl,
+  textSize,
+  grow,
+}: {
+  week: WeekProps
+  paper: Paper
+  rtl?: boolean
+  textSize: number
+  grow: boolean
+}) {
+  const blocks = sectionBlocks(week)
+  const pages = pagesOf(
+    week.layout ?? [],
+    blocks.map((b) => b.key),
+  )
+  return (
+    <>
+      {pages.map((sections, i) => (
+        <BulletinSheet key={i} paper={paper} rtl={rtl} scale={textSize} grow={grow}>
+          <Stack grow gap="lg">
+            {i === 0 ? (
+              <Masthead {...week} pages={pages.length} />
+            ) : (
+              bandShows(week.header?.pages ?? 'first', i + 1, pages.length) && (
+                <HeaderBand {...week} />
+              )
+            )}
+            {sections.map((s) => (
+              <React.Fragment key={s}>{blocks.find((b) => b.key === s)?.node}</React.Fragment>
+            ))}
+            <Stack grow />
+            <Footer {...week} page={i + 1} pages={pages.length} />
+          </Stack>
+        </BulletinSheet>
+      ))}
     </>
   )
 }

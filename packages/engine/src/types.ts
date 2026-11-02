@@ -212,7 +212,57 @@ export interface OccasionSettings {
   days?: number
 }
 
+/** The parts of the printed week, in their automatic order. */
+export const BULLETIN_SECTIONS = [
+  'shabbos',
+  'specialZmanim',
+  'notices',
+  'weekdays',
+  'zmanimTable',
+  'shiurim',
+  'comingUp',
+  'remembrance',
+  'celebrations',
+] as const
+export type BulletinSection = (typeof BULLETIN_SECTIONS)[number]
+
+/** Which pages of the printed week carry a header or footer. */
+export type BandPages = 'all' | 'first' | 'last' | 'off'
+
+/**
+ * The header or footer of the printed week: who the shul is and how to reach it. The header starts from the shul's
+ * name and address; the footer shows only what is filled in, plus (unless `qr` says otherwise) the link to the
+ * shul's page in the Siddur.
+ */
+export interface BulletinBand {
+  /** Default `first` for the header (beside the week's dates), `last` for the footer. */
+  pages?: BandPages
+  /** A small picture on the left: an image address, or a data URL of an uploaded one. */
+  logo?: string
+  /** Instead of the shul's name. */
+  name?: Localized
+  rabbi?: string
+  /** Instead of the shul's address (header), or the address to print (footer). */
+  address?: string
+  officePhone?: string
+  rabbiPhone?: string
+  email?: string
+  /**
+   * A QR code with what scanning it does. Absent: the shul's Siddur page (footer only). `false`: none. `url` blank:
+   * the Siddur page again, with the given `label`.
+   */
+  qr?: { url?: string; label?: string } | false
+}
+
 export interface PrintSettings {
+  /** The first day of the usual bulletin, 0 (Sunday) to 6 (Shabbos). Default 0. */
+  weekStart?: Weekday
+  /** The last day of the usual bulletin; before `weekStart` means the next week (Friday to Thursday is 5 to 4). Default 6. */
+  weekEnd?: Weekday
+  /** Top of the sheet, by default on the first page only. */
+  header?: BulletinBand
+  /** Bottom of the sheet, by default on the last page only. */
+  footer?: BulletinBand
   /** The week's zmanim, day by day, on the front. Default true. */
   zmanimTable?: boolean
   /** The week's shiurim, with the announcements. Default true. */
@@ -235,6 +285,12 @@ export interface PrintSettings {
    * full size and adds pages as needed. Default 2 (a second page only when there are announcements).
    */
   pages?: number | 'unlimited'
+  /**
+   * Which page each section goes on, and in what order: the list's order is the order on the page. Absent = the
+   * automatic layout (times on the front, announcements behind). Sections left out of the list go after the
+   * listed ones, on the last page; empty sections and pages are dropped.
+   */
+  layout?: { section: BulletinSection; page: number }[]
   /** Text size on the sheet as a multiple of normal (1), shrunk anyway where it wouldn't fit the pages. Default 1. */
   textSize?: number
   /** `color` (default) tints headings and rules with the shul's brand color; `mono` is black ink only, for copiers. */
@@ -557,10 +613,12 @@ export interface Yahrzeit {
   hebrewName?: string
   /** The name people know them by, in `en` and/or `he`: "Menachem Kohen" / "מנחם כהן". */
   displayName?: Localized
-  /** The Hebrew date of the passing; the one the yahrzeit is kept by. */
-  hebrew: HebrewDate
-  /** The civil date of the passing (derived from `hebrew`, or the one the gabbai entered). */
-  gregorian: DateString
+  /** The Hebrew day and month of the passing; the one the yahrzeit is kept by. The year is optional. */
+  hebrew: HebrewMonthDay
+  /** The civil date of the passing, if known (derived from `hebrew` when it has a year, or the one the gabbai entered). */
+  gregorian?: DateString
+  /** Keep this one off the printed bulletin (it still shows on the display and in the Siddur). */
+  hideFromBulletin?: boolean
 }
 
 /** A Hebrew date; the year is optional for birthdays and anniversaries, which come back every year. */
@@ -587,6 +645,8 @@ export interface Occasion {
   gregorian?: DateString
   /** Which date it is kept and shown by. Default: `hebrew`, unless only a civil date was given. */
   by?: 'hebrew' | 'gregorian'
+  /** Keep this one off the printed bulletin (it still shows on the display and in the Siddur). */
+  hideFromBulletin?: boolean
 }
 
 export interface Schedule {

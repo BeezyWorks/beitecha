@@ -1,5 +1,4 @@
 import { Button } from '@beezyworks/design'
-import { startOfWeek } from '@beitecha/engine'
 import { router, useLocalSearchParams } from 'expo-router'
 import React from 'react'
 
@@ -12,10 +11,9 @@ import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
 import { BulletinSheets, bulletinLayout } from './BulletinSheets'
 import { BulletinToolbar } from './BulletinToolbar'
+import { rangeFromParams, weekContaining } from './range'
 import { useWeek } from './useWeek'
 import { hasAnnouncements } from './WeekSheet'
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
  * The week on paper for the shul's tables: Shabbos, the weekday minyanim and the zmanim on
@@ -23,12 +21,18 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
  * back (or all on one side), as many pages as the shul's print settings allow.
  */
 export function BulletinScreen({ slug }: { slug: string }) {
-  const params = useLocalSearchParams<{ week?: string; paper?: string }>()
+  const params = useLocalSearchParams<{
+    week?: string
+    from?: string
+    to?: string
+    paper?: string
+  }>()
   const { feed, notFound, error } = useShulFeed(slug)
   const tz = feed?.schedule.settings.location.timeZone
   const { today } = useShulClock(tz, 60_000)
-  const sunday = startOfWeek(params.week && DATE_RE.test(params.week) ? params.week : today)
-  const week = useWeek(slug, feed?.profile, feed?.schedule, sunday)
+  const print = feed?.schedule.settings.print
+  const range = rangeFromParams(params, today, print)
+  const week = useWeek(slug, feed?.profile, feed?.schedule, range)
   const t = makeT(
     feed?.schedule.settings.language,
     feed?.schedule.settings.timeFormat,
@@ -47,7 +51,7 @@ export function BulletinScreen({ slug }: { slug: string }) {
     params.paper === 'a4' || params.paper === 'letter' ? params.paper : paperFor(tz!)
   const { maxPages, textSize, ink } = bulletinLayout(feed.schedule.settings.print)
   // A new layout starts its fit-to-page over.
-  const key = `${sunday}|${paper}|${maxPages}|${textSize}`
+  const key = `${range.from}|${range.to}|${paper}|${maxPages}|${textSize}`
 
   return (
     <ThemeRoot brandColor={bulletinBrand(ink, feed.profile.brandColor)} mode="light">
@@ -56,8 +60,9 @@ export function BulletinScreen({ slug }: { slug: string }) {
           paper={paper}
           toolbar={
             <BulletinToolbar
-              sunday={sunday}
-              onSunday={(week) => router.setParams({ week })}
+              range={range}
+              onRange={({ from, to }) => router.setParams({ week: undefined, from, to })}
+              usual={weekContaining(range.from, print)}
               paper={paper}
               onPaper={(p) => router.setParams({ paper: p })}
               leading={

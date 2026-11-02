@@ -10,26 +10,31 @@ import {
   type ZmanId,
   type ZmanKey,
   occasionsBetween,
+  specialZmanim,
   yahrzeitsBetween,
 } from '@beitecha/engine'
 import { useMemo } from 'react'
 
 import { useDays } from '@/features/luach/useDays'
 import type { InlineZman } from '@/features/luach/shabbosGroups'
+import { spanOf, type DateRange } from './range'
 import type { WeekProps } from './WeekSheet'
 
-/** The week starting `sunday`, as the sheet shows it: the shul's print settings decide what's left out. */
+/** The days of `range`, as the sheet shows them: the shul's print settings decide what's left out. */
 export function useWeek(
   slug: string,
   profile: ShulProfile | undefined,
   schedule: Schedule | undefined,
-  sunday: DateString,
+  range: DateRange,
 ): WeekProps | null {
-  const days = useDays(schedule, sunday, 7)
+  const { from, to } = range
+  const count = spanOf(range)
+  // The day before comes along: a range may start on Shabbos, whose Friday is outside it.
+  const all = useDays(schedule, addDays(from, -1), count + 1)
   return useMemo(() => {
-    if (!schedule || !profile || days.length < 7) return null
+    if (!schedule || !profile || all.length < count + 1) return null
+    const days = all.slice(1)
     const print = schedule.settings.print ?? {}
-    const shabbos = addDays(sunday, 6)
     const on = (flag: boolean | undefined) => flag !== false
     return {
       slug,
@@ -37,25 +42,51 @@ export function useWeek(
       days,
       notices: on(print.notices)
         ? schedule.notices
-            .filter((n) => (n.to ?? n.from) >= sunday && n.from <= shabbos)
+            .filter((n) => (n.to ?? n.from) >= from && n.from <= to)
             .sort((a, b) => a.from.localeCompare(b.from))
         : [],
       categories: schedule.settings.noticeCategories,
-      comingUp: on(print.comingUp) ? new Calendar(schedule).announced(sunday) : [],
+      comingUp: on(print.comingUp) ? new Calendar(schedule).announced(from, count) : [],
       cholim: on(print.cholim) ? (schedule.cholim ?? []) : [],
-      yahrzeits: on(print.yahrzeits) ? yahrzeitsBetween(schedule.yahrzeits, sunday, shabbos) : [],
+      yahrzeits: on(print.yahrzeits)
+        ? yahrzeitsBetween(
+            schedule.yahrzeits?.filter((p) => !p.hideFromBulletin),
+            from,
+            to,
+          )
+        : [],
       yahrzeitSettings: schedule.settings.yahrzeits,
-      birthdays: on(print.birthdays) ? occasionsBetween(schedule.birthdays, sunday, shabbos) : [],
+      birthdays: on(print.birthdays)
+        ? occasionsBetween(
+            schedule.birthdays?.filter((p) => !p.hideFromBulletin),
+            from,
+            to,
+          )
+        : [],
       birthdaySettings: schedule.settings.birthdays,
       anniversaries: on(print.anniversaries)
-        ? occasionsBetween(schedule.anniversaries, sunday, shabbos)
+        ? occasionsBetween(
+            schedule.anniversaries?.filter((p) => !p.hideFromBulletin),
+            from,
+            to,
+          )
         : [],
       anniversarySettings: schedule.settings.anniversaries,
       zmanimTable: on(print.zmanimTable),
       shiurim: on(print.shiurim),
-      shabbosZmanim: shabbosZmanim(schedule, addDays(sunday, 5)),
+      specialZmanim: on(print.specialZmanim)
+        ? specialZmanim(from, schedule.settings, undefined, count)
+        : [],
+      shabbos: all.flatMap((friday, i) =>
+        i < count && all[i + 1].weekday === 6
+          ? [{ friday, shabbos: all[i + 1], zmanim: shabbosZmanim(schedule, friday.date) }]
+          : [],
+      ),
+      layout: print.layout,
+      header: print.header,
+      footer: print.footer,
     }
-  }, [slug, profile, schedule, sunday, days])
+  }, [slug, profile, schedule, from, to, count, all])
 }
 
 /** The zmanim the shul lists among Friday night's and Shabbos day's minyanim, hidden or not. */

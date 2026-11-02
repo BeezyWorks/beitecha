@@ -4,16 +4,16 @@ import {
   gregorianToHebrew,
   hebrewMonths,
   hebrewToGregorian,
-  isRealHebrewDate,
+  isRealMonthDay,
   makeT,
   yahrzeitsBetween,
   type DateString,
-  type HebrewDate,
+  type HebrewMonthDay,
   type Yahrzeit,
   type YahrzeitDates,
   type YahrzeitSettings,
 } from '@beitecha/engine'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import {
   hebrewDateWords,
@@ -27,7 +27,7 @@ import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { DateField } from './DateField'
-import { FormButtons, isNamed, NameFields, RememberedTab } from './RememberedTab'
+import { BulletinToggle, FormButtons, isNamed, NameFields, RememberedTab } from './RememberedTab'
 import { newId, useAdmin } from './store'
 
 const DATES: { key: YahrzeitDates; label: string }[] = [
@@ -36,40 +36,40 @@ const DATES: { key: YahrzeitDates; label: string }[] = [
   { key: 'english', label: 'English date only' },
 ]
 
+const ANY_YEAR = 5784
 const DAYS = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
 
-/** A Hebrew date and the civil date it falls on; change either and the other follows. */
+/** A Hebrew day and month (the year and the civil date are optional); change the civil date or a Hebrew date with a year and the other follows. */
 function DateEditor({
   hebrew,
   gregorian,
   onChange,
 }: {
-  hebrew: HebrewDate
-  gregorian: DateString
-  onChange: (d: { hebrew: HebrewDate; gregorian: DateString }) => void
+  hebrew: HebrewMonthDay
+  gregorian?: DateString
+  onChange: (d: { hebrew: HebrewMonthDay; gregorian?: DateString }) => void
 }) {
-  const [year, setYear] = useState(String(hebrew.year))
-  const months = hebrewMonths(hebrew.year).map((m) => ({ value: String(m.month), label: m.name }))
-  const setHebrew = (h: HebrewDate) => {
+  const [year, setYear] = useState(hebrew.year ? String(hebrew.year) : '')
+  useEffect(() => setYear(hebrew.year ? String(hebrew.year) : ''), [hebrew.year])
+  const months = hebrewMonths(hebrew.year ?? ANY_YEAR).map((m) => ({
+    value: String(m.month),
+    label: !hebrew.year && m.month === 12 ? 'Adar (Adar I in a leap year)' : m.name,
+  }))
+  const setHebrew = (h: HebrewMonthDay) => {
     // A month that does not exist in this year (Adar II in a plain one) moves to Adar.
     const fixed =
-      months.some((m) => m.value === String(h.month)) || h.year === hebrew.year
-        ? h
-        : { ...h, month: h.month === 13 ? 12 : h.month }
+      h.year && h.month === 13 && !months.some((m) => m.value === '13') ? { ...h, month: 12 } : h
     onChange({
       hebrew: fixed,
-      gregorian: isRealHebrewDate(fixed) ? hebrewToGregorian(fixed) : gregorian,
+      gregorian:
+        fixed.year && isRealMonthDay(fixed)
+          ? hebrewToGregorian({ ...fixed, year: fixed.year })
+          : undefined,
     })
   }
-  const real = isRealHebrewDate(hebrew)
+  const real = isRealMonthDay(hebrew)
   return (
     <Stack gap="md">
-      <DateField
-        label="Date of passing"
-        value={gregorian}
-        onChange={(d) => d && onChange({ gregorian: d, hebrew: gregorianToHebrew(d) })}
-        help="Choose the civil date and the Hebrew date fills in. If they passed after nightfall, set the Hebrew date below."
-      />
       <Stack gap="xs">
         <Text variant="label" color={SemanticColor.TextSecondary}>
           Hebrew date
@@ -83,7 +83,7 @@ function DateEditor({
               onChange={(d) => setHebrew({ ...hebrew, day: +d })}
             />
           </Stack>
-          <Stack width={180}>
+          <Stack width={230}>
             <Select
               accessibilityLabel="Hebrew month"
               value={String(hebrew.month)}
@@ -91,31 +91,42 @@ function DateEditor({
               onChange={(m) => setHebrew({ ...hebrew, month: +m })}
             />
           </Stack>
-          <Stack width={110}>
+          <Stack width={130}>
             <Field
               label=""
-              accessibilityLabel="Hebrew year"
+              accessibilityLabel="Hebrew year (optional)"
+              placeholder="Year"
               value={year}
               keyboardType="number-pad"
               onChangeText={(y) => {
                 setYear(y)
                 if (/^\d{4}$/.test(y)) setHebrew({ ...hebrew, year: +y })
+                else if (!y) setHebrew({ day: hebrew.day, month: hebrew.month })
               }}
             />
           </Stack>
         </Stack>
-        {!real && (
-          <Text variant="caption" color={SemanticColor.TextDanger}>
-            That Hebrew date doesn’t exist in {hebrew.year}.
-          </Text>
-        )}
-        {real && gregorian > new Date().toISOString().slice(0, 10) && (
-          <Text variant="caption" color={SemanticColor.TextDanger}>
-            This is the year of the passing, and it hasn’t happened yet. Set the year they passed
-            away, or this yahrzeit won’t be listed.
-          </Text>
-        )}
+        <Text
+          variant="caption"
+          color={real ? SemanticColor.TextSecondary : SemanticColor.TextDanger}
+        >
+          {real
+            ? 'The year is optional: it’s kept on the same Hebrew date every year either way.'
+            : 'That Hebrew date doesn’t exist.'}
+        </Text>
       </Stack>
+      <DateField
+        label="Civil date of passing"
+        value={gregorian}
+        unsetLabel="Add a civil date"
+        initial="2000-01-01"
+        onChange={(d) =>
+          d
+            ? onChange({ gregorian: d, hebrew: gregorianToHebrew(d) })
+            : onChange({ hebrew: { day: hebrew.day, month: hebrew.month } })
+        }
+        help="Optional. Choosing it fills in the Hebrew date. If they passed after nightfall, set the Hebrew date above."
+      />
     </Stack>
   )
 }
@@ -135,8 +146,9 @@ function YahrzeitForm({ initial, onDone }: { initial: Yahrzeit; onDone: (y?: Yah
         gregorian={y.gregorian}
         onChange={(d) => setY({ ...y, ...d })}
       />
+      <BulletinToggle value={y} onChange={setY} />
       <FormButtons
-        canSave={isNamed(y) && isRealHebrewDate(y.hebrew)}
+        canSave={isNamed(y) && isRealMonthDay(y.hebrew)}
         onSave={() => onDone(y)}
         onCancel={() => onDone()}
       />
@@ -163,7 +175,7 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
       save={setYahrzeits}
       today={today}
       form={YahrzeitForm}
-      blank={() => ({ id: newId(), hebrew: gregorianToHebrew(today), gregorian: today })}
+      blank={() => ({ id: newId(), hebrew: gregorianToHebrew(today) })}
       next={(y) => yahrzeitsBetween([y], today, addDays(today, 400))[0]?.date}
       detail={(_, coming) =>
         coming ? `Next: ${t.yahrzeitDate(coming)}` : 'Date doesn’t recur yet'
@@ -188,7 +200,7 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
         parse: parseYahrzeits,
         same: sameYahrzeit,
         preview: (p) =>
-          `${t.yahrzeitNames(p).join(' · ')} · ${hebrewDateWords(p.hebrew)} · ${p.gregorian}`,
+          `${t.yahrzeitNames(p).join(' · ')} · ${hebrewDateWords(p.hebrew)}${p.gregorian ? ` · ${p.gregorian}` : ''}`,
         csv: yahrzeitsToCsv,
         json: yahrzeitsToJson,
       }}

@@ -211,6 +211,24 @@ export function BulletinSheet({
   )
 }
 
+/** The shul's logo on the sheet, at most `size` px high and wide, whatever its shape. */
+export function Logo({ src, size }: { src: string; size: number }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      style={{ maxWidth: size * 2, maxHeight: size, objectFit: 'contain', flexShrink: 0 }}
+    />
+  )
+}
+
+/** Whether a header or footer set to show on `where` pages appears on page `page` of `count` (still unknown: undefined). */
+export function bandShows(where: 'all' | 'first' | 'last' | 'off', page: number, count?: number) {
+  return (
+    where === 'all' || (where === 'first' && page === 1) || (where === 'last' && page === count)
+  )
+}
+
 export const PAPERS: Paper[] = ['a4', 'letter']
 
 /** Letter in the Americas, A4 everywhere else. */
@@ -232,10 +250,11 @@ interface Measured {
 }
 
 /**
- * A masthead, blocks and a footer spread over as many sheets as the blocks take: each block goes whole on
- * the sheet it fits, the masthead first and the footer last. With `maxPages`, the content shrinks until
- * it fits in that many, then grows (up to `MAX_GROW` times `scale`) until one more would not; without, it
- * stays at `scale`. Blocks are measured laid out off-screen first.
+ * A masthead, blocks, and a header and footer spread over as many sheets as the blocks take: each block goes
+ * whole on the sheet it fits, the masthead first. `top` is the header for pages after the first (the masthead has
+ * its own on page one) and `bottom` the footer, each on the pages `topWhere` / `bottomWhere` say, with room kept
+ * for them. With `maxPages`, the content shrinks until it fits in that many, then grows (up to `MAX_GROW` times
+ * `scale`) until one more would not; without, it stays at `scale`. Blocks are measured laid out off-screen first.
  */
 export function PagedSheets({
   paper,
@@ -244,7 +263,10 @@ export function PagedSheets({
   maxPages,
   head,
   blocks,
-  foot,
+  top,
+  topWhere = 'off',
+  bottom,
+  bottomWhere = 'off',
 }: {
   paper: Paper
   rtl?: boolean
@@ -252,7 +274,10 @@ export function PagedSheets({
   maxPages?: number
   head: React.ReactNode
   blocks: { key: string; node: React.ReactNode }[]
-  foot: React.ReactNode
+  top?: React.ReactNode
+  topWhere?: 'all' | 'first' | 'last' | 'off'
+  bottom?: React.ReactNode
+  bottomWhere?: 'all' | 'first' | 'last' | 'off'
 }) {
   const [s, setS] = useState(base)
   const [sizes, setSizes] = useState<Measured | null>(null)
@@ -265,26 +290,40 @@ export function PagedSheets({
   }, [base, maxPages])
 
   const room = roomFor(paper)
-  const key = `${s}|${paper}|${blocks.map((b) => b.key).join()}`
-  const items = [head, ...blocks.map((b) => b.node), foot]
+  const key = `${s}|${paper}|${blocks.map((b) => b.key).join()}|${topWhere}|${bottomWhere}`
+  const items = [head, ...blocks.map((b) => b.node)]
+  // Measured with the rest: the header and footer, when there are any.
+  const extras = [top, bottom].map((node) => node ?? null)
+  const measuredNodes = [...items, ...extras.filter((n) => n !== null)]
 
   const pages = React.useMemo(() => {
-    if (!sizes || sizes.key !== key || sizes.list.length !== items.length) return null
+    if (!sizes || sizes.key !== key || sizes.list.length !== measuredNodes.length) return null
     const { list } = sizes
     const gap = list.length > 1 ? Math.max(0, list[1].y - list[0].y - list[0].height) : 16
+    const topH = top ? list[items.length].height + gap : 0
+    const bottomH = bottom ? list[items.length + (top ? 1 : 0)].height + gap : 0
     const cap = room.height / s
+    const reserve = (n: number) =>
+      (n > 0 && topWhere === 'all' ? topH : 0) +
+      (bottomWhere === 'all' || (bottomWhere === 'first' && n === 0) ? bottomH : 0)
     const out: number[][] = [[0]]
-    let used = list[0].height
-    for (let i = 1; i < list.length; i++) {
-      const page = out[out.length - 1]
-      if (used + gap + list[i].height > cap && page.length > 1) {
+    const used = [list[0].height]
+    for (let i = 1; i < items.length; i++) {
+      const n = out.length - 1
+      const page = out[n]
+      if (used[n] + gap + list[i].height > cap - reserve(n) && page.length > 1) {
         out.push([i])
-        used = list[i].height
+        used.push(list[i].height)
       } else {
         page.push(i)
-        used += gap + list[i].height
+        used[n] += gap + list[i].height
       }
     }
+    // A footer on the last page only needs the room there, found once we know which page is last.
+    const last = out.length - 1
+    const lastPage = out[last]
+    if (bottomWhere === 'last' && lastPage.length > 1 && used[last] + bottomH > cap)
+      out.push([lastPage.pop()!])
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sizes, key])
@@ -310,7 +349,8 @@ export function PagedSheets({
       const { y, height } = e.nativeEvent.layout
       got.current.list[i] = { y, height }
       const list = got.current.list
-      if (list.length === items.length && list.every(Boolean)) setSizes({ key, list: [...list] })
+      if (list.length === measuredNodes.length && list.every(Boolean))
+        setSizes({ key, list: [...list] })
     }
 
   return (
@@ -322,7 +362,7 @@ export function PagedSheets({
       >
         <View style={{ width: room.width / s - 1, opacity: 0 }}>
           <Stack gap="lg">
-            {items.map((node, i) => (
+            {measuredNodes.map((node, i) => (
               <View key={i} onLayout={measured(i)}>
                 {node}
               </View>
@@ -333,12 +373,12 @@ export function PagedSheets({
       {pages?.map((idx, n) => (
         <BulletinSheet key={`${n}|${s}`} paper={paper} rtl={rtl} scale={s}>
           <Stack grow gap="lg">
+            {n > 0 && top && bandShows(topWhere, n + 1, pages.length) && top}
             {idx.map((i) => (
-              <React.Fragment key={i}>
-                {i === items.length - 1 && <Stack grow />}
-                {items[i]}
-              </React.Fragment>
+              <React.Fragment key={i}>{items[i]}</React.Fragment>
             ))}
+            <Stack grow />
+            {bottom && bandShows(bottomWhere, n + 1, pages.length) && bottom}
           </Stack>
         </BulletinSheet>
       ))}

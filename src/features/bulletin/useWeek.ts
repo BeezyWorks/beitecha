@@ -47,6 +47,7 @@ export function useWeek(
         : [],
       categories: schedule.settings.noticeCategories,
       comingUp: on(print.comingUp) ? new Calendar(schedule).announced(from, count) : [],
+      contact: on(print.contact) ? schedule.settings.contact : undefined,
       cholim: on(print.cholim) ? (schedule.cholim ?? []) : [],
       yahrzeits: on(print.yahrzeits)
         ? yahrzeitsBetween(

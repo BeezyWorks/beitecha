@@ -1,5 +1,5 @@
 import { Card, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { type NameStyle, nameStyle, type ShulSettings } from '@beitecha/engine'
+import { type NameStyle, nameStyle, type ShulContact, type ShulSettings } from '@beitecha/engine'
 import React from 'react'
 
 import { Field } from '@/components/Field'
@@ -12,8 +12,20 @@ import { useAdmin } from './store'
 /** The shul's name and look, its language, language and local holidays; saved from the save bar. */
 export function ShulTab() {
   const { profile, schedule, setProfile, setSchedule } = useAdmin()
+  const [emeritusDraft, setEmeritusDraft] = React.useState(
+    () => schedule?.settings.contact?.emeritus?.join('\n') ?? '',
+  )
   if (!profile || !schedule) return null
   const setSettings = (settings: ShulSettings) => setSchedule({ ...schedule, settings })
+  const contact: ShulContact = schedule.settings.contact ?? {}
+  const setContact = (patch: Partial<ShulContact>) => {
+    const next = { ...contact, ...patch }
+    for (const k of Object.keys(patch) as (keyof ShulContact)[]) if (next[k] === '') delete next[k]
+    setSettings({
+      ...schedule.settings,
+      contact: Object.keys(next).length ? next : undefined,
+    })
+  }
 
   return (
     <SectionPage title="Shul settings">
@@ -92,6 +104,61 @@ export function ShulTab() {
             you haven’t given in Hebrew stay in English.
           </Text>
         </Stack>
+      </Card>
+
+      <Card gap="md">
+        <Text variant="sectionHeader">Contact info</Text>
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          All optional. Shown as a contact section on the bulletin (turn it off under Bulletin).
+        </Text>
+        <Field
+          label="Rabbi"
+          value={contact.rabbi ?? ''}
+          onChangeText={(v) => setContact({ rabbi: v })}
+        />
+        <Field
+          label="Rabbi’s phone"
+          value={contact.rabbiPhone ?? ''}
+          keyboardType="phone-pad"
+          onChangeText={(v) => setContact({ rabbiPhone: v })}
+        />
+        <Field
+          label="Rabbi’s email"
+          value={contact.rabbiEmail ?? ''}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          onChangeText={(v) => setContact({ rabbiEmail: v })}
+        />
+        <Field
+          label="Rabbis emeritus"
+          help="One per line."
+          value={emeritusDraft}
+          multiline
+          onChangeText={(v) => {
+            setEmeritusDraft(v)
+            const names = v
+              .split('\n')
+              .map((n) => n.trim())
+              .filter(Boolean)
+            setSettings({
+              ...schedule.settings,
+              contact: { ...contact, emeritus: names.length ? names : undefined },
+            })
+          }}
+        />
+        <Field
+          label="Office phone"
+          value={contact.officePhone ?? ''}
+          keyboardType="phone-pad"
+          onChangeText={(v) => setContact({ officePhone: v })}
+        />
+        <Field
+          label="Office email"
+          value={contact.officeEmail ?? ''}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          onChangeText={(v) => setContact({ officeEmail: v })}
+        />
       </Card>
 
       <TimeFormatCard

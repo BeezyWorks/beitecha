@@ -146,6 +146,8 @@ export interface ShulSettings {
   noticeCategories?: NoticeCategory[]
   /** How the printed week looks. */
   print?: PrintSettings
+  /** Who leads the shul and how to reach it; all optional. The printed week can list it as a contact section. */
+  contact?: ShulContact
   /** How the upcoming yahrzeits are titled and shown. */
   yahrzeits?: YahrzeitSettings
   /** How the upcoming birthdays and anniversaries are titled and shown. */
@@ -156,6 +158,17 @@ export interface ShulSettings {
    * one default landscape setup, which `/<slug>/display` shows; otherwise that address shows the first.
    */
   displays?: DisplaySetup[]
+}
+
+/** The shul's rabbi, its rabbis emeritus and how to reach them and the office. Every part is optional. */
+export interface ShulContact {
+  rabbi?: string
+  /** Rabbis emeritus, one name each. */
+  emeritus?: string[]
+  rabbiPhone?: string
+  rabbiEmail?: string
+  officePhone?: string
+  officeEmail?: string
 }
 
 /** The parts a display can show or hide; absent from `DisplaySetup.blocks` = shown. */
@@ -223,6 +236,7 @@ export const BULLETIN_SECTIONS = [
   'comingUp',
   'remembrance',
   'celebrations',
+  'contact',
 ] as const
 export type BulletinSection = (typeof BULLETIN_SECTIONS)[number]
 
@@ -278,6 +292,8 @@ export interface PrintSettings {
   anniversaries?: boolean
   /** The refuah shleimah list. Default true. */
   cholim?: boolean
+  /** The contact section: the rabbi, rabbis emeritus, phones and emails from the shul's settings. Default true. */
+  contact?: boolean
   /** Below Shabbos, in weeks with a fast (when it begins and ends) or Erev Pesach (chametz); Tish'a B'Av adds chatzos. Default true. */
   specialZmanim?: boolean
   /**

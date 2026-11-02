@@ -16,6 +16,7 @@ import {
   type BulletinBand,
   type BulletinSection,
   type PrintSettings,
+  type ShulContact,
   type ShulProfile,
   type SpecialZmanimGroup,
   type OccasionSettings,
@@ -65,6 +66,10 @@ const WORDS = {
   changed: { en: 'Changed this week', he: 'שינויים השבוע' },
   office: { en: 'Office', he: 'משרד' },
   rabbi: { en: 'Rabbi', he: 'הרב' },
+  contact: { en: 'Contact', he: 'יצירת קשר' },
+  emeritus: { en: 'Rabbis emeritus', he: 'רבנים אמריטוס' },
+  phone: { en: 'Phone', he: 'טלפון' },
+  email: { en: 'Email', he: 'אימייל' },
 } satisfies Record<string, Localized>
 /** Marks a time that was changed for this week only. */
 const CHANGED = '◆'
@@ -90,6 +95,8 @@ export interface WeekProps {
   comingUp: { date: DateString; event: Occurrence }[]
   /** The refuah shleimah list. */
   cholim: Choleh[]
+  /** The rabbi, rabbis emeritus and how to reach them (`settings.contact`). */
+  contact?: ShulContact
   /** The yahrzeits kept this week, and how to show them. */
   yahrzeits: UpcomingYahrzeit[]
   yahrzeitSettings?: YahrzeitSettings
@@ -239,6 +246,7 @@ function announcementBlocks({
   anniversaries,
   anniversarySettings,
   shiurim: showShiurim,
+  contact,
 }: WeekProps): { key: BulletinSection; node: React.ReactNode }[] {
   const blocks: { key: BulletinSection; node: React.ReactNode }[] = []
   if (showShiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !notShiur(e))))
@@ -269,6 +277,7 @@ function announcementBlocks({
         />
       ),
     })
+  if (hasContact(contact)) blocks.push({ key: 'contact', node: <ContactInfo contact={contact} /> })
   return blocks
 }
 
@@ -1310,6 +1319,73 @@ function Remembered({ list }: { list: RememberedList }) {
           </Stack>
         )}
       />
+    </Stack>
+  )
+}
+
+const hasContact = (c?: ShulContact): c is ShulContact =>
+  !!c &&
+  !!(
+    c.rabbi?.trim() ||
+    c.rabbiPhone?.trim() ||
+    c.rabbiEmail?.trim() ||
+    c.officePhone?.trim() ||
+    c.officeEmail?.trim() ||
+    c.emeritus?.some((n) => n.trim())
+  )
+
+/** The rabbi, rabbis emeritus and the office, each with phone and email, in a box under a "Contact" heading. */
+function ContactInfo({ contact }: { contact: ShulContact }) {
+  const t = useT()
+  const emeritus = (contact.emeritus ?? []).map((n) => n.trim()).filter(Boolean)
+  const line = (label: Localized, value?: string) =>
+    value?.trim() ? (
+      <Text key={label.en} variant="body">
+        {t.text(label)}: {value.trim()}
+      </Text>
+    ) : null
+  const entries = [
+    {
+      key: 'rabbi',
+      title: contact.rabbi?.trim() ? `${t.text(WORDS.rabbi)} ${contact.rabbi.trim()}` : undefined,
+      lines: [line(WORDS.phone, contact.rabbiPhone), line(WORDS.email, contact.rabbiEmail)],
+      fallback: WORDS.rabbi,
+    },
+    {
+      key: 'office',
+      title: undefined,
+      lines: [line(WORDS.phone, contact.officePhone), line(WORDS.email, contact.officeEmail)],
+      fallback: WORDS.office,
+    },
+  ].filter((e) => e.title || e.lines.some(Boolean))
+  return (
+    <Stack gap="sm">
+      <Heading en={WORDS.contact.en} he={WORDS.contact.he} />
+      <Stack
+        direction="row"
+        gap="md"
+        padding="sm"
+        radius="md"
+        borderWidth={1}
+        borderColor={SemanticColor.BorderStrong}
+      >
+        {entries.map((e) => (
+          <Stack key={e.key} grow width={0} gap="xs">
+            <Text variant="bodySerifLarge">{e.title ?? t.text(e.fallback)}</Text>
+            {e.lines}
+          </Stack>
+        ))}
+        {emeritus.length > 0 && (
+          <Stack grow width={0} gap="xs">
+            <Text variant="bodySerifLarge">{t.text(WORDS.emeritus)}</Text>
+            {emeritus.map((n) => (
+              <Text key={n} variant="body" rtl={HEBREW.test(n)}>
+                {n}
+              </Text>
+            ))}
+          </Stack>
+        )}
+      </Stack>
     </Stack>
   )
 }

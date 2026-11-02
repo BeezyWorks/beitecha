@@ -25,6 +25,7 @@ const SECTION_NAMES: Record<BulletinSection, string> = {
   comingUp: 'Coming up',
   remembrance: 'Yahrzeits & refuah shleimah',
   celebrations: 'Birthdays & anniversaries',
+  contact: 'Contact info',
 }
 
 /** The automatic layout as a list: the times on the first page, the rest on the second. */
@@ -46,6 +47,7 @@ const SHOWN: {
     | 'birthdays'
     | 'anniversaries'
     | 'cholim'
+    | 'contact'
     | 'specialZmanim'
   label: string
   help: string
@@ -70,6 +72,11 @@ const SHOWN: {
   { key: 'birthdays', label: 'Birthdays', help: 'Those this week.' },
   { key: 'anniversaries', label: 'Anniversaries', help: 'Those this week.' },
   { key: 'cholim', label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
+  {
+    key: 'contact',
+    label: 'Contact info',
+    help: 'The rabbi, rabbis emeritus, phones and emails from Shul settings.',
+  },
   {
     key: 'specialZmanim',
     label: 'Fast & Pesach zmanim',

@@ -3,7 +3,7 @@ import React from 'react'
 
 import { Segments } from '@/components/Segments'
 import { useAppearance, type Appearance } from '@/lib/appearance'
-import { BULLETIN_SECTION, SECTION_GROUPS, type SectionKey } from './sections'
+import { SECTION_GROUPS, SEE_IT_SECTIONS, SETTINGS_SECTIONS, type SectionKey } from './sections'
 
 const APPEARANCES: { key: Appearance; label: string }[] = [
   { key: 'light', label: 'Light' },
@@ -103,13 +103,31 @@ export function Sidebar({
               See it
             </Text>
           </Stack>
-          <NavRow
-            label={BULLETIN_SECTION.label}
-            icon="print"
-            selected={section === BULLETIN_SECTION.key}
-            onPress={() => onSection(BULLETIN_SECTION.key)}
-          />
+          {SEE_IT_SECTIONS.map((s) => (
+            <NavRow
+              key={s.key}
+              label={s.label}
+              icon={s.key === 'bulletin' ? 'print' : undefined}
+              selected={s.key === section}
+              onPress={() => onSection(s.key)}
+            />
+          ))}
           <NavRow label="Siddur page" icon="external-link" onPress={onSiddur} />
+        </Stack>
+        <Stack gap="none" paddingTop="md">
+          <Stack paddingHorizontal="md" paddingBottom="xs">
+            <Text variant="label" color={SemanticColor.TextSecondary}>
+              Settings
+            </Text>
+          </Stack>
+          {SETTINGS_SECTIONS.map((s) => (
+            <NavRow
+              key={s.key}
+              label={s.label}
+              selected={s.key === section}
+              onPress={() => onSection(s.key)}
+            />
+          ))}
         </Stack>
         <Stack paddingHorizontal="sm" paddingTop="lg">
           <Segments

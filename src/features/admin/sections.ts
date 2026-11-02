@@ -26,7 +26,6 @@ export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; labe
         { key: 'shiurim', label: 'Shiurim' },
         { key: 'programs', label: 'Kiddush & programs' },
         { key: 'events', label: 'Dates & events' },
-        { key: 'zmanim', label: 'Zmanim' },
       ],
     },
     {
@@ -39,19 +38,25 @@ export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; labe
         { key: 'anniversaries', label: 'Anniversaries' },
       ],
     },
-    {
-      title: 'Shul',
-      sections: [
-        { key: 'display', label: 'Lobby display' },
-        { key: 'shul', label: 'Shul settings' },
-        { key: 'team', label: 'Team & displays' },
-      ],
-    },
   ]
 
-/** Under "See it" in the sidebar: the sheet as it prints. */
-export const BULLETIN_SECTION = { key: 'bulletin' as const, label: 'Bulletin' }
+/** Under "See it" in the sidebar: the surfaces the schedule shows on. */
+export const SEE_IT_SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'display', label: 'Lobby display' },
+  { key: 'bulletin', label: 'Bulletin' },
+]
 
-export const SECTIONS = [...SECTION_GROUPS.flatMap((g) => g.sections), BULLETIN_SECTION]
+/** The last group in the sidebar. */
+export const SETTINGS_SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'shul', label: 'Shul settings' },
+  { key: 'team', label: 'Team & displays' },
+  { key: 'zmanim', label: 'Zmanim' },
+]
+
+export const SECTIONS = [
+  ...SECTION_GROUPS.flatMap((g) => g.sections),
+  ...SEE_IT_SECTIONS,
+  ...SETTINGS_SECTIONS,
+]
 
 export const isSection = (s: unknown): s is SectionKey => SECTIONS.some((x) => x.key === s)

@@ -399,8 +399,8 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
               label={shiur ? 'Headline' : 'Name everyone sees'}
               help={
                 shiur
-                  ? 'On the display, the printed week and in the Siddur'
-                  : 'On the display, the printed week and in the Siddur'
+                  ? 'On the display, the bulletin and in the Siddur'
+                  : 'On the display, the bulletin and in the Siddur'
               }
               value={event.name.en}
               onChangeText={(en) => set({ name: { ...event.name, en } })}

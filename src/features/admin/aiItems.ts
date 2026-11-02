@@ -306,7 +306,7 @@ export function noticePrompt(
   )
   const events = [...weekly.map((e) => `  ${e.id}: ${e.name.en} (every week)`), ...oneTime]
   const categories = schedule.settings.noticeCategories ?? []
-  return `You are helping the gabbai of ${profile.name.en} put sponsorships and notices on their shul's display, printed week and Siddur page in Beitecha. The gabbai may paste a message, an email or a list; take each sponsorship or notice from it, keeping the wording warm and short.
+  return `You are helping the gabbai of ${profile.name.en} put sponsorships and notices on their shul's display, bulletin and Siddur page in Beitecha. The gabbai may paste a message, an email or a list; take each sponsorship or notice from it, keeping the wording warm and short.
 
 ${HOW_TO_ANSWER('{ "notices": [ … ] } in the format below')}
 

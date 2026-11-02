@@ -12,7 +12,10 @@ const read = (): Appearance => {
 }
 
 /** Light, dark, or following the system: this browser's choice, kept between visits. */
-export const useAppearance = create<{ appearance: Appearance; setAppearance: (a: Appearance) => void }>((set) => ({
+export const useAppearance = create<{
+  appearance: Appearance
+  setAppearance: (a: Appearance) => void
+}>((set) => ({
   appearance: read(),
   setAppearance: (appearance) => {
     storage.set(KEY, appearance === 'auto' ? null : appearance)

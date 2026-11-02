@@ -12,21 +12,21 @@ import React from 'react'
 
 import {
   paperFor,
-  PrintRoot,
-  printBrand,
+  BulletinRoot,
+  bulletinBrand,
   SHEET_PX,
   SheetStyle,
   type Paper,
-} from '@/components/Print'
+} from '@/components/Bulletin'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { ThemeRoot } from '@/components/ThemeRoot'
 import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useShulClock } from '@/features/luach/useShulClock'
-import { PrintSheets, printLayout } from '@/features/print/PrintSheets'
-import { PrintToolbar } from '@/features/print/PrintToolbar'
-import { useWeek } from '@/features/print/useWeek'
-import { PrintCard } from './PrintCard'
+import { BulletinSheets, bulletinLayout } from '@/features/bulletin/BulletinSheets'
+import { BulletinToolbar } from '@/features/bulletin/BulletinToolbar'
+import { useWeek } from '@/features/bulletin/useWeek'
+import { BulletinCard } from './BulletinCard'
 import { useAdmin } from './store'
 
 const RAIL = 360
@@ -38,8 +38,8 @@ const SIZES = [
   { key: '1.3', label: 'Larger' },
 ]
 
-/** The printed week, under "See it": how it's laid out and what's on it, with the sheets beside it. */
-export function PrintSection({ slug }: { slug: string }) {
+/** the bulletin, under "See it": how it's laid out and what's on it, with the sheets beside it. */
+export function BulletinSection({ slug }: { slug: string }) {
   const { profile, schedule, setSchedule } = useAdmin()
   const wide = useIsWideLayout()
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
@@ -50,7 +50,7 @@ export function PrintSection({ slug }: { slug: string }) {
 
   const chosen = paper ?? paperFor(schedule.settings.location.timeZone)
   const print = schedule.settings.print ?? {}
-  const layout = printLayout(print)
+  const layout = bulletinLayout(print)
   const set = (patch: Partial<typeof print>) =>
     setSchedule({ ...schedule, settings: { ...schedule.settings, print: { ...print, ...patch } } })
 
@@ -59,7 +59,7 @@ export function PrintSection({ slug }: { slug: string }) {
       <Stack maxWidth={880} gap="lg">
         <Stack direction="row" align="center" gap="md" wrap>
           <Stack grow gap="xs">
-            <Text variant="largeTitle">Print</Text>
+            <Text variant="largeTitle">Bulletin</Text>
             <Text variant="body" color={SemanticColor.TextSecondary}>
               The week on paper, for the board or the bimah.
             </Text>
@@ -148,7 +148,7 @@ export function PrintSection({ slug }: { slug: string }) {
             </Text>
           </Stack>
         </Card>
-        <PrintCard
+        <BulletinCard
           settings={schedule.settings}
           onChange={(settings) => setSchedule({ ...schedule, settings })}
         />
@@ -212,7 +212,7 @@ function useSheet(slug: string, sunday: DateString) {
   const week = useWeek(slug, profile ?? undefined, schedule ?? undefined, sunday)
   if (!profile || !schedule || !week) return null
   const t = makeT(schedule.settings.language, schedule.settings.timeFormat, schedule.settings.names)
-  return { week, t, profile, ...printLayout(schedule.settings.print) }
+  return { week, t, profile, ...bulletinLayout(schedule.settings.print) }
 }
 
 /** The sheets shrunk to `width`, laid out at full size, so what's here is what prints. */
@@ -243,7 +243,7 @@ function SheetPreview({
   if (!sheet) return null
   const { week, t, profile, maxPages, textSize, ink } = sheet
   return (
-    <ThemeRoot brandColor={printBrand(ink, profile.brandColor)} mode="light">
+    <ThemeRoot brandColor={bulletinBrand(ink, profile.brandColor)} mode="light">
       <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
         <SheetStyle />
         <div style={{ width, height, overflow: 'hidden' }}>
@@ -260,7 +260,7 @@ function SheetPreview({
               pointerEvents: 'none',
             }}
           >
-            <PrintSheets
+            <BulletinSheets
               key={`${sunday}|${paper}|${maxPages}|${textSize}`}
               week={week}
               paper={paper}
@@ -294,12 +294,12 @@ function FullScreen({
   if (!sheet) return null
   const { week, t, profile, maxPages, textSize, ink } = sheet
   return (
-    <ThemeRoot brandColor={printBrand(ink, profile.brandColor)} mode="light">
+    <ThemeRoot brandColor={bulletinBrand(ink, profile.brandColor)} mode="light">
       <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
-        <PrintRoot
+        <BulletinRoot
           paper={paper}
           toolbar={
-            <PrintToolbar
+            <BulletinToolbar
               sunday={sunday}
               onSunday={setSunday}
               paper={paper}
@@ -310,7 +310,7 @@ function FullScreen({
             />
           }
         >
-          <PrintSheets
+          <BulletinSheets
             key={`${sunday}|${paper}|${maxPages}|${textSize}`}
             week={week}
             paper={paper}
@@ -318,7 +318,7 @@ function FullScreen({
             maxPages={maxPages}
             textSize={textSize}
           />
-        </PrintRoot>
+        </BulletinRoot>
       </LanguageProvider>
     </ThemeRoot>
   )

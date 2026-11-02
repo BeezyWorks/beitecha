@@ -48,8 +48,8 @@ const SHOWN: {
   { key: 'cholim', label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
 ]
 
-/** The printed week: whether it has the zmanim table, and which zmanim sit among the Shabbos minyanim. */
-export function PrintCard({
+/** the bulletin: whether it has the zmanim table, and which zmanim sit among the Shabbos minyanim. */
+export function BulletinCard({
   settings,
   onChange,
 }: {
@@ -108,7 +108,7 @@ export function PrintCard({
 
   return (
     <Card gap="md">
-      <Text variant="sectionHeader">Printed week: what to show</Text>
+      <Text variant="sectionHeader">Bulletin: what to show</Text>
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         What goes on the sheet. Anything with nothing to show that week is left out anyway.
       </Text>

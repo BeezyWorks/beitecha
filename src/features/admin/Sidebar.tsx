@@ -3,7 +3,7 @@ import React from 'react'
 
 import { Segments } from '@/components/Segments'
 import { useAppearance, type Appearance } from '@/lib/appearance'
-import { PRINT_SECTION, SECTION_GROUPS, type SectionKey } from './sections'
+import { BULLETIN_SECTION, SECTION_GROUPS, type SectionKey } from './sections'
 
 const APPEARANCES: { key: Appearance; label: string }[] = [
   { key: 'light', label: 'Light' },
@@ -104,10 +104,10 @@ export function Sidebar({
             </Text>
           </Stack>
           <NavRow
-            label={PRINT_SECTION.label}
+            label={BULLETIN_SECTION.label}
             icon="print"
-            selected={section === PRINT_SECTION.key}
-            onPress={() => onSection(PRINT_SECTION.key)}
+            selected={section === BULLETIN_SECTION.key}
+            onPress={() => onSection(BULLETIN_SECTION.key)}
           />
           <NavRow label="Siddur page" icon="external-link" onPress={onSiddur} />
         </Stack>

@@ -22,7 +22,7 @@ It's free. Gabbaim sign in with the shared Baderech account (the same one the Si
 | --- | --- |
 | `packages/engine` | `@beitecha/engine`: the rules engine. Pure TypeScript on `@hebcal/core`. Schedule + date → times. Its own repo (`BeezyWorks/beitecha-engine`), mounted here and in the Siddur as a submodule. Shared by the web app, the worker and the Siddur. |
 | `worker/` | Cloudflare Worker: the API on D1, the ICS feed, and the static web app. |
-| `src/` | Expo Router web app: display, admin, print, home. |
+| `src/` | Expo Router web app: display, admin, bulletin, home. |
 | `packages/design` | `@beezyworks/design`, git submodule (BeezyWorks/design-system). |
 | `migrations/` | D1 schema. |
 

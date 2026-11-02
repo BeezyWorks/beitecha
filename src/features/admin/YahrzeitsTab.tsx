@@ -217,7 +217,7 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
   return (
     <SectionPage
       title="Yahrzeits"
-      intro="Shown under “Upcoming yahrzeits” in the announcements on the display, the printed week and the Siddur, in the days before each one."
+      intro="Shown under “Upcoming yahrzeits” in the announcements on the display, the bulletin and the Siddur, in the days before each one."
       actions={
         editing === null && (
           <Button icon="add" title="Add a yahrzeit" onPress={() => setEditing('new')} />
@@ -271,7 +271,7 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
         </Stack>
         <Field
           label="Days ahead"
-          help="How many days before a yahrzeit it appears on the display and in the Siddur. The printed week lists its own days."
+          help="How many days before a yahrzeit it appears on the display and in the Siddur. the bulletin lists its own days."
           value={String(settings.days ?? 7)}
           keyboardType="number-pad"
           onChangeText={(d) => {

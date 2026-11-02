@@ -2,7 +2,7 @@
 
 Shul schedules from rules: a gabbai defines minyanim/shiurim as rules over zmanim and the Jewish calendar, plus
 one-time changes and sponsors; Beitecha computes the times and shows them on a lobby display, the Siddur's shul page (QR code),
-an ICS feed, and inside the Siddur (SiddurOneRN, `siddur.one/shul/<slug>`). Web only. Beitecha hosts only the display (plus admin and print); a shul's public page is the Siddur's. Served at `beitecha.baderech.app`. A sibling of the
+an ICS feed, and inside the Siddur (SiddurOneRN, `siddur.one/shul/<slug>`). Web only. Beitecha hosts only the display (plus admin and bulletin); a shul's public page is the Siddur's. Served at `beitecha.baderech.app`. A sibling of the
 Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals on their way, this is for institutions.
 
 ## Architecture
@@ -38,12 +38,12 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   over the `AUTH` service binding. Roles: `owner` (invites, removes) and `editor`. Vitest with
   `@cloudflare/vitest-pool-workers`; the accounts service is faked in `vitest.config.mts` ("Bearer <id>" = user id).
 - **App (`src/`).** Expo Router (web only), `src/app/` holds only route files re-exporting feature screens.
-  Features: `luach` (shared feed/clock hooks, day components, and `useT()` over the engine's `makeT` wording), `display`, `print`, `admin`, `home`,
+  Features: `luach` (shared feed/clock hooks, day components, and `useT()` over the engine's `makeT` wording), `display`, `bulletin`, `admin`, `home`,
   `account`.
   - **Design system = `@beezyworks/design`**, the `packages/design` submodule, same as the siblings. No raw colors or
     style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
     scaled to the screen; a DL candidate), `components/ShrinkToFit.tsx` (one line shrunk to the room it
-    has; same), `components/Select.tsx` (styled like the DL's own web pickers), `components/Print.tsx` (paper-sized
+    has; same), `components/Select.tsx` (styled like the DL's own web pickers), `components/Bulletin.tsx` (paper-sized
     sheets portalled out of the app's clipping root, `@page` CSS, scaled to fill one sheet) and
     `components/Blackout.tsx` (the display's true-black sleep screen).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
@@ -58,32 +58,32 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     round-trips through a JSON editor instead of being lost. Jest-tested.
     An event's `adminName` ("Shabbos Mincha") is what the admin calls it (`adminLabel`); `name` is what everyone
     else sees, so viewer surfaces never read `adminName`.
-- **Print** (the admin's "Print" under "See it": options, a live preview and a full-screen preview; `/<slug>/print` is
+- **Bulletin** (the admin's "Bulletin" under "See it": options, a live preview and a full-screen preview; `/<slug>/bulletin` is
   the published week): A4 or Letter, Shabbos, weekday minyanim and zmanim on the front, sponsorships and
   announcements behind (or all on one side when they fit there at 90% of the text size). Shabbos is one list in time
   order (`luach/shabbosGroups.ts`, shared with the display) in two balanced columns; shiurim are a list; one-time
   changes (`source: 'exception'`) are boxed with a ◆. Announcements are grouped under a heading per kind and category,
-  each notice's title (the people's names) over its text. `settings.print.pages` (1–5 or `unlimited`, default 2) caps
+  each notice's title (the people's names) over its text. `settings.print.pages` (the stored key keeps its old name) (1–5 or `unlimited`, default 2) caps
   the pages and `textSize` scales the text; content shrinks to fit its pages and grows (up to 1.4×) to fill them, and
   with more than two the announcements' blocks (`PagedSheets`) go whole onto as many sheets as they need, never split.
   Nothing carries meaning in color alone: `print.ink` is `color` (the brand on headings and rules) or `mono`.
-- **The Siddur link.** The display's and the printed sheet's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
+- **The Siddur link.** The display's and the bulletin's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
   the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its
   three web hosts only; the public reads are rate-limited per IP by `PUBLIC_LIMIT`, since CORS doesn't stop non-browsers) and computes with the same engine, so labels, dates and "next up" live in the engine
   (`makeT`, `labels.ts`, `nextUp.ts`), not here. A change to them is an engine commit both apps pick up.
 - **Refuah shleimah** (`schedule.cholim`): names for the Mi Shebeirach, in English, Hebrew or both (`t.choleh()` picks
   one). The admin's tab takes them one per line and asks about any over a month old; the display gives them pages in
-  the notice rotation, the printed week a list at the end of the announcements. They're public with the schedule.
+  the notice rotation, the bulletin a list at the end of the announcements. They're public with the schedule.
 - **Yahrzeits** (`schedule.yahrzeits`, `settings.yahrzeits`): a Hebrew name and a display name (English and Hebrew) per
   person, the date of passing kept as both a Hebrew and a civil date (either one entered, the other derived). The week's
-  are listed under a customizable title on the display (`days` ahead) and the printed week, showing the names and dates
+  are listed under a customizable title on the display (`days` ahead) and the bulletin, showing the names and dates
   the shul picks. The admin imports and exports CSV or JSON (`aiYahrzeits.ts`), with a prompt for any chat AI to turn a
   spreadsheet into the CSV.
 - **Birthdays and anniversaries** (`schedule.birthdays`/`anniversaries`, `settings.birthdays`/`anniversaries`, `Occasion`,
   `occasions.ts`): the same names as a yahrzeit, but one date is enough: a Hebrew date (the year is optional) and/or a
   civil one, the other derived (`resolveOccasion`). `by` says which the person is kept and shown by: `hebrew` unless only
   a civil date was given; a Hebrew date without a year has no civil date and is always Hebrew. Each shows on the
-  display's notice rotation, the printed week and the Siddur like yahrzeits (their own display blocks and print
+  display's notice rotation, the bulletin and the Siddur like yahrzeits (their own display blocks and print
   toggles, `days` ahead, a title). The admin has a tab for each, with the same CSV/JSON import, AI prompt and export
   (`aiOccasions.ts`; `show_as` column).
 - **Display setups** (`settings.displays`, `display/setup.ts`): each at `/<slug>/display/<id>` (`/<slug>/display` is the

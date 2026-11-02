@@ -26,7 +26,7 @@ import {
 } from '@beitecha/engine'
 import React from 'react'
 
-import { Struck } from '@/components/Print'
+import { Struck } from '@/components/Bulletin'
 import { makeT, useT } from '@/features/luach/language'
 import { SponsorName } from '@/features/luach/SponsorName'
 import { hasSponsor, sponsorGroups } from '@/features/luach/sponsorGroups'

@@ -15,5 +15,5 @@ export const SITE_URL =
 /** The Siddur's web origin. Its links open the app where it's installed and its web build elsewhere. */
 export const SIDDUR_URL = process.env.EXPO_PUBLIC_SIDDUR_URL ?? 'https://siddur.one'
 
-/** A shul's page in the Siddur: where the display's and the printed sheet's QR codes send people. */
+/** A shul's page in the Siddur: where the display's and the bulletin's QR codes send people. */
 export const siddurShulUrl = (slug: string) => `${SIDDUR_URL}/shul/${slug}`

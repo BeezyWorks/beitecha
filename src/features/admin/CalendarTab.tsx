@@ -197,7 +197,7 @@ export function CalendarTab({ today }: { today: DateString }) {
       {!editing && <AnnouncedCard today={today} />}
       {!upcoming.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>
-          Nothing coming up. Events show on their day on the display, the printed week, the calendar
+          Nothing coming up. Events show on their day on the display, the bulletin, the calendar
           feed and in the Siddur.
         </Text>
       )}

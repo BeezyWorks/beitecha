@@ -1,7 +1,7 @@
 import { type PrintSettings } from '@beitecha/engine'
 import React, { useRef, useState } from 'react'
 
-import { PagedSheets, PrintSheet, type Paper } from '@/components/Print'
+import { PagedSheets, BulletinSheet, type Paper } from '@/components/Bulletin'
 import { hasAnnouncements, TimesSide, useNoticesParts, type WeekProps } from './WeekSheet'
 
 /** Pages a sheet runs to when the shul hasn't said: the front, and a back when there are announcements. */
@@ -11,7 +11,7 @@ export const DEFAULT_PAGES = 2
 const ONE_SIDE_MIN = 0.9
 
 /** How many pages the sheet may take (`Infinity` for no limit), the text size and the ink, from the shul's print settings. */
-export function printLayout(print: PrintSettings | undefined) {
+export function bulletinLayout(print: PrintSettings | undefined) {
   const pages = print?.pages
   return {
     maxPages: pages === 'unlimited' ? Infinity : Math.max(1, Math.floor(pages ?? DEFAULT_PAGES)),
@@ -26,7 +26,7 @@ export function printLayout(print: PrintSettings | undefined) {
  * and (but for unlimited pages) grows to fill them. At two pages, the announcements join the front if they fit
  * there with the text hardly smaller.
  */
-export function PrintSheets({
+export function BulletinSheets({
   week,
   paper,
   rtl,
@@ -54,7 +54,7 @@ export function PrintSheets({
     !announcements || maxPages === 1 || (probing && fit !== null && fit >= ONE_SIDE_MIN * textSize)
   if (probing && fit === null)
     return (
-      <PrintSheet
+      <BulletinSheet
         key={`probe|${v}`}
         probe
         grow
@@ -64,14 +64,14 @@ export function PrintSheets({
         onFit={(scale) => setProbed({ v, scale })}
       >
         <TimesSide {...week} withNotices />
-      </PrintSheet>
+      </BulletinSheet>
     )
   return (
     <>
       {oneSide && (
-        <PrintSheet key={`front|${v}`} paper={paper} rtl={rtl} scale={textSize} grow={grow}>
+        <BulletinSheet key={`front|${v}`} paper={paper} rtl={rtl} scale={textSize} grow={grow}>
           <TimesSide {...week} withNotices />
-        </PrintSheet>
+        </BulletinSheet>
       )}
       {!oneSide && (
         <PagedSheets

@@ -45,7 +45,7 @@ function NameForm({ initial, onDone }: { initial: Choleh; onDone: (c?: Choleh) =
   )
 }
 
-/** The refuah shleimah list, for the display, the printed week and the Siddur. */
+/** The refuah shleimah list, for the display, the bulletin and the Siddur. */
 export function CholimTab({ today }: { today: DateString }) {
   const cholim = useAdmin((s) => s.schedule?.cholim) ?? []
   const setCholim = useAdmin((s) => s.setCholim)
@@ -63,7 +63,7 @@ export function CholimTab({ today }: { today: DateString }) {
   return (
     <SectionPage
       title="Refuah shleimah"
-      intro="Names for the Mi Shebeirach, shown on the display and the printed week."
+      intro="Names for the Mi Shebeirach, shown on the display and the bulletin."
     >
       <Card gap="md">
         <Field
@@ -80,8 +80,8 @@ export function CholimTab({ today }: { today: DateString }) {
       </Card>
       {!cholim.length && (
         <Text variant="body" color={SemanticColor.TextSecondary}>
-          No names yet. They show on the display, the printed week and in the Siddur until you take
-          them off.
+          No names yet. They show on the display, the bulletin and in the Siddur until you take them
+          off.
         </Text>
       )}
       {stale.length > 0 && (

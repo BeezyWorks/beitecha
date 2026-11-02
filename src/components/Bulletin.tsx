@@ -24,7 +24,7 @@ const MARGIN = '11mm'
 const MONO_BRAND = '#1a1a1a'
 
 /** The color the sheet is themed with: the shul's brand, or black ink only. */
-export const printBrand = (ink: 'color' | 'mono', brandColor?: string) =>
+export const bulletinBrand = (ink: 'color' | 'mono', brandColor?: string) =>
   ink === 'mono' ? MONO_BRAND : brandColor
 
 /** A sheet measured for its fit but never shown or printed (is the whole week one side's worth?). */
@@ -38,7 +38,7 @@ export function Struck({ children }: { children: React.ReactNode }) {
   return <span style={{ textDecoration: 'line-through' }}>{children}</span>
 }
 
-/** A sheet's look, for a sheet shown outside `PrintRoot` (the admin's small preview). */
+/** A sheet's look, for a sheet shown outside `BulletinRoot` (the admin's small preview). */
 export function SheetStyle() {
   const resolve = useColorResolver()
   return <style>{sheetCss(resolve)}</style>
@@ -52,7 +52,7 @@ export function SheetStyle() {
  * Raw DOM and CSS because the DL has no print primitives (`@page`, page breaks); like
  * `ScaleToFit`, a candidate for the design system.
  */
-export function PrintRoot({
+export function BulletinRoot({
   paper,
   toolbar,
   children,
@@ -64,31 +64,31 @@ export function PrintRoot({
   const resolve = useColorResolver()
   const [host] = useState(() => document.createElement('div'))
   useEffect(() => {
-    host.className = 'bt-print'
+    host.className = 'bt-bulletin'
     document.body.appendChild(host)
     return () => host.remove()
   }, [host])
   const css = `
     @page { size: ${PAPER[paper].size} portrait; margin: 0 }
-    .bt-print { position: fixed; inset: 0; z-index: 10; overflow: auto; background: ${resolve(SemanticColor.SurfaceBackground)} }
-    .bt-print-sheets { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 16px 48px }
+    .bt-bulletin { position: fixed; inset: 0; z-index: 10; overflow: auto; background: ${resolve(SemanticColor.SurfaceBackground)} }
+    .bt-bulletin-sheets { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 16px 48px }
     ${sheetCss(resolve)}
     @media print {
-      body > :not(.bt-print), .bt-print-toolbar { display: none !important }
+      body > :not(.bt-bulletin), .bt-bulletin-toolbar { display: none !important }
       html, body { height: auto !important; overflow: visible !important; background: none !important }
-      .bt-print { position: static; overflow: visible; background: none }
-      .bt-print-sheets { display: block; padding: 0 }
+      .bt-bulletin { position: static; overflow: visible; background: none }
+      .bt-bulletin-sheets { display: block; padding: 0 }
       .bt-sheet { box-shadow: none; break-after: page }
       .bt-sheet:last-child { break-after: auto }
       .bt-sheet-probe { display: none !important }
-      .bt-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact }
+      .bt-bulletin * { -webkit-print-color-adjust: exact; print-color-adjust: exact }
     }
   `
   return createPortal(
     <>
       <style>{css}</style>
-      <div className="bt-print-toolbar">{toolbar}</div>
-      <div className="bt-print-sheets">{children}</div>
+      <div className="bt-bulletin-toolbar">{toolbar}</div>
+      <div className="bt-bulletin-sheets">{children}</div>
     </>,
     host,
   )
@@ -103,7 +103,7 @@ const MAX_GROW = 1.4
  * `scale` when they run longer, and with `grow`, up to `MAX_GROW` times it when there's room to
  * spare, so a lighter week fills the page. `probe` lays it out unseen, for `onFit` alone.
  */
-export function PrintSheet({
+export function BulletinSheet({
   paper,
   rtl,
   scale: base = 1,
@@ -331,7 +331,7 @@ export function PagedSheets({
         </View>
       </View>
       {pages?.map((idx, n) => (
-        <PrintSheet key={`${n}|${s}`} paper={paper} rtl={rtl} scale={s}>
+        <BulletinSheet key={`${n}|${s}`} paper={paper} rtl={rtl} scale={s}>
           <Stack grow gap="lg">
             {idx.map((i) => (
               <React.Fragment key={i}>
@@ -340,7 +340,7 @@ export function PagedSheets({
               </React.Fragment>
             ))}
           </Stack>
-        </PrintSheet>
+        </BulletinSheet>
       ))}
     </>
   )

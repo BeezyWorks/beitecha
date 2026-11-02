@@ -63,7 +63,7 @@ const COPY: Record<
     placeholder: { hebrew: 'מנחם בן מימון', display: 'Menachem Kohen', displayHe: 'מנחם כהן' },
     nameHelp: 'With the father’s name, if the shul says it.',
     intro:
-      'Shown under “Upcoming birthdays” in the announcements on the display, the printed week and the Siddur, in the days before each one. Each is shown by the date you choose, Hebrew or civil.',
+      'Shown under “Upcoming birthdays” in the announcements on the display, the bulletin and the Siddur, in the days before each one. Each is shown by the date you choose, Hebrew or civil.',
     empty: 'No birthdays yet. Add one and it shows up on its own every year.',
   },
   anniversary: {
@@ -76,7 +76,7 @@ const COPY: Record<
     },
     nameHelp: 'Both names, as they should read.',
     intro:
-      'Shown under “Upcoming anniversaries” in the announcements on the display, the printed week and the Siddur, in the days before each one. Each is shown by the date you choose, Hebrew or civil.',
+      'Shown under “Upcoming anniversaries” in the announcements on the display, the bulletin and the Siddur, in the days before each one. Each is shown by the date you choose, Hebrew or civil.',
     empty: 'No anniversaries yet. Add one and it shows up on its own every year.',
   },
 }
@@ -332,7 +332,7 @@ export function OccasionsTab({ kind, today }: { kind: OccasionKind; today: DateS
         </Stack>
         <Field
           label="Days ahead"
-          help="How many days before one it appears on the display and in the Siddur. The printed week lists its own days."
+          help="How many days before one it appears on the display and in the Siddur. the bulletin lists its own days."
           value={String(settings.days ?? 7)}
           keyboardType="number-pad"
           onChangeText={(d) => {

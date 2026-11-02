@@ -2,11 +2,11 @@ import { Button, SemanticColor, Stack, Text } from '@beezyworks/design'
 import { addDays, civilDateShort, type DateString } from '@beitecha/engine'
 import React from 'react'
 
-import type { Paper } from '@/components/Print'
+import type { Paper } from '@/components/Bulletin'
 import { Segments } from '@/components/Segments'
 
 /** Over the sheets: which week, which paper, and the print button. `leading` is the way out. */
-export function PrintToolbar({
+export function BulletinToolbar({
   sunday,
   onSunday,
   paper,

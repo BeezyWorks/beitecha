@@ -18,7 +18,7 @@ import { YahrzeitsTab } from './YahrzeitsTab'
 import { DisplaySection } from './DisplaySection'
 import { EventsSection } from './EventsSection'
 import { NoticesTab } from './NoticesTab'
-import { PrintSection } from './PrintSection'
+import { BulletinSection } from './BulletinSection'
 import { isSection, SECTIONS, type SectionKey } from './sections'
 import { ShulTab } from './ShulTab'
 import { Sidebar } from './Sidebar'
@@ -117,7 +117,7 @@ export function AdminScreen({ slug }: { slug: string }) {
       {section === 'birthdays' && <OccasionsTab kind="birthday" today={today} />}
       {section === 'anniversaries' && <OccasionsTab kind="anniversary" today={today} />}
       {section === 'display' && <DisplaySection slug={slug} />}
-      {section === 'print' && <PrintSection slug={slug} />}
+      {section === 'bulletin' && <BulletinSection slug={slug} />}
       {section === 'shul' && <ShulTab />}
       {section === 'team' && <TeamTab />}
     </>

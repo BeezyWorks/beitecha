@@ -5,13 +5,13 @@ import React from 'react'
 
 import { Centered } from '@/components/Centered'
 import { usePageTitle } from '@/components/PageTitle'
-import { paperFor, PrintRoot, printBrand, type Paper } from '@/components/Print'
+import { paperFor, BulletinRoot, bulletinBrand, type Paper } from '@/components/Bulletin'
 import { ThemeRoot } from '@/components/ThemeRoot'
 import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { useShulFeed } from '@/features/luach/useShulFeed'
-import { PrintSheets, printLayout } from './PrintSheets'
-import { PrintToolbar } from './PrintToolbar'
+import { BulletinSheets, bulletinLayout } from './BulletinSheets'
+import { BulletinToolbar } from './BulletinToolbar'
 import { useWeek } from './useWeek'
 import { hasAnnouncements } from './WeekSheet'
 
@@ -22,7 +22,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
  * the front; the week's shiurim, starred events coming up, sponsorships and announcements on the
  * back (or all on one side), as many pages as the shul's print settings allow.
  */
-export function PrintScreen({ slug }: { slug: string }) {
+export function BulletinScreen({ slug }: { slug: string }) {
   const params = useLocalSearchParams<{ week?: string; paper?: string }>()
   const { feed, notFound, error } = useShulFeed(slug)
   const tz = feed?.schedule.settings.location.timeZone
@@ -34,7 +34,7 @@ export function PrintScreen({ slug }: { slug: string }) {
     feed?.schedule.settings.timeFormat,
     feed?.schedule.settings.names,
   )
-  usePageTitle(feed ? `${feed.profile.name.en} · Print · Beitecha` : undefined)
+  usePageTitle(feed ? `${feed.profile.name.en} · Bulletin · Beitecha` : undefined)
 
   if (!feed) {
     if (notFound) return <Centered title="No such shul" body={`Nothing lives at /${slug} yet.`} />
@@ -45,17 +45,17 @@ export function PrintScreen({ slug }: { slug: string }) {
 
   const paper: Paper =
     params.paper === 'a4' || params.paper === 'letter' ? params.paper : paperFor(tz!)
-  const { maxPages, textSize, ink } = printLayout(feed.schedule.settings.print)
+  const { maxPages, textSize, ink } = bulletinLayout(feed.schedule.settings.print)
   // A new layout starts its fit-to-page over.
   const key = `${sunday}|${paper}|${maxPages}|${textSize}`
 
   return (
-    <ThemeRoot brandColor={printBrand(ink, feed.profile.brandColor)} mode="light">
+    <ThemeRoot brandColor={bulletinBrand(ink, feed.profile.brandColor)} mode="light">
       <LanguageProvider language={t.lang} timeFormat={t.customTimeFormat} names={t.names}>
-        <PrintRoot
+        <BulletinRoot
           paper={paper}
           toolbar={
-            <PrintToolbar
+            <BulletinToolbar
               sunday={sunday}
               onSunday={(week) => router.setParams({ week })}
               paper={paper}
@@ -66,7 +66,7 @@ export function PrintScreen({ slug }: { slug: string }) {
                   size="sm"
                   title="Back"
                   icon="chevron-left"
-                  onPress={() => router.replace(`/${slug}/admin?s=print`)}
+                  onPress={() => router.replace(`/${slug}/admin?s=bulletin`)}
                 />
               }
               note={
@@ -77,7 +77,7 @@ export function PrintScreen({ slug }: { slug: string }) {
             />
           }
         >
-          <PrintSheets
+          <BulletinSheets
             key={key}
             week={week}
             paper={paper}
@@ -85,7 +85,7 @@ export function PrintScreen({ slug }: { slug: string }) {
             maxPages={maxPages}
             textSize={textSize}
           />
-        </PrintRoot>
+        </BulletinRoot>
       </LanguageProvider>
     </ThemeRoot>
   )

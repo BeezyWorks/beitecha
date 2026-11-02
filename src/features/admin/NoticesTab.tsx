@@ -345,8 +345,8 @@ function CategoriesCard({ notices }: { notices: Notice[] }) {
         <Text variant="sectionHeader">Categories</Text>
         <Text variant="caption" color={SemanticColor.TextSecondary}>
           Mazal tovs and condolences have their own; add your own for announcements (Community,
-          School…). The printed week groups announcements under them, and the display and the Siddur
-          tag each one with its category.
+          School…). the bulletin groups announcements under them, and the display and the Siddur tag
+          each one with its category.
         </Text>
       </Stack>
       {categories.map((c, i) => {
@@ -422,8 +422,8 @@ function LinksEditor({
           Links and QR codes (optional)
         </Text>
         <Text variant="caption" color={SemanticColor.TextSecondary}>
-          The printed week shows each as a QR code with its title; the first is the notice’s link in
-          the Siddur.
+          the bulletin shows each as a QR code with its title; the first is the notice’s link in the
+          Siddur.
         </Text>
       </Stack>
       {links.map((l, i) => (
@@ -534,7 +534,7 @@ export function NoticesAi({ today, onClose }: { today: DateString; onClose: () =
   )
 }
 
-/** Sponsorships, announcements, reminders, mazal tovs and condolences for the display, the printed week and the Siddur. */
+/** Sponsorships, announcements, reminders, mazal tovs and condolences for the display, the bulletin and the Siddur. */
 export function NoticesTab({ today }: { today: DateString }) {
   const notices = useAdmin((s) => s.schedule?.notices)
   const exceptions = useAdmin((s) => s.schedule?.exceptions)
@@ -580,7 +580,7 @@ export function NoticesTab({ today }: { today: DateString }) {
       {!current.length && !editing && (
         <Text variant="body" color={SemanticColor.TextSecondary}>
           Nothing coming up. Sponsorships, announcements, reminders, mazal tovs and condolences show
-          on the display, the printed week and in the Siddur from the day you choose.
+          on the display, the bulletin and in the Siddur from the day you choose.
         </Text>
       )}
       {current.map((n) => (

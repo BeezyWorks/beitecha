@@ -39,6 +39,8 @@ export interface ZmanimSettings {
   tzeisAngle?: number
   /** Motzei Shabbos/Yom Tov: a sun angle, or fixed minutes after sunset. Default 8.5°. */
   havdalah?: { angle: number } | { minutes: number }
+  /** When a public fast ends (siyum hatzom): a sun angle, or fixed minutes after sunset. Default 6.45°, as in the Siddur. */
+  fastEnds?: { angle: number } | { minutes: number }
   useElevation?: boolean
   /** Zmanim the shul doesn't show on the display, public page or ICS (built-in or custom). Rules can still use them. */
   hidden?: ZmanKey[]
@@ -269,6 +271,7 @@ export const ZMAN_IDS = [
   'sunset',
   'tzeis',
   'havdalah',
+  'fastEnds',
 ] as const
 export type ZmanId = (typeof ZMAN_IDS)[number]
 

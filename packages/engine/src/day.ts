@@ -163,6 +163,7 @@ const ROUND_UP: ReadonlySet<ZmanId> = new Set([
   'plag',
   'tzeis',
   'havdalah',
+  'fastEnds',
 ])
 
 export function zmanimFor(date: DateString, settings: ShulSettings): ZmanTimes {
@@ -174,6 +175,7 @@ export function zmanimFor(date: DateString, settings: ShulSettings): ZmanTimes {
   const z = new Zmanim(loc, hdate, useElevation)
   const tzeisAngle = opts.tzeisAngle ?? 8.5
   const havdalah = opts.havdalah ?? { angle: 8.5 }
+  const fastEnds = opts.fastEnds ?? { angle: 6.45 }
   const candleMinutes = opts.candleLightingMinutes ?? 18
 
   const raw: Record<ZmanId, () => Date> = {
@@ -195,6 +197,8 @@ export function zmanimFor(date: DateString, settings: ShulSettings): ZmanTimes {
       'minutes' in havdalah
         ? new Date(z.sunset().getTime() + havdalah.minutes * 60_000)
         : z.tzeit(havdalah.angle),
+    fastEnds: () =>
+      'minutes' in fastEnds ? new Date(z.sunset().getTime() + fastEnds.minutes * 60_000) : z.tzeit(fastEnds.angle),
   }
 
   const out: ZmanTimes = {}

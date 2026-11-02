@@ -1,4 +1,4 @@
-import { Button, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
+import { Card, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
   addDays,
   gregorianToHebrew,
@@ -11,13 +11,10 @@ import {
   type HebrewDate,
   type Yahrzeit,
   type YahrzeitDates,
-  type YahrzeitNames,
   type YahrzeitSettings,
 } from '@beitecha/engine'
 import React, { useState } from 'react'
 
-import { AiAssist } from './AiAssist'
-import { download, pickTextFile } from './aiClipboard'
 import {
   hebrewDateWords,
   parseYahrzeits,
@@ -30,14 +27,9 @@ import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { DateField } from './DateField'
-import { SectionPage } from './SectionPage'
+import { FormButtons, isNamed, NameFields, RememberedTab } from './RememberedTab'
 import { newId, useAdmin } from './store'
 
-const NAMES: { key: YahrzeitNames; label: string }[] = [
-  { key: 'both', label: 'Both names' },
-  { key: 'hebrew', label: 'Hebrew name only' },
-  { key: 'display', label: 'Display name only' },
-]
 const DATES: { key: YahrzeitDates; label: string }[] = [
   { key: 'both', label: 'Both dates' },
   { key: 'hebrew', label: 'Hebrew date only' },
@@ -128,136 +120,55 @@ function DateEditor({
   )
 }
 
-function blank(today: DateString): Yahrzeit {
-  return { id: newId(), hebrew: gregorianToHebrew(today), gregorian: today }
-}
-
-function PersonForm({ initial, onDone }: { initial: Yahrzeit; onDone: (y?: Yahrzeit) => void }) {
+function YahrzeitForm({ initial, onDone }: { initial: Yahrzeit; onDone: (y?: Yahrzeit) => void }) {
   const [y, setY] = useState(initial)
-  const set = (patch: Partial<Yahrzeit>) => setY({ ...y, ...patch })
-  const setDisplay = (patch: { en?: string; he?: string }) => {
-    const d = {
-      en: y.displayName?.en ?? '',
-      ...(y.displayName?.he && { he: y.displayName.he }),
-      ...patch,
-    }
-    set({ displayName: d.en || d.he ? { en: d.en, ...(d.he && { he: d.he }) } : undefined })
-  }
-  const named = !!(y.hebrewName?.trim() || y.displayName?.en.trim() || y.displayName?.he?.trim())
   return (
     <Card gap="md">
-      <Field
-        label="Hebrew name"
-        placeholder="מנחם בן מימון"
-        help="With the father’s name, as said at the yahrzeit."
-        value={y.hebrewName ?? ''}
-        onChangeText={(hebrewName) => set({ hebrewName: hebrewName || undefined })}
+      <NameFields
+        value={y}
+        onChange={setY}
+        placeholder={{ hebrew: 'מנחם בן מימון', display: 'Menachem Kohen', displayHe: 'מנחם כהן' }}
+        nameHelp="With the father’s name, as said at the yahrzeit."
       />
-      <Field
-        label="Display name"
-        placeholder="Menachem Kohen"
-        help="The name people know them by."
-        value={y.displayName?.en ?? ''}
-        onChangeText={(en) => setDisplay({ en })}
+      <DateEditor
+        hebrew={y.hebrew}
+        gregorian={y.gregorian}
+        onChange={(d) => setY({ ...y, ...d })}
       />
-      <Field
-        label="Display name in Hebrew"
-        placeholder="מנחם כהן"
-        value={y.displayName?.he ?? ''}
-        onChangeText={(he) => setDisplay({ he })}
+      <FormButtons
+        canSave={isNamed(y) && isRealHebrewDate(y.hebrew)}
+        onSave={() => onDone(y)}
+        onCancel={() => onDone()}
       />
-      <DateEditor hebrew={y.hebrew} gregorian={y.gregorian} onChange={(d) => set(d)} />
-      <Stack direction="row" gap="sm">
-        <Button
-          title="Save"
-          disabled={!named || !isRealHebrewDate(y.hebrew)}
-          onPress={() => onDone(y)}
-        />
-        <Button variant="ghost" title="Cancel" onPress={() => onDone()} />
-      </Stack>
     </Card>
   )
 }
 
 /** The yahrzeits the shul keeps: each shows in the announcements in the days before it, every year. */
 export function YahrzeitsTab({ today }: { today: DateString }) {
-  const list = useAdmin((s) => s.schedule?.yahrzeits) ?? []
+  const items = useAdmin((s) => s.schedule?.yahrzeits) ?? []
   const settings = useAdmin((s) => s.schedule?.settings.yahrzeits) ?? {}
   const setYahrzeits = useAdmin((s) => s.setYahrzeits)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [importing, setImporting] = useState<{ answer: string; n: number } | null>(null)
-  const profile = useAdmin((s) => s.profile)
   const t = makeT('en')
-
-  const setSettings = (patch: Partial<YahrzeitSettings>) =>
-    setYahrzeits(list, { ...settings, ...patch })
-  const setTitle = (patch: { en?: string; he?: string }) => {
-    const title = {
-      en: settings.title?.en ?? '',
-      ...(settings.title?.he && { he: settings.title.he }),
-      ...patch,
-    }
-    setSettings({
-      title: title.en || title.he ? { en: title.en, ...(title.he && { he: title.he }) } : undefined,
-    })
-  }
-  const upsert = (y: Yahrzeit) =>
-    setYahrzeits(
-      list.some((x) => x.id === y.id) ? list.map((x) => (x.id === y.id ? y : x)) : [...list, y],
-    )
-  const addAll = (people: Yahrzeit[]) =>
-    setYahrzeits([
-      ...list,
-      ...people
-        .filter((p) => !list.some((x) => sameYahrzeit(x, p)))
-        .map((p) => ({ ...p, id: newId() })),
-    ])
-  const next = (y: Yahrzeit) => yahrzeitsBetween([y], today, addDays(today, 400))[0]?.date
-
   return (
-    <SectionPage
+    <RememberedTab<Yahrzeit, YahrzeitSettings>
       title="Yahrzeits"
       intro="Shown under “Upcoming yahrzeits” in the announcements on the display, the bulletin and the Siddur, in the days before each one."
-      actions={
-        editing === null && (
-          <Button icon="add" title="Add a yahrzeit" onPress={() => setEditing('new')} />
-        )
+      add="Add a yahrzeit"
+      empty="No yahrzeits yet. Add one and it shows up on its own every year."
+      many="yahrzeits"
+      titlePlaceholder={{ en: 'Upcoming yahrzeits', he: 'יארצייט בקרוב' }}
+      items={items}
+      settings={settings}
+      save={setYahrzeits}
+      today={today}
+      form={YahrzeitForm}
+      blank={() => ({ id: newId(), hebrew: gregorianToHebrew(today), gregorian: today })}
+      next={(y) => yahrzeitsBetween([y], today, addDays(today, 400))[0]?.date}
+      detail={(_, coming) =>
+        coming ? `Next: ${t.yahrzeitDate(coming)}` : 'Date doesn’t recur yet'
       }
-    >
-      {editing === 'new' && (
-        <PersonForm
-          initial={blank(today)}
-          onDone={(y) => {
-            if (y) upsert(y)
-            setEditing(null)
-          }}
-        />
-      )}
-      <Card gap="md">
-        <Text variant="sectionHeader">How they show</Text>
-        <Field
-          label="Title"
-          placeholder="Upcoming yahrzeits"
-          value={settings.title?.en ?? ''}
-          onChangeText={(en) => setTitle({ en })}
-        />
-        <Field
-          label="Title in Hebrew"
-          placeholder="יארצייט בקרוב"
-          value={settings.title?.he ?? ''}
-          onChangeText={(he) => setTitle({ he })}
-        />
-        <Stack gap="xs">
-          <Text variant="label" color={SemanticColor.TextSecondary}>
-            Names
-          </Text>
-          <Segments
-            accessibilityLabel="Names shown"
-            options={NAMES}
-            value={settings.names ?? 'both'}
-            onChange={(names) => setSettings({ names })}
-          />
-        </Stack>
+      settingsExtra={
         <Stack gap="xs">
           <Text variant="label" color={SemanticColor.TextSecondary}>
             Dates
@@ -266,138 +177,21 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
             accessibilityLabel="Dates shown"
             options={DATES}
             value={settings.dates ?? 'both'}
-            onChange={(dates) => setSettings({ dates })}
+            onChange={(dates) => setYahrzeits(items, { ...settings, dates })}
           />
         </Stack>
-        <Field
-          label="Days ahead"
-          help="How many days before a yahrzeit it appears on the display and in the Siddur. the bulletin lists its own days."
-          value={String(settings.days ?? 7)}
-          keyboardType="number-pad"
-          onChangeText={(d) => {
-            const n = Math.min(60, Math.max(1, parseInt(d, 10) || 0))
-            if (n) setSettings({ days: n === 7 ? undefined : n })
-          }}
-        />
-      </Card>
-      <Card gap="md">
-        <Text variant="sectionHeader">Import & export</Text>
-        <Text variant="caption" color={SemanticColor.TextSecondary}>
-          Have a spreadsheet already? Use “Import with AI”: copy the prompt into ChatGPT, Claude or
-          Gemini along with your list, and paste back the CSV it gives you. A CSV or JSON file, or
-          this tab’s own export, can also be loaded as is. Anyone already on the list is skipped.
-        </Text>
-        <Stack direction="row" gap="sm" wrap>
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Import with AI"
-            onPress={() => setImporting({ answer: '', n: (importing?.n ?? 0) + 1 })}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Import a file"
-            onPress={() =>
-              pickTextFile((answer) => setImporting({ answer, n: (importing?.n ?? 0) + 1 }))
-            }
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Export CSV"
-            disabled={!list.length}
-            onPress={() => download('yahrzeits.csv', yahrzeitsToCsv(list), 'text/csv')}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Export JSON"
-            disabled={!list.length}
-            onPress={() => download('yahrzeits.json', yahrzeitsToJson(list), 'application/json')}
-          />
-        </Stack>
-        {importing && profile && (
-          <AiAssist<Yahrzeit[]>
-            key={importing.n}
-            title="Import yahrzeits"
-            example={
-              'Paste your spreadsheet’s rows here (names and dates), or say “my spreadsheet is attached”.'
-            }
-            answerHint="Paste the CSV (or JSON) the AI gave you, or a CSV straight from a spreadsheet."
-            initialAnswer={importing.answer}
-            prompt={(request) => yahrzeitPrompt(profile, request)}
-            parse={parseYahrzeits}
-            preview={(people) => (
-              <Stack gap="xs">
-                {people.map((p, i) => (
-                  <Text key={i} variant="body">
-                    {t.yahrzeitNames(p).join(' · ')} · {hebrewDateWords(p.hebrew)} · {p.gregorian}
-                  </Text>
-                ))}
-                <Text variant="caption" color={SemanticColor.TextSecondary}>
-                  {people.filter((p) => list.some((x) => sameYahrzeit(x, p))).length} already on the
-                  list will be skipped.
-                </Text>
-              </Stack>
-            )}
-            applyLabel="Add to the list"
-            onApply={addAll}
-            onClose={() => setImporting(null)}
-          />
-        )}
-      </Card>
-      {!list.length && editing === null && (
-        <Text variant="body" color={SemanticColor.TextSecondary}>
-          No yahrzeits yet. Add one and it shows up on its own every year.
-        </Text>
-      )}
-      {list.length > 0 && (
-        <Card gap="sm">
-          {list.map((y) => {
-            const coming = next(y)
-            return editing === y.id ? (
-              <PersonForm
-                key={y.id}
-                initial={y}
-                onDone={(changed) => {
-                  if (changed) upsert(changed)
-                  setEditing(null)
-                }}
-              />
-            ) : (
-              <Stack key={y.id} direction="row" align="center" gap="sm" wrap>
-                <Stack grow width={0} gap="none">
-                  <Stack direction="row" gap="sm" wrap>
-                    {t.yahrzeitNames(y).map((n) => (
-                      <Text key={n} variant="item" rtl={/[֐-׿]/.test(n)}>
-                        {n}
-                      </Text>
-                    ))}
-                  </Stack>
-                  <Text variant="caption" color={SemanticColor.TextSecondary}>
-                    {coming ? `Next: ${t.yahrzeitDate(coming)}` : 'Date doesn’t recur yet'}
-                  </Text>
-                </Stack>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon="edit"
-                  title="Edit"
-                  onPress={() => setEditing(y.id)}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon="delete"
-                  title="Remove"
-                  onPress={() => setYahrzeits(list.filter((x) => x.id !== y.id))}
-                />
-              </Stack>
-            )
-          })}
-        </Card>
-      )}
-    </SectionPage>
+      }
+      daysHelp="How many days before a yahrzeit it appears on the display and in the Siddur. the bulletin lists its own days."
+      importHelp="Have a spreadsheet already? Use “Import with AI”: copy the prompt into ChatGPT, Claude or Gemini along with your list, and paste back the CSV it gives you. A CSV or JSON file, or this tab’s own export, can also be loaded as is. Anyone already on the list is skipped."
+      io={{
+        prompt: yahrzeitPrompt,
+        parse: parseYahrzeits,
+        same: sameYahrzeit,
+        preview: (p) =>
+          `${t.yahrzeitNames(p).join(' · ')} · ${hebrewDateWords(p.hebrew)} · ${p.gregorian}`,
+        csv: yahrzeitsToCsv,
+        json: yahrzeitsToJson,
+      }}
+    />
   )
 }

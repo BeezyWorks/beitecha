@@ -29,6 +29,7 @@ export const ZMAN_LABELS: Record<ZmanId, Localized> = {
   sunset: { en: 'Shkia (sunset)', he: 'שקיעה' },
   tzeis: { en: 'Tzeis HaKochavim', he: 'צאת הכוכבים' },
   havdalah: { en: 'Havdalah', he: 'הבדלה' },
+  fastEnds: { en: 'Fast ends', he: 'סיום הצום' },
 }
 
 /** The zmanim a luach shows by default; candle lighting and havdalah only on their days. */
@@ -50,6 +51,7 @@ export function zmanimForDay(tags: DayTag[]): ZmanId[] {
   const list = [...DAILY_ZMANIM]
   if (tags.includes('erevShabbos') || tags.includes('erevYomTov')) list.splice(list.indexOf('sunset'), 0, 'candleLighting')
   if (tags.includes('motzeiShabbos') || tags.includes('motzeiYomTov')) list.push('havdalah')
+  if (tags.includes('fast')) list.push('fastEnds')
   return list
 }
 
@@ -134,3 +136,14 @@ export const NOTICE_LABELS: Record<NoticeKind, Localized> = {
   simcha: { en: 'Mazal tov', he: 'מזל טוב' },
   condolence: { en: 'Condolences', he: 'ניחום אבלים' },
 }
+
+/** Common opinions for when a fast ends, for the admin to pick from (the Siddur's are 6.45° and Rav Moshe's 7.12°). */
+export const FAST_ENDS_PRESETS: { key: string; label: string; value: { angle: number } | { minutes: number } }[] = [
+  { key: 'standard', label: 'Standard (6.45°)', value: { angle: 6.45 } },
+  { key: 'ravMoshe', label: 'Rav Moshe Feinstein (7.12°)', value: { angle: 7.12 } },
+  { key: 'geonim595', label: 'Geonim, 3 small stars (5.95°)', value: { angle: 5.95 } },
+  { key: 'geonim', label: 'Geonim, 3 medium stars (8.5°)', value: { angle: 8.5 } },
+  { key: 'm42', label: '42 minutes after sunset', value: { minutes: 42 } },
+  { key: 'm50', label: '50 minutes after sunset', value: { minutes: 50 } },
+  { key: 'm72', label: '72 minutes after sunset (Rabbeinu Tam)', value: { minutes: 72 } },
+]

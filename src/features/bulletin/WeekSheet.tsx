@@ -13,7 +13,6 @@ import {
   type Occurrence,
   parseDate,
   type ShulProfile,
-  type OccasionKind,
   type OccasionSettings,
   type UpcomingOccasion,
   type UpcomingYahrzeit,
@@ -28,6 +27,12 @@ import React from 'react'
 
 import { Struck } from '@/components/Bulletin'
 import { makeT, useT } from '@/features/luach/language'
+import {
+  occasionList,
+  rememberedHeading,
+  yahrzeitList,
+  type RememberedList,
+} from '@/features/luach/remembered'
 import { SponsorName } from '@/features/luach/SponsorName'
 import { hasSponsor, sponsorGroups } from '@/features/luach/sponsorGroups'
 import {
@@ -202,8 +207,8 @@ function announcementBlocks({
       node: (
         <Celebrations
           lists={[
-            { kind: 'birthday', items: birthdays, settings: birthdaySettings },
-            { kind: 'anniversary', items: anniversaries, settings: anniversarySettings },
+            occasionList('birthday', birthdays, birthdaySettings),
+            occasionList('anniversary', anniversaries, anniversarySettings),
           ]}
         />
       ),
@@ -1055,7 +1060,7 @@ function Remembrance({
     <Stack direction="row" align="stretch" gap="md">
       {yahrzeits.length > 0 && (
         <Stack grow width={0}>
-          <Yahrzeits items={yahrzeits} settings={settings} />
+          <Remembered list={yahrzeitList(yahrzeits, settings)} />
         </Stack>
       )}
       {both && <Stack width={1} background={SemanticColor.BorderStrong} />}
@@ -1069,64 +1074,18 @@ function Remembrance({
 }
 
 /** The week's birthdays and anniversaries side by side, each in a box of its own. */
-function Celebrations({
-  lists,
-}: {
-  lists: { kind: OccasionKind; items: UpcomingOccasion[]; settings?: OccasionSettings }[]
-}) {
+function Celebrations({ lists }: { lists: RememberedList[] }) {
   const shown = lists.filter((l) => l.items.length > 0)
   return (
     <Stack direction="row" align="stretch" gap="md">
       {shown.map((l, i) => (
-        <React.Fragment key={l.kind}>
+        <React.Fragment key={l.key}>
           {i > 0 && <Stack width={1} background={SemanticColor.BorderStrong} />}
           <Stack grow width={0}>
-            <Occasions {...l} />
+            <Remembered list={l} />
           </Stack>
         </React.Fragment>
       ))}
-    </Stack>
-  )
-}
-
-/** The week's birthdays or anniversaries, soonest first, each dated by the calendar it is kept by. */
-function Occasions({
-  kind,
-  items,
-  settings,
-}: {
-  kind: OccasionKind
-  items: UpcomingOccasion[]
-  settings?: OccasionSettings
-}) {
-  const t = useT()
-  return (
-    <Stack gap="sm">
-      <Heading
-        en={settings?.title ? settings.title.en : t.occasionTitle(kind)}
-        he={
-          settings?.title
-            ? settings.title.he
-            : kind === 'birthday'
-              ? HE.s.birthdays
-              : HE.s.anniversaries
-        }
-      />
-      <ColumnBox
-        items={items}
-        render={({ date, occasion, by }) => (
-          <Stack key={`${occasion.id}-${date}`} gap="none">
-            {t.yahrzeitNames(occasion, settings?.names).map((n) => (
-              <Text key={n} variant="bodySerifLarge" rtl={HEBREW.test(n)}>
-                {n}
-              </Text>
-            ))}
-            <Text variant="caption" color={SemanticColor.TextSecondary}>
-              {t.occasionDate(date, by)}
-            </Text>
-          </Stack>
-        )}
-      />
     </Stack>
   )
 }
@@ -1155,32 +1114,24 @@ function ColumnBox<T>({ items, render }: { items: T[]; render: (item: T) => Reac
   )
 }
 
-/** The week's yahrzeits, soonest first: the names the shul chose, and the day, in a box of their own. */
-function Yahrzeits({
-  items,
-  settings,
-}: {
-  items: UpcomingYahrzeit[]
-  settings?: YahrzeitSettings
-}) {
+/** The week's yahrzeits, birthdays or anniversaries, soonest first: the names the shul chose, and the day, in a box of their own. */
+function Remembered({ list }: { list: RememberedList }) {
   const t = useT()
+  const { en, he } = rememberedHeading(t, list)
   return (
     <Stack gap="sm">
-      <Heading
-        en={settings?.title ? settings.title.en : t.s.yahrzeits}
-        he={settings?.title ? settings.title.he : HE.s.yahrzeits}
-      />
+      <Heading en={en} he={he} />
       <ColumnBox
-        items={items}
-        render={({ date, yahrzeit }) => (
-          <Stack key={`${yahrzeit.id}-${date}`} gap="none">
-            {t.yahrzeitNames(yahrzeit, settings?.names).map((n) => (
+        items={list.items}
+        render={(item) => (
+          <Stack key={item.key} gap="none">
+            {t.yahrzeitNames(item.person, list.names).map((n) => (
               <Text key={n} variant="bodySerifLarge" rtl={HEBREW.test(n)}>
                 {n}
               </Text>
             ))}
             <Text variant="caption" color={SemanticColor.TextSecondary}>
-              {t.yahrzeitDate(date, settings?.dates)}
+              {item.when(t)}
             </Text>
           </Stack>
         )}

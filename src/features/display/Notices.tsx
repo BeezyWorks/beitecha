@@ -14,6 +14,7 @@ import React from 'react'
 
 import { makeT, useT } from '@/features/luach/language'
 import { SponsorName } from '@/features/luach/SponsorName'
+import { occasionList, yahrzeitList, type RememberedList } from '@/features/luach/remembered'
 import { hasSponsor, sponsorGroups, type SponsorGroup } from '@/features/luach/sponsorGroups'
 import { useRotation } from './Panels'
 
@@ -22,17 +23,14 @@ const HE = makeT('he')
 const HEBREW = /[\u0590-\u05FF]/
 /** Refuah shleimah names on one page of the notice panel. */
 const CHOLIM_PER_PAGE = 12
-/** Birthdays or anniversaries on one page of the notice panel. */
-const OCCASIONS_PER_PAGE = 4
-/** Yahrzeits on one page of the notice panel. */
-const YAHRZEITS_PER_PAGE = 4
+/** Yahrzeits, birthdays or anniversaries on one page of the notice panel. */
+const REMEMBERED_PER_PAGE = 4
 
 type Page =
   | { notice: Notice }
   | { group: SponsorGroup }
   | { cholim: Choleh[]; key: string }
-  | { yahrzeits: UpcomingYahrzeit[]; key: string }
-  | { occasions: UpcomingOccasion[]; kind: OccasionKind; settings?: OccasionSettings; key: string }
+  | { remembered: RememberedList; key: string }
 
 export interface OccasionList {
   kind: OccasionKind
@@ -68,15 +66,15 @@ export function NoticeRotator({
     ...groups.map((group) => ({ group })),
     ...notices.filter((n) => !hasSponsor(n)).map((notice) => ({ notice })),
   ]
-  for (let at = 0; at < yahrzeits.length; at += YAHRZEITS_PER_PAGE)
-    pages.push({ yahrzeits: yahrzeits.slice(at, at + YAHRZEITS_PER_PAGE), key: `yahrzeits-${at}` })
-  for (const { kind, items, settings } of occasions)
-    for (let at = 0; at < items.length; at += OCCASIONS_PER_PAGE)
+  const lists = [
+    yahrzeitList(yahrzeits, yahrzeitSettings),
+    ...occasions.map(({ kind, items, settings }) => occasionList(kind, items, settings)),
+  ]
+  for (const list of lists)
+    for (let at = 0; at < list.items.length; at += REMEMBERED_PER_PAGE)
       pages.push({
-        occasions: items.slice(at, at + OCCASIONS_PER_PAGE),
-        kind,
-        settings,
-        key: `${kind}-${at}`,
+        remembered: { ...list, items: list.items.slice(at, at + REMEMBERED_PER_PAGE) },
+        key: `${list.key}-${at}`,
       })
   for (let at = 0; at < cholim.length; at += CHOLIM_PER_PAGE)
     pages.push({ cholim: cholim.slice(at, at + CHOLIM_PER_PAGE), key: `cholim-${at}` })
@@ -84,27 +82,8 @@ export function NoticeRotator({
   if (!pages.length) return null
   const page = pages[i % pages.length]
   const dots = pages.length > 1 && <PageDots count={pages.length} index={i % pages.length} />
-  if ('yahrzeits' in page)
-    return (
-      <YahrzeitsPage
-        key={page.key}
-        height={height}
-        items={page.yahrzeits}
-        settings={yahrzeitSettings}
-        dots={dots}
-      />
-    )
-  if ('occasions' in page)
-    return (
-      <OccasionsPage
-        key={page.key}
-        height={height}
-        kind={page.kind}
-        items={page.occasions}
-        settings={page.settings}
-        dots={dots}
-      />
-    )
+  if ('remembered' in page)
+    return <RememberedPage key={page.key} height={height} list={page.remembered} dots={dots} />
   if ('group' in page) return <SponsorsPage height={height} group={page.group} dots={dots} />
   return 'notice' in page ? (
     <NoticePage height={height} n={page.notice} categories={categories} dots={dots} />
@@ -207,21 +186,19 @@ function SponsorsPage({
   )
 }
 
-function YahrzeitsPage({
+function RememberedPage({
   height,
-  items,
-  settings,
+  list,
   dots,
 }: {
   height?: number
-  items: UpcomingYahrzeit[]
-  settings?: YahrzeitSettings
+  list: RememberedList
   dots: React.ReactNode
 }) {
   const t = useT()
   const hebrew = t.rtl || t.nameRtl
-  const he = settings?.title ? settings.title.he : HE.s.yahrzeits
-  const title = settings?.title ? t.text(settings.title) : hebrew ? HE.s.yahrzeits : t.s.yahrzeits
+  const he = list.title ? list.title.he : list.defaultHe
+  const title = list.title ? t.text(list.title) : hebrew ? list.defaultHe : list.defaultTitle(t)
   return (
     <Stack
       height={height}
@@ -244,77 +221,17 @@ function YahrzeitsPage({
           </Text>
         )}
       </Stack>
-      {items.map(({ date, yahrzeit }) => (
-        <Stack key={`${yahrzeit.id}-${date}`} direction="row" align="center" gap="md">
+      {list.items.map((item) => (
+        <Stack key={item.key} direction="row" align="center" gap="md">
           <Stack grow width={0} direction="row" gap="md">
-            {t.yahrzeitNames(yahrzeit, settings?.names).map((n) => (
+            {t.yahrzeitNames(item.person, list.names).map((n) => (
               <Text key={n} variant="headline" numberOfLines={1} rtl={HEBREW.test(n)}>
                 {n}
               </Text>
             ))}
           </Stack>
           <Text variant="headline" color={SemanticColor.TextSecondary}>
-            {t.yahrzeitDate(date, settings?.dates)}
-          </Text>
-        </Stack>
-      ))}
-      <Stack grow />
-      {dots}
-    </Stack>
-  )
-}
-
-function OccasionsPage({
-  height,
-  kind,
-  items,
-  settings,
-  dots,
-}: {
-  height?: number
-  kind: OccasionKind
-  items: UpcomingOccasion[]
-  settings?: OccasionSettings
-  dots: React.ReactNode
-}) {
-  const t = useT()
-  const hebrew = t.rtl || t.nameRtl
-  const fallback = kind === 'birthday' ? HE.s.birthdays : HE.s.anniversaries
-  const he = settings?.title ? settings.title.he : fallback
-  const title = settings?.title ? t.text(settings.title) : hebrew ? fallback : t.occasionTitle(kind)
-  return (
-    <Stack
-      height={height}
-      grow={!height}
-      radius="xl"
-      padding="lg"
-      gap="sm"
-      background={SemanticColor.SurfaceCard}
-      borderWidth={1}
-      borderColor={SemanticColor.BorderDefault}
-    >
-      <Stack direction="row" align="center" gap="sm">
-        <Text variant="title" rtl={hebrew && HEBREW.test(title)} color={SemanticColor.TextAccent}>
-          {title}
-        </Text>
-        <Stack grow />
-        {!hebrew && t.bothNames && !!he && he !== title && (
-          <Text variant="title" rtl color={SemanticColor.TextSecondary}>
-            {he}
-          </Text>
-        )}
-      </Stack>
-      {items.map(({ date, occasion, by }) => (
-        <Stack key={`${occasion.id}-${date}`} direction="row" align="center" gap="md">
-          <Stack grow width={0} direction="row" gap="md">
-            {t.yahrzeitNames(occasion, settings?.names).map((n) => (
-              <Text key={n} variant="headline" numberOfLines={1} rtl={HEBREW.test(n)}>
-                {n}
-              </Text>
-            ))}
-          </Stack>
-          <Text variant="headline" color={SemanticColor.TextSecondary}>
-            {t.occasionDate(date, by)}
+            {item.when(t)}
           </Text>
         </Stack>
       ))}

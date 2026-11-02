@@ -1,7 +1,8 @@
 import { HDate, months } from '@hebcal/core'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { dayInfo } from '../day'
+import { dayInfo, zmanimFor } from '../day'
+import { zmanimForDay } from '../labels'
 import { addDays, hostDate } from '../dates'
 import {
   CA_HOLIDAYS,
@@ -1041,5 +1042,27 @@ describe('custom zmanim', () => {
       ]),
     )
     expect(validate(withCustom(), '2026-10-21', 3)).toEqual([])
+  })
+})
+
+describe('fast ends', () => {
+  // Tzom Gedalya 5786: the day after Rosh Hashanah's second day.
+  const date = '2025-09-25'
+  const at = (fastEnds?: NonNullable<ShulSettings['zmanim']>['fastEnds']) =>
+    zmanimFor(date, { ...settings, zmanim: { ...settings.zmanim, fastEnds } }).fastEnds!
+
+  it('is shown only on fast days, after sunset and before the Rav Moshe time', () => {
+    expect(tags(date)).toContain('fast')
+    expect(zmanimForDay(['fast'])).toContain('fastEnds')
+    expect(zmanimForDay([])).not.toContain('fastEnds')
+    expect(at()).toBeGreaterThan(zmanimFor(date, settings).sunset!)
+    expect(at({ angle: 7.12 })).toBeGreaterThan(at())
+    expect(at({ angle: 5.95 })).toBeLessThan(at())
+  })
+
+  it('counts minutes after sunset', () => {
+    // Sunset rounds down and the fast's end up, so they can differ by a minute.
+    expect(at({ minutes: 42 }) - zmanimFor(date, settings).sunset!).toBeGreaterThanOrEqual(42)
+    expect(at({ minutes: 42 }) - zmanimFor(date, settings).sunset!).toBeLessThanOrEqual(43)
   })
 })

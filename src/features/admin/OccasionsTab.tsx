@@ -1,4 +1,4 @@
-import { Button, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
+import { Card, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
   addDays,
   gregorianToHebrew,
@@ -13,12 +13,9 @@ import {
   type Occasion,
   type OccasionKind,
   type OccasionSettings,
-  type YahrzeitNames,
 } from '@beitecha/engine'
 import React, { useEffect, useState } from 'react'
 
-import { AiAssist } from './AiAssist'
-import { download, pickTextFile } from './aiClipboard'
 import {
   OCCASION_WORDS,
   occasionDateWords,
@@ -32,14 +29,8 @@ import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { DateField } from './DateField'
-import { SectionPage } from './SectionPage'
+import { FormButtons, isNamed, NameFields, RememberedTab } from './RememberedTab'
 import { newId, useAdmin } from './store'
-
-const NAMES: { key: YahrzeitNames; label: string }[] = [
-  { key: 'both', label: 'Both names' },
-  { key: 'hebrew', label: 'Hebrew name only' },
-  { key: 'display', label: 'Display name only' },
-]
 
 const DAYS = Array.from({ length: 30 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
 
@@ -199,38 +190,14 @@ function OccasionForm({
 }) {
   const [o, setO] = useState(initial)
   const copy = COPY[kind]
-  const set = (patch: Partial<Occasion>) => setO({ ...o, ...patch })
-  const setDisplay = (patch: { en?: string; he?: string }) => {
-    const d = {
-      en: o.displayName?.en ?? '',
-      ...(o.displayName?.he && { he: o.displayName.he }),
-      ...patch,
-    }
-    set({ displayName: d.en || d.he ? { en: d.en, ...(d.he && { he: d.he }) } : undefined })
-  }
-  const named = !!(o.hebrewName?.trim() || o.displayName?.en.trim() || o.displayName?.he?.trim())
   const hebrew = resolveOccasion(o).hebrew
   return (
     <Card gap="md">
-      <Field
-        label="Hebrew name"
-        placeholder={copy.placeholder.hebrew}
-        help={copy.nameHelp}
-        value={o.hebrewName ?? ''}
-        onChangeText={(hebrewName) => set({ hebrewName: hebrewName || undefined })}
-      />
-      <Field
-        label="Display name"
-        placeholder={copy.placeholder.display}
-        help="The name people know them by."
-        value={o.displayName?.en ?? ''}
-        onChangeText={(en) => setDisplay({ en })}
-      />
-      <Field
-        label="Display name in Hebrew"
-        placeholder={copy.placeholder.displayHe}
-        value={o.displayName?.he ?? ''}
-        onChangeText={(he) => setDisplay({ he })}
+      <NameFields
+        value={o}
+        onChange={setO}
+        placeholder={copy.placeholder}
+        nameHelp={copy.nameHelp}
       />
       <DatesEditor
         value={o}
@@ -238,230 +205,65 @@ function OccasionForm({
           setO({ ...o, hebrew: undefined, gregorian: undefined, by: undefined, ...patch })
         }
       />
-      <Stack direction="row" gap="sm">
-        <Button
-          title="Save"
-          disabled={!named || !hebrew || !isRealMonthDay(hebrew)}
-          onPress={() => onDone(o)}
-        />
-        <Button variant="ghost" title="Cancel" onPress={() => onDone()} />
-      </Stack>
+      <FormButtons
+        canSave={isNamed(o) && !!hebrew && isRealMonthDay(hebrew)}
+        onSave={() => onDone(o)}
+        onCancel={() => onDone()}
+      />
     </Card>
   )
+}
+
+const FORMS: Record<
+  OccasionKind,
+  (p: { initial: Occasion; onDone: (o?: Occasion) => void }) => React.ReactNode
+> = {
+  birthday: (p) => <OccasionForm kind="birthday" {...p} />,
+  anniversary: (p) => <OccasionForm kind="anniversary" {...p} />,
 }
 
 /** The birthdays or anniversaries the shul keeps: each shows in the announcements in the days before it, every year. */
 export function OccasionsTab({ kind, today }: { kind: OccasionKind; today: DateString }) {
   const key = kind === 'birthday' ? 'birthdays' : 'anniversaries'
-  const list = useAdmin((s) => s.schedule?.[key]) ?? []
+  const items = useAdmin((s) => s.schedule?.[key]) ?? []
   const settings = useAdmin((s) => s.schedule?.settings[key]) ?? {}
   const setOccasions = useAdmin((s) => s.setOccasions)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [importing, setImporting] = useState<{ answer: string; n: number } | null>(null)
-  const profile = useAdmin((s) => s.profile)
   const t = makeT('en')
   const copy = COPY[kind]
   const words = OCCASION_WORDS[kind]
-  const save = (next: Occasion[], s: OccasionSettings = settings) => setOccasions(kind, next, s)
-
-  const setSettings = (patch: Partial<OccasionSettings>) => save(list, { ...settings, ...patch })
-  const setTitle = (patch: { en?: string; he?: string }) => {
-    const title = {
-      en: settings.title?.en ?? '',
-      ...(settings.title?.he && { he: settings.title.he }),
-      ...patch,
-    }
-    setSettings({
-      title: title.en || title.he ? { en: title.en, ...(title.he && { he: title.he }) } : undefined,
-    })
-  }
-  const upsert = (o: Occasion) =>
-    save(list.some((x) => x.id === o.id) ? list.map((x) => (x.id === o.id ? o : x)) : [...list, o])
-  const addAll = (items: Occasion[]) =>
-    save([
-      ...list,
-      ...items
-        .filter((p) => !list.some((x) => sameOccasion(x, p)))
-        .map((p) => ({ ...p, id: newId() })),
-    ])
-  const next = (o: Occasion) => occasionsBetween([o], today, addDays(today, 400))[0]
-  const blank = (): Occasion => ({ id: newId(), hebrew: gregorianToHebrew(today), by: 'hebrew' })
-
+  const upcoming = (o: Occasion) => occasionsBetween([o], today, addDays(today, 400))[0]
   return (
-    <SectionPage
+    <RememberedTab<Occasion, OccasionSettings>
       title={copy.title}
       intro={copy.intro}
-      actions={
-        editing === null && <Button icon="add" title={copy.add} onPress={() => setEditing('new')} />
-      }
-    >
-      {editing === 'new' && (
-        <OccasionForm
-          kind={kind}
-          initial={blank()}
-          onDone={(o) => {
-            if (o) upsert(o)
-            setEditing(null)
-          }}
-        />
-      )}
-      <Card gap="md">
-        <Text variant="sectionHeader">How they show</Text>
-        <Field
-          label="Title"
-          placeholder={t.occasionTitle(kind)}
-          value={settings.title?.en ?? ''}
-          onChangeText={(en) => setTitle({ en })}
-        />
-        <Field
-          label="Title in Hebrew"
-          placeholder={kind === 'birthday' ? 'ימי הולדת בקרוב' : 'ימי נישואין בקרוב'}
-          value={settings.title?.he ?? ''}
-          onChangeText={(he) => setTitle({ he })}
-        />
-        <Stack gap="xs">
-          <Text variant="label" color={SemanticColor.TextSecondary}>
-            Names
-          </Text>
-          <Segments
-            accessibilityLabel="Names shown"
-            options={NAMES}
-            value={settings.names ?? 'both'}
-            onChange={(names) => setSettings({ names })}
-          />
-        </Stack>
-        <Field
-          label="Days ahead"
-          help="How many days before one it appears on the display and in the Siddur. the bulletin lists its own days."
-          value={String(settings.days ?? 7)}
-          keyboardType="number-pad"
-          onChangeText={(d) => {
-            const n = Math.min(60, Math.max(1, parseInt(d, 10) || 0))
-            if (n) setSettings({ days: n === 7 ? undefined : n })
-          }}
-        />
-      </Card>
-      <Card gap="md">
-        <Text variant="sectionHeader">Import & export</Text>
-        <Text variant="caption" color={SemanticColor.TextSecondary}>
-          Have a spreadsheet already? Use “Import with AI”: copy the prompt into ChatGPT, Claude or
-          Gemini along with your list, and paste back the CSV it gives you. A CSV or JSON file, or
-          this tab’s own export, can also be loaded as is. Each row needs one date, Hebrew (a year
-          is optional) or civil. Anyone already on the list is skipped.
-        </Text>
-        <Stack direction="row" gap="sm" wrap>
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Import with AI"
-            onPress={() => setImporting({ answer: '', n: (importing?.n ?? 0) + 1 })}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Import a file"
-            onPress={() =>
-              pickTextFile((answer) => setImporting({ answer, n: (importing?.n ?? 0) + 1 }))
-            }
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Export CSV"
-            disabled={!list.length}
-            onPress={() => download(`${words.many}.csv`, occasionsToCsv(list), 'text/csv')}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Export JSON"
-            disabled={!list.length}
-            onPress={() =>
-              download(`${words.many}.json`, occasionsToJson(kind, list), 'application/json')
-            }
-          />
-        </Stack>
-        {importing && profile && (
-          <AiAssist<Occasion[]>
-            key={importing.n}
-            title={`Import ${words.many}`}
-            example="Paste your spreadsheet’s rows here (names and dates), or say “my spreadsheet is attached”."
-            answerHint="Paste the CSV (or JSON) the AI gave you, or a CSV straight from a spreadsheet."
-            initialAnswer={importing.answer}
-            prompt={(request) => occasionPrompt(profile, kind, request)}
-            parse={(text) => parseOccasions(kind, text)}
-            preview={(items) => (
-              <Stack gap="xs">
-                {items.map((p, i) => (
-                  <Text key={i} variant="body">
-                    {t.yahrzeitNames(p).join(' · ')} · {occasionDateWords(p)}
-                  </Text>
-                ))}
-                <Text variant="caption" color={SemanticColor.TextSecondary}>
-                  {items.filter((p) => list.some((x) => sameOccasion(x, p))).length} already on the
-                  list will be skipped.
-                </Text>
-              </Stack>
-            )}
-            applyLabel="Add to the list"
-            onApply={addAll}
-            onClose={() => setImporting(null)}
-          />
-        )}
-      </Card>
-      {!list.length && editing === null && (
-        <Text variant="body" color={SemanticColor.TextSecondary}>
-          {copy.empty}
-        </Text>
-      )}
-      {list.length > 0 && (
-        <Card gap="sm">
-          {list.map((o) => {
-            const coming = next(o)
-            return editing === o.id ? (
-              <OccasionForm
-                key={o.id}
-                kind={kind}
-                initial={o}
-                onDone={(changed) => {
-                  if (changed) upsert(changed)
-                  setEditing(null)
-                }}
-              />
-            ) : (
-              <Stack key={o.id} direction="row" align="center" gap="sm" wrap>
-                <Stack grow width={0} gap="none">
-                  <Stack direction="row" gap="sm" wrap>
-                    {t.yahrzeitNames(o).map((n) => (
-                      <Text key={n} variant="item" rtl={/[֐-׿]/.test(n)}>
-                        {n}
-                      </Text>
-                    ))}
-                  </Stack>
-                  <Text variant="caption" color={SemanticColor.TextSecondary}>
-                    {occasionDateWords(o)}
-                    {coming ? ` · Next: ${t.occasionDate(coming.date, coming.by)}` : ''}
-                  </Text>
-                </Stack>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon="edit"
-                  title="Edit"
-                  onPress={() => setEditing(o.id)}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon="delete"
-                  title="Remove"
-                  onPress={() => save(list.filter((x) => x.id !== o.id))}
-                />
-              </Stack>
-            )
-          })}
-        </Card>
-      )}
-    </SectionPage>
+      add={copy.add}
+      empty={copy.empty}
+      many={words.many}
+      titlePlaceholder={{
+        en: t.occasionTitle(kind),
+        he: kind === 'birthday' ? 'ימי הולדת בקרוב' : 'ימי נישואין בקרוב',
+      }}
+      items={items}
+      settings={settings}
+      save={(list, s) => setOccasions(kind, list, s)}
+      today={today}
+      form={FORMS[kind]}
+      blank={() => ({ id: newId(), hebrew: gregorianToHebrew(today), by: 'hebrew' })}
+      next={(o) => upcoming(o)?.date}
+      detail={(o) => {
+        const coming = upcoming(o)
+        return `${occasionDateWords(o)}${coming ? ` · Next: ${t.occasionDate(coming.date, coming.by)}` : ''}`
+      }}
+      daysHelp="How many days before one it appears on the display and in the Siddur. the bulletin lists its own days."
+      importHelp="Have a spreadsheet already? Use “Import with AI”: copy the prompt into ChatGPT, Claude or Gemini along with your list, and paste back the CSV it gives you. A CSV or JSON file, or this tab’s own export, can also be loaded as is. Each row needs one date, Hebrew (a year is optional) or civil. Anyone already on the list is skipped."
+      io={{
+        prompt: (profile, ask) => occasionPrompt(profile, kind, ask),
+        parse: (text) => parseOccasions(kind, text),
+        same: sameOccasion,
+        preview: (p) => `${t.yahrzeitNames(p).join(' · ')} · ${occasionDateWords(p)}`,
+        csv: occasionsToCsv,
+        json: (list) => occasionsToJson(kind, list),
+      }}
+    />
   )
 }

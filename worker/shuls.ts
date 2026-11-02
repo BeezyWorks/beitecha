@@ -1,6 +1,7 @@
 import {
   addDays,
   isRealHebrewDate,
+  isRealMonthDay,
   NOTICE_KINDS,
   noticeLastDay,
   starterSchedule,
@@ -8,6 +9,7 @@ import {
   timeFormatProblem,
   todayIn,
   type HebrewDate,
+  type HebrewMonthDay,
   type NoticeKind,
   type Schedule,
   type ShulProfile,
@@ -23,7 +25,18 @@ import { icsFeed } from './ics'
 export const MAX_SCHEDULE_BYTES = 512 * 1024
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/
 /** Paths the web app uses at the top level, so no shul can take them. */
-const RESERVED = new Set(['api', 'new', 'admin', 'account', 'about', 'directory', 'help', 'login', 'settings', 'invite'])
+const RESERVED = new Set([
+  'api',
+  'new',
+  'admin',
+  'account',
+  'about',
+  'directory',
+  'help',
+  'login',
+  'settings',
+  'invite',
+])
 const INVITE_DAYS = 14
 const MAX_DISPLAYS = 20
 /** Past exceptions and notices the public feed still carries (the display shows the past week). */
@@ -56,7 +69,8 @@ export function slugProblem(slug: string): string | null {
   return null
 }
 
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
 
 function validTimeZone(tz: unknown): boolean {
   if (typeof tz !== 'string') return false
@@ -71,10 +85,15 @@ function validTimeZone(tz: unknown): boolean {
 /** Shape checks for what the engine would choke on; rule-level problems are the editor's job. */
 export function scheduleProblem(s: unknown): string | null {
   if (!isObject(s)) return 'schedule must be an object'
-  if (!isObject(s.settings) || !isObject(s.settings.location)) return 'settings.location is required'
+  if (!isObject(s.settings) || !isObject(s.settings.location))
+    return 'settings.location is required'
   const loc = s.settings.location
   const local = s.settings.localHolidays
-  if (local !== undefined && (!Array.isArray(local) || local.some((h) => !isObject(h) || typeof h.id !== 'string' || !isObject(h.date)))) {
+  if (
+    local !== undefined &&
+    (!Array.isArray(local) ||
+      local.some((h) => !isObject(h) || typeof h.id !== 'string' || !isObject(h.date)))
+  ) {
     return 'localHolidays must be a list of holidays with an id and a date'
   }
   if (typeof loc.latitude !== 'number' || Math.abs(loc.latitude) > 90) return 'bad latitude'
@@ -103,33 +122,74 @@ export function scheduleProblem(s: unknown): string | null {
     if (!Array.isArray(s[key])) return `${key} must be a list`
   }
   for (const e of s.events as unknown[]) {
-    if (!isObject(e) || typeof e.id !== 'string' || !Array.isArray(e.rules)) return 'every event needs an id and rules'
+    if (!isObject(e) || typeof e.id !== 'string' || !Array.isArray(e.rules))
+      return 'every event needs an id and rules'
     if (e.kind === 'tefila' && !TEFILA_TYPES.includes(e.tefila as TefilaType))
       return 'every minyan needs its tefila: shacharis, mincha, maariv or minchaMaariv'
   }
   for (const n of s.notices as unknown[]) {
-    if (!isObject(n) || !NOTICE_KINDS.includes(n.kind as NoticeKind)) return `every notice is one of: ${NOTICE_KINDS.join(', ')}`
+    if (!isObject(n) || !NOTICE_KINDS.includes(n.kind as NoticeKind))
+      return `every notice is one of: ${NOTICE_KINDS.join(', ')}`
   }
   if (s.cholim !== undefined) {
     if (!Array.isArray(s.cholim)) return 'cholim must be a list'
     for (const c of s.cholim as unknown[])
-      if (!isObject(c) || typeof c.id !== 'string' || !isObject(c.name) || !(c.name.en || c.name.he)) return 'every choleh needs a name'
+      if (
+        !isObject(c) ||
+        typeof c.id !== 'string' ||
+        !isObject(c.name) ||
+        !(c.name.en || c.name.he)
+      )
+        return 'every choleh needs a name'
   }
   if (s.yahrzeits !== undefined) {
     if (!Array.isArray(s.yahrzeits)) return 'yahrzeits must be a list'
     for (const y of s.yahrzeits as unknown[]) {
-      if (!isObject(y) || typeof y.id !== 'string' || !isObject(y.hebrew)) return 'every yahrzeit needs an id and a Hebrew date'
-      const dn = isObject(y.displayName) ? (y.displayName.en || y.displayName.he) : ''
-      if (!(typeof y.hebrewName === 'string' && y.hebrewName.trim()) && !dn) return 'every yahrzeit needs a name'
-      if (!isRealHebrewDate(y.hebrew as unknown as HebrewDate)) return 'every yahrzeit needs a real Hebrew date'
+      if (!isObject(y) || typeof y.id !== 'string' || !isObject(y.hebrew))
+        return 'every yahrzeit needs an id and a Hebrew date'
+      const dn = isObject(y.displayName) ? y.displayName.en || y.displayName.he : ''
+      if (!(typeof y.hebrewName === 'string' && y.hebrewName.trim()) && !dn)
+        return 'every yahrzeit needs a name'
+      if (!isRealHebrewDate(y.hebrew as unknown as HebrewDate))
+        return 'every yahrzeit needs a real Hebrew date'
+    }
+  }
+  for (const key of ['birthdays', 'anniversaries'] as const) {
+    if (s[key] === undefined) continue
+    if (!Array.isArray(s[key])) return `${key} must be a list`
+    for (const o of s[key] as unknown[]) {
+      if (!isObject(o) || typeof o.id !== 'string') return `every ${key.slice(0, -1)} needs an id`
+      const dn = isObject(o.displayName) ? o.displayName.en || o.displayName.he : ''
+      if (!(typeof o.hebrewName === 'string' && o.hebrewName.trim()) && !dn)
+        return `every ${key.slice(0, -1)} needs a name`
+      if (o.hebrew === undefined && o.gregorian === undefined)
+        return `every ${key.slice(0, -1)} needs a Hebrew or a civil date`
+      if (
+        o.hebrew !== undefined &&
+        (!isObject(o.hebrew) || !isRealMonthDay(o.hebrew as unknown as HebrewMonthDay))
+      )
+        return `every ${key.slice(0, -1)} needs a real Hebrew date`
+      if (
+        o.gregorian !== undefined &&
+        !(
+          typeof o.gregorian === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(o.gregorian) &&
+          !Number.isNaN(Date.parse(o.gregorian))
+        )
+      )
+        return `every ${key.slice(0, -1)} civil date must be YYYY-MM-DD`
+      if (o.by !== undefined && o.by !== 'hebrew' && o.by !== 'gregorian')
+        return `${key.slice(0, -1)} "by" must be hebrew or gregorian`
     }
   }
   return null
 }
 
 function profileProblem(p: unknown): string | null {
-  if (!isObject(p) || !isObject(p.name) || typeof p.name.en !== 'string' || !p.name.en.trim()) return 'a name is required'
-  if (p.brandColor !== undefined && !/^#[0-9a-f]{6}$/i.test(String(p.brandColor))) return 'brandColor must be #rrggbb'
+  if (!isObject(p) || !isObject(p.name) || typeof p.name.en !== 'string' || !p.name.en.trim())
+    return 'a name is required'
+  if (p.brandColor !== undefined && !/^#[0-9a-f]{6}$/i.test(String(p.brandColor)))
+    return 'brandColor must be #rrggbb'
   return null
 }
 
@@ -170,9 +230,13 @@ export async function getPublic(env: Env, slug: string, request: Request): Promi
   const row = await findShul(env, slug)
   const etag = `"${row.id}-${row.revision}"`
   const headers = { etag, 'cache-control': 'public, max-age=60' }
-  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers })
+  if (request.headers.get('if-none-match') === etag)
+    return new Response(null, { status: 304, headers })
   const { profile, schedule, revision, updatedAt } = shulRecord(row)
-  return json({ slug, profile, schedule: publicSchedule(schedule), revision, updatedAt }, { headers })
+  return json(
+    { slug, profile, schedule: publicSchedule(schedule), revision, updatedAt },
+    { headers },
+  )
 }
 
 export async function getIcs(env: Env, slug: string): Promise<Response> {
@@ -180,7 +244,10 @@ export async function getIcs(env: Env, slug: string): Promise<Response> {
   const { profile, schedule } = shulRecord(row)
   const host = new URL(env.PUBLIC_URL).host
   return new Response(icsFeed(slug, profile, schedule, host), {
-    headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'public, max-age=3600' },
+    headers: {
+      'content-type': 'text/calendar; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+    },
   })
 }
 
@@ -206,7 +273,13 @@ export async function getMine(request: Request, env: Env): Promise<Response> {
   )
     .bind(user.id)
     .all<{ slug: string; profile: string; role: Role }>()
-  return json({ shuls: results.map((r) => ({ slug: r.slug, name: (JSON.parse(r.profile) as ShulProfile).name, role: r.role })) })
+  return json({
+    shuls: results.map((r) => ({
+      slug: r.slug,
+      name: (JSON.parse(r.profile) as ShulProfile).name,
+      role: r.role,
+    })),
+  })
 }
 
 export async function createShul(request: Request, env: Env): Promise<Response> {
@@ -252,15 +325,14 @@ export async function createShul(request: Request, env: Env): Promise<Response> 
     .first()
   if (!inserted) throw new HttpError(409, 'that address is taken')
   await env.DB.batch([
-    env.DB.prepare('INSERT INTO members (shul_id, user_id, role, name, email, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(
+    env.DB.prepare(
+      'INSERT INTO members (shul_id, user_id, role, name, email, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).bind(id, user.id, 'owner', user.name, user.email, now),
+    env.DB.prepare('INSERT INTO history (shul_id, revision, user_id, at) VALUES (?, 1, ?, ?)').bind(
       id,
       user.id,
-      'owner',
-      user.name,
-      user.email,
       now,
     ),
-    env.DB.prepare('INSERT INTO history (shul_id, revision, user_id, at) VALUES (?, 1, ?, ?)').bind(id, user.id, now),
   ])
   return json({ slug }, { status: 201 })
 }
@@ -270,8 +342,14 @@ export async function getAdmin(request: Request, env: Env, slug: string): Promis
   const row = await findShul(env, slug)
   const role = await requireRole(env, row, user, 'editor')
   const [members, displays, history] = await Promise.all([
-    env.DB.prepare('SELECT user_id AS userId, role, name, email FROM members WHERE shul_id = ? ORDER BY created_at').bind(row.id).all(),
-    env.DB.prepare('SELECT display_id AS id, label, last_seen AS lastSeen FROM displays WHERE shul_id = ? ORDER BY last_seen DESC')
+    env.DB.prepare(
+      'SELECT user_id AS userId, role, name, email FROM members WHERE shul_id = ? ORDER BY created_at',
+    )
+      .bind(row.id)
+      .all(),
+    env.DB.prepare(
+      'SELECT display_id AS id, label, last_seen AS lastSeen FROM displays WHERE shul_id = ? ORDER BY last_seen DESC',
+    )
       .bind(row.id)
       .all(),
     env.DB.prepare(
@@ -295,7 +373,11 @@ export async function putShul(request: Request, env: Env, slug: string): Promise
   const user = await requireUser(request, env)
   const row = await findShul(env, slug)
   await requireRole(env, row, user, 'editor')
-  const body = await readJson<{ profile?: ShulProfile; schedule?: Schedule; baseRevision?: number }>(request, MAX_SCHEDULE_BYTES)
+  const body = await readJson<{
+    profile?: ShulProfile
+    schedule?: Schedule
+    baseRevision?: number
+  }>(request, MAX_SCHEDULE_BYTES)
   if (typeof body.baseRevision !== 'number') throw new HttpError(400, 'baseRevision is required')
   if (body.profile !== undefined) {
     const e = profileProblem(body.profile)
@@ -336,9 +418,13 @@ export async function createInvite(request: Request, env: Env, slug: string): Pr
   const body = await readJson<{ role?: Role }>(request, 1024)
   const role: Role = body.role === 'owner' ? 'owner' : 'editor'
   const bytes = crypto.getRandomValues(new Uint8Array(18))
-  const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_')
+  const token = btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
   const expiresAt = Date.now() + INVITE_DAYS * 86_400_000
-  await env.DB.prepare('INSERT INTO invites (token, shul_id, role, created_by, expires_at) VALUES (?, ?, ?, ?, ?)')
+  await env.DB.prepare(
+    'INSERT INTO invites (token, shul_id, role, created_by, expires_at) VALUES (?, ?, ?, ?, ?)',
+  )
     .bind(token, row.id, role, user.id, expiresAt)
     .run()
   return json({ token, role, expiresAt, url: `${env.PUBLIC_URL}/invite/${token}` }, { status: 201 })
@@ -351,7 +437,8 @@ export async function acceptInvite(request: Request, env: Env, token: string): P
   )
     .bind(token)
     .first<{ shul_id: string; role: Role; expires_at: number; slug: string }>()
-  if (!invite || invite.expires_at < Date.now()) throw new HttpError(404, 'this invitation has expired')
+  if (!invite || invite.expires_at < Date.now())
+    throw new HttpError(404, 'this invitation has expired')
   // Never demote someone already on the team.
   await env.DB.batch([
     env.DB.prepare(
@@ -363,24 +450,42 @@ export async function acceptInvite(request: Request, env: Env, token: string): P
   return json({ slug: invite.slug })
 }
 
-export async function removeMember(request: Request, env: Env, slug: string, userId: string): Promise<Response> {
+export async function removeMember(
+  request: Request,
+  env: Env,
+  slug: string,
+  userId: string,
+): Promise<Response> {
   const user = await requireUser(request, env)
   const row = await findShul(env, slug)
   // Anyone may leave; only owners remove others.
   await requireRole(env, row, user, userId === user.id ? 'editor' : 'owner')
-  const owners = await env.DB.prepare(`SELECT user_id FROM members WHERE shul_id = ? AND role = 'owner'`).bind(row.id).all<{ user_id: string }>()
+  const owners = await env.DB.prepare(
+    `SELECT user_id FROM members WHERE shul_id = ? AND role = 'owner'`,
+  )
+    .bind(row.id)
+    .all<{ user_id: string }>()
   if (owners.results.length === 1 && owners.results[0].user_id === userId) {
     throw new HttpError(400, 'a shul needs at least one owner')
   }
-  await env.DB.prepare('DELETE FROM members WHERE shul_id = ? AND user_id = ?').bind(row.id, userId).run()
+  await env.DB.prepare('DELETE FROM members WHERE shul_id = ? AND user_id = ?')
+    .bind(row.id, userId)
+    .run()
   return new Response(null, { status: 204 })
 }
 
 /** A display checking in. Unauthenticated, so capped per shul. */
-export async function heartbeat(request: Request, env: Env, slug: string, displayId: string): Promise<Response> {
+export async function heartbeat(
+  request: Request,
+  env: Env,
+  slug: string,
+  displayId: string,
+): Promise<Response> {
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(displayId)) throw new HttpError(400, 'bad display id')
   const row = await findShul(env, slug)
-  const body = await readJson<{ label?: string }>(request, 1024).catch(() => ({}) as { label?: string })
+  const body = await readJson<{ label?: string }>(request, 1024).catch(
+    () => ({}) as { label?: string },
+  )
   const label = typeof body.label === 'string' ? body.label.slice(0, 60) : null
   const agent = request.headers.get('user-agent')?.slice(0, 200) ?? null
   await env.DB.prepare(

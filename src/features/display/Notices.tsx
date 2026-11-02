@@ -4,6 +4,9 @@ import type {
   DaySchedule,
   Notice,
   NoticeCategory,
+  OccasionKind,
+  OccasionSettings,
+  UpcomingOccasion,
   UpcomingYahrzeit,
   YahrzeitSettings,
 } from '@beitecha/engine'
@@ -19,6 +22,8 @@ const HE = makeT('he')
 const HEBREW = /[\u0590-\u05FF]/
 /** Refuah shleimah names on one page of the notice panel. */
 const CHOLIM_PER_PAGE = 12
+/** Birthdays or anniversaries on one page of the notice panel. */
+const OCCASIONS_PER_PAGE = 4
 /** Yahrzeits on one page of the notice panel. */
 const YAHRZEITS_PER_PAGE = 4
 
@@ -27,6 +32,13 @@ type Page =
   | { group: SponsorGroup }
   | { cholim: Choleh[]; key: string }
   | { yahrzeits: UpcomingYahrzeit[]; key: string }
+  | { occasions: UpcomingOccasion[]; kind: OccasionKind; settings?: OccasionSettings; key: string }
+
+export interface OccasionList {
+  kind: OccasionKind
+  items: UpcomingOccasion[]
+  settings?: OccasionSettings
+}
 
 /** Sponsors, announcements, yahrzeits and the refuah shleimah list, taking turns; `height` fixed, or filling its place. */
 export function NoticeRotator({
@@ -36,6 +48,7 @@ export function NoticeRotator({
   cholim,
   yahrzeits,
   yahrzeitSettings,
+  occasions = [],
   days,
 }: {
   height?: number
@@ -46,6 +59,8 @@ export function NoticeRotator({
   cholim: Choleh[]
   yahrzeits: UpcomingYahrzeit[]
   yahrzeitSettings?: YahrzeitSettings
+  /** Birthdays and anniversaries, each list with its own pages. */
+  occasions?: OccasionList[]
 }) {
   const t = useT()
   const groups = sponsorGroups(t, notices, days)
@@ -55,6 +70,14 @@ export function NoticeRotator({
   ]
   for (let at = 0; at < yahrzeits.length; at += YAHRZEITS_PER_PAGE)
     pages.push({ yahrzeits: yahrzeits.slice(at, at + YAHRZEITS_PER_PAGE), key: `yahrzeits-${at}` })
+  for (const { kind, items, settings } of occasions)
+    for (let at = 0; at < items.length; at += OCCASIONS_PER_PAGE)
+      pages.push({
+        occasions: items.slice(at, at + OCCASIONS_PER_PAGE),
+        kind,
+        settings,
+        key: `${kind}-${at}`,
+      })
   for (let at = 0; at < cholim.length; at += CHOLIM_PER_PAGE)
     pages.push({ cholim: cholim.slice(at, at + CHOLIM_PER_PAGE), key: `cholim-${at}` })
   const i = useRotation(pages.length)
@@ -68,6 +91,17 @@ export function NoticeRotator({
         height={height}
         items={page.yahrzeits}
         settings={yahrzeitSettings}
+        dots={dots}
+      />
+    )
+  if ('occasions' in page)
+    return (
+      <OccasionsPage
+        key={page.key}
+        height={height}
+        kind={page.kind}
+        items={page.occasions}
+        settings={page.settings}
         dots={dots}
       />
     )
@@ -221,6 +255,66 @@ function YahrzeitsPage({
           </Stack>
           <Text variant="headline" color={SemanticColor.TextSecondary}>
             {t.yahrzeitDate(date, settings?.dates)}
+          </Text>
+        </Stack>
+      ))}
+      <Stack grow />
+      {dots}
+    </Stack>
+  )
+}
+
+function OccasionsPage({
+  height,
+  kind,
+  items,
+  settings,
+  dots,
+}: {
+  height?: number
+  kind: OccasionKind
+  items: UpcomingOccasion[]
+  settings?: OccasionSettings
+  dots: React.ReactNode
+}) {
+  const t = useT()
+  const hebrew = t.rtl || t.nameRtl
+  const fallback = kind === 'birthday' ? HE.s.birthdays : HE.s.anniversaries
+  const he = settings?.title ? settings.title.he : fallback
+  const title = settings?.title ? t.text(settings.title) : hebrew ? fallback : t.occasionTitle(kind)
+  return (
+    <Stack
+      height={height}
+      grow={!height}
+      radius="xl"
+      padding="lg"
+      gap="sm"
+      background={SemanticColor.SurfaceCard}
+      borderWidth={1}
+      borderColor={SemanticColor.BorderDefault}
+    >
+      <Stack direction="row" align="center" gap="sm">
+        <Text variant="title" rtl={hebrew && HEBREW.test(title)} color={SemanticColor.TextAccent}>
+          {title}
+        </Text>
+        <Stack grow />
+        {!hebrew && t.bothNames && !!he && he !== title && (
+          <Text variant="title" rtl color={SemanticColor.TextSecondary}>
+            {he}
+          </Text>
+        )}
+      </Stack>
+      {items.map(({ date, occasion, by }) => (
+        <Stack key={`${occasion.id}-${date}`} direction="row" align="center" gap="md">
+          <Stack grow width={0} direction="row" gap="md">
+            {t.yahrzeitNames(occasion, settings?.names).map((n) => (
+              <Text key={n} variant="headline" numberOfLines={1} rtl={HEBREW.test(n)}>
+                {n}
+              </Text>
+            ))}
+          </Stack>
+          <Text variant="headline" color={SemanticColor.TextSecondary}>
+            {t.occasionDate(date, by)}
           </Text>
         </Stack>
       ))}

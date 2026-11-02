@@ -7,6 +7,9 @@ import {
   type NoticeCategory,
   type Schedule,
   type ShulProfile,
+  type Occasion,
+  type OccasionKind,
+  type OccasionSettings,
   type Yahrzeit,
   type YahrzeitSettings,
 } from '@beitecha/engine'
@@ -57,6 +60,8 @@ interface AdminState {
   setCholim: (list: Choleh[]) => void
   /** The yahrzeit list and how it's shown; saves at once. */
   setYahrzeits: (list: Yahrzeit[], settings?: YahrzeitSettings) => void
+  /** The birthday or anniversary list and how it's shown; saves at once. */
+  setOccasions: (kind: OccasionKind, list: Occasion[], settings?: OccasionSettings) => void
   /** The shul's announcement categories; announcements under one that's gone become plain ones. */
   setNoticeCategories: (list: NoticeCategory[]) => void
   /** Saves the whole document. On a conflict, `overwrite` saves on top of the newer revision. */
@@ -192,6 +197,14 @@ export const useAdmin = create<AdminState>((set, get) => {
         yahrzeits,
         settings: settings ? { ...s.settings, yahrzeits: settings } : s.settings,
       })),
+    setOccasions: (kind, list, settings) => {
+      const key = kind === 'birthday' ? 'birthdays' : 'anniversaries'
+      commit((s) => ({
+        ...s,
+        [key]: list,
+        settings: settings ? { ...s.settings, [key]: settings } : s.settings,
+      }))
+    },
     setNoticeCategories: (noticeCategories) =>
       commit((s) => ({
         ...s,

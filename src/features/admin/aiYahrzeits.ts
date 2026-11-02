@@ -84,7 +84,7 @@ export function monthFromText(text: string, year?: number): number | undefined {
 }
 
 /** "18 Cheshvan 5781" (also "18 Cheshvan, 5781"). */
-function parseHebrewDate(text: string): HebrewDate | undefined {
+export function parseHebrewDate(text: string): HebrewDate | undefined {
   const m = /^\s*(\d{1,2})\s+(?:of\s+)?([^\d,]+?)[\s,]+(\d{4})\s*$/i.exec(text)
   if (!m) return undefined
   const month = monthFromText(m[2], +m[3])
@@ -169,9 +169,9 @@ export function parseCsv(text: string, delimiter: string): string[][] {
   return rows
 }
 
-const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9֐-׿]/g, '')
+export const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9֐-׿]/g, '')
 
-const HEADERS: Record<string, string[]> = {
+export const HEADERS: Record<string, string[]> = {
   hebrewName: ['hebrewname', 'hebrewnamewithfather', 'shem', 'שם', 'שםעברי'],
   displayEn: [
     'displayname',
@@ -197,19 +197,23 @@ const HEADERS: Record<string, string[]> = {
   ],
 }
 
-function column(headers: string[], key: string): number {
+export function column(headers: string[], key: string): number {
   return headers.findIndex((h) => HEADERS[key].includes(h))
 }
 
-function parseCsvRows(text: string): Parsed<Yahrzeit[]> {
-  // The CSV may sit in a code block in an AI's answer, among its explanation.
+/** The rows of a CSV, TSV or semicolon file, found in a code block if an AI's answer wraps it in one. */
+export function csvTable(text: string): string[][] {
   const fenced = /```(?:csv|CSV)?\s*\n([\s\S]*?)```/.exec(text)
   const body = (fenced ? fenced[1] : text).trim()
   const first = body.split(/\r?\n/)[0] ?? ''
   const count = (c: string) => first.split(c).length - 1
   const delimiter =
     count('\t') > 0 && count('\t') >= count(',') ? '\t' : count(';') > count(',') ? ';' : ','
-  const rows = parseCsv(body, delimiter)
+  return parseCsv(body, delimiter)
+}
+
+function parseCsvRows(text: string): Parsed<Yahrzeit[]> {
+  const rows = csvTable(text)
   if (rows.length < 2)
     return { ok: false, errors: ['Expected a CSV: a header row, then one row for each person.'] }
   const headers = rows[0].map(norm)

@@ -9,6 +9,7 @@ import {
   ZMAN_LABELS,
   type ZmanId,
   type ZmanKey,
+  occasionsBetween,
   yahrzeitsBetween,
 } from '@beitecha/engine'
 import { useMemo } from 'react'
@@ -44,6 +45,12 @@ export function useWeek(
       cholim: on(print.cholim) ? (schedule.cholim ?? []) : [],
       yahrzeits: on(print.yahrzeits) ? yahrzeitsBetween(schedule.yahrzeits, sunday, shabbos) : [],
       yahrzeitSettings: schedule.settings.yahrzeits,
+      birthdays: on(print.birthdays) ? occasionsBetween(schedule.birthdays, sunday, shabbos) : [],
+      birthdaySettings: schedule.settings.birthdays,
+      anniversaries: on(print.anniversaries)
+        ? occasionsBetween(schedule.anniversaries, sunday, shabbos)
+        : [],
+      anniversarySettings: schedule.settings.anniversaries,
       zmanimTable: on(print.zmanimTable),
       shiurim: on(print.shiurim),
       shabbosZmanim: shabbosZmanim(schedule, addDays(sunday, 5)),

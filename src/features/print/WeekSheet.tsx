@@ -13,6 +13,9 @@ import {
   type Occurrence,
   parseDate,
   type ShulProfile,
+  type OccasionKind,
+  type OccasionSettings,
+  type UpcomingOccasion,
   type UpcomingYahrzeit,
   weekdayOf,
   type YahrzeitSettings,
@@ -69,6 +72,11 @@ export interface WeekProps {
   /** The yahrzeits kept this week, and how to show them. */
   yahrzeits: UpcomingYahrzeit[]
   yahrzeitSettings?: YahrzeitSettings
+  /** The week's birthdays and anniversaries, and how to show them. */
+  birthdays: UpcomingOccasion[]
+  birthdaySettings?: OccasionSettings
+  anniversaries: UpcomingOccasion[]
+  anniversarySettings?: OccasionSettings
   /** The week's zmanim table on the front. */
   zmanimTable: boolean
   /** The week's shiurim on the announcements side. */
@@ -97,12 +105,26 @@ export const hasAnnouncements = ({
   comingUp,
   cholim,
   yahrzeits,
+  birthdays,
+  anniversaries,
   shiurim,
-}: Pick<WeekProps, 'days' | 'notices' | 'comingUp' | 'cholim' | 'yahrzeits' | 'shiurim'>) =>
+}: Pick<
+  WeekProps,
+  | 'days'
+  | 'notices'
+  | 'comingUp'
+  | 'cholim'
+  | 'yahrzeits'
+  | 'birthdays'
+  | 'anniversaries'
+  | 'shiurim'
+>) =>
   notices.length > 0 ||
   comingUp.length > 0 ||
   cholim.length > 0 ||
   yahrzeits.length > 0 ||
+  birthdays.length > 0 ||
+  anniversaries.length > 0 ||
   (shiurim && shiurDays(days).some((d) => d.events.some((e) => !notShiur(e))))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
@@ -154,6 +176,10 @@ function announcementBlocks({
   cholim,
   yahrzeits,
   yahrzeitSettings,
+  birthdays,
+  birthdaySettings,
+  anniversaries,
+  anniversarySettings,
   shiurim: showShiurim,
 }: WeekProps): { key: string; node: React.ReactNode }[] {
   const blocks: { key: string; node: React.ReactNode }[] = []
@@ -169,6 +195,18 @@ function announcementBlocks({
     blocks.push({
       key: 'remembrance',
       node: <Remembrance yahrzeits={yahrzeits} settings={yahrzeitSettings} cholim={cholim} />,
+    })
+  if (birthdays.length > 0 || anniversaries.length > 0)
+    blocks.push({
+      key: 'celebrations',
+      node: (
+        <Celebrations
+          lists={[
+            { kind: 'birthday', items: birthdays, settings: birthdaySettings },
+            { kind: 'anniversary', items: anniversaries, settings: anniversarySettings },
+          ]}
+        />
+      ),
     })
   return blocks
 }
@@ -1026,6 +1064,69 @@ function Remembrance({
           <Cholim cholim={cholim} />
         </Stack>
       )}
+    </Stack>
+  )
+}
+
+/** The week's birthdays and anniversaries side by side, each in a box of its own. */
+function Celebrations({
+  lists,
+}: {
+  lists: { kind: OccasionKind; items: UpcomingOccasion[]; settings?: OccasionSettings }[]
+}) {
+  const shown = lists.filter((l) => l.items.length > 0)
+  return (
+    <Stack direction="row" align="stretch" gap="md">
+      {shown.map((l, i) => (
+        <React.Fragment key={l.kind}>
+          {i > 0 && <Stack width={1} background={SemanticColor.BorderStrong} />}
+          <Stack grow width={0}>
+            <Occasions {...l} />
+          </Stack>
+        </React.Fragment>
+      ))}
+    </Stack>
+  )
+}
+
+/** The week's birthdays or anniversaries, soonest first, each dated by the calendar it is kept by. */
+function Occasions({
+  kind,
+  items,
+  settings,
+}: {
+  kind: OccasionKind
+  items: UpcomingOccasion[]
+  settings?: OccasionSettings
+}) {
+  const t = useT()
+  return (
+    <Stack gap="sm">
+      <Heading
+        en={settings?.title ? settings.title.en : t.occasionTitle(kind)}
+        he={
+          settings?.title
+            ? settings.title.he
+            : kind === 'birthday'
+              ? HE.s.birthdays
+              : HE.s.anniversaries
+        }
+      />
+      <ColumnBox
+        items={items}
+        render={({ date, occasion, by }) => (
+          <Stack key={`${occasion.id}-${date}`} gap="none">
+            {t.yahrzeitNames(occasion, settings?.names).map((n) => (
+              <Text key={n} variant="bodySerifLarge" rtl={HEBREW.test(n)}>
+                {n}
+              </Text>
+            ))}
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              {t.occasionDate(date, by)}
+            </Text>
+          </Stack>
+        )}
+      />
     </Stack>
   )
 }

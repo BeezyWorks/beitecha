@@ -7,7 +7,12 @@ import worker from '../index'
 const ORIGIN = 'https://beitecha.test'
 const testEnv = env as unknown as Env
 
-async function call(method: string, path: string, body?: unknown, opts: { token?: string; headers?: Record<string, string> } = {}) {
+async function call(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts: { token?: string; headers?: Record<string, string> } = {},
+) {
   const res = await worker.fetch(
     new Request(`${ORIGIN}${path}`, {
       method,
@@ -30,7 +35,12 @@ async function call(method: string, path: string, body?: unknown, opts: { token?
   return { status: res.status, data, headers: res.headers }
 }
 
-const location = { latitude: 40.0821, longitude: -74.2097, timeZone: 'America/New_York', israel: false }
+const location = {
+  latitude: 40.0821,
+  longitude: -74.2097,
+  timeZone: 'America/New_York',
+  israel: false,
+}
 let n = 0
 async function newShul(owner = 'owner1', extra: Record<string, unknown> = {}) {
   const slug = `shul-${++n}-${Math.random().toString(36).slice(2, 7)}`
@@ -47,16 +57,27 @@ async function newShul(owner = 'owner1', extra: Record<string, unknown> = {}) {
 describe('creating a shul', () => {
   it('needs a session', async () => {
     expect((await call('POST', '/api/shuls', { slug: 'abc' })).status).toBe(401)
-    expect((await call('POST', '/api/shuls', { slug: 'abc' }, { token: 'expired' })).status).toBe(401)
+    expect((await call('POST', '/api/shuls', { slug: 'abc' }, { token: 'expired' })).status).toBe(
+      401,
+    )
   })
 
   it('checks the address, name and location', async () => {
     const ok = { profile: { name: { en: 'X' } }, location }
-    expect((await call('POST', '/api/shuls', { ...ok, slug: 'A b' }, { token: 'u' })).status).toBe(400)
-    expect((await call('POST', '/api/shuls', { ...ok, slug: 'admin' }, { token: 'u' })).data.error).toMatch(/reserved/)
-    expect((await call('POST', '/api/shuls', { ...ok, slug: 'good-one', profile: {} }, { token: 'u' })).status).toBe(400)
+    expect((await call('POST', '/api/shuls', { ...ok, slug: 'A b' }, { token: 'u' })).status).toBe(
+      400,
+    )
+    expect(
+      (await call('POST', '/api/shuls', { ...ok, slug: 'admin' }, { token: 'u' })).data.error,
+    ).toMatch(/reserved/)
+    expect(
+      (await call('POST', '/api/shuls', { ...ok, slug: 'good-one', profile: {} }, { token: 'u' }))
+        .status,
+    ).toBe(400)
     const badTz = { ...ok, slug: 'good-two', location: { ...location, timeZone: 'Mars/Olympus' } }
-    expect((await call('POST', '/api/shuls', badTz, { token: 'u' })).data.error).toMatch(/time zone/)
+    expect((await call('POST', '/api/shuls', badTz, { token: 'u' })).data.error).toMatch(
+      /time zone/,
+    )
   })
 
   it('starts from the starter schedule, owned by its creator, and refuses a taken address', async () => {
@@ -70,7 +91,12 @@ describe('creating a shul', () => {
     ])
     const mine = await call('GET', '/api/me/shuls', undefined, { token: 'creator' })
     expect(mine.data.shuls).toEqual([{ slug, name: { en: expect.any(String) }, role: 'owner' }])
-    const again = await call('POST', '/api/shuls', { slug, profile: { name: { en: 'Y' } }, location }, { token: 'x' })
+    const again = await call(
+      'POST',
+      '/api/shuls',
+      { slug, profile: { name: { en: 'Y' } }, location },
+      { token: 'x' },
+    )
     expect(again.status).toBe(409)
   })
 
@@ -95,7 +121,10 @@ describe('the public feed', () => {
     const first = await call('GET', `/api/shuls/${slug}`)
     const etag = first.headers.get('etag')!
     expect(etag).toBeTruthy()
-    expect((await call('GET', `/api/shuls/${slug}`, undefined, { headers: { 'if-none-match': etag } })).status).toBe(304)
+    expect(
+      (await call('GET', `/api/shuls/${slug}`, undefined, { headers: { 'if-none-match': etag } }))
+        .status,
+    ).toBe(304)
   })
 
   it('leaves out long-past exceptions and notices', async () => {
@@ -109,7 +138,16 @@ describe('the public feed', () => {
       ],
       notices: [{ id: 'n', kind: 'announcement', from: '2020-01-01', text: { en: 'old' } }],
     }
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule, baseRevision: data.revision }, { token: 'owner1' })).status).toBe(200)
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule, baseRevision: data.revision },
+          { token: 'owner1' },
+        )
+      ).status,
+    ).toBe(200)
     const pub = await call('GET', `/api/shuls/${slug}`)
     expect(pub.data.schedule.exceptions.map((x: any) => x.id)).toEqual(['new'])
     expect(pub.data.schedule.notices).toEqual([])
@@ -121,44 +159,128 @@ describe('the public feed', () => {
     const schedule = {
       ...data.schedule,
       exceptions: [
-        { id: 'bbq', date: '2099-01-01', type: 'add', event: { id: 'bbq', name: { en: 'BBQ' }, kind: 'other' }, time: { clock: '12:00' } },
+        {
+          id: 'bbq',
+          date: '2099-01-01',
+          type: 'add',
+          event: { id: 'bbq', name: { en: 'BBQ' }, kind: 'other' },
+          time: { clock: '12:00' },
+        },
       ],
-      notices: [{ id: 'r', kind: 'reminder', from: '2020-01-01', eventId: 'bbq', text: { en: 'BBQ soon' } }],
+      notices: [
+        { id: 'r', kind: 'reminder', from: '2020-01-01', eventId: 'bbq', text: { en: 'BBQ soon' } },
+      ],
     }
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule, baseRevision: data.revision }, { token: 'owner1' })).status).toBe(200)
-    expect((await call('GET', `/api/shuls/${slug}`)).data.schedule.notices.map((n: any) => n.id)).toEqual(['r'])
-    const bad = { ...schedule, notices: [{ id: 'b', kind: 'bulletin', from: '2020-01-01', text: { en: 'x' } }] }
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: bad, baseRevision: data.revision + 1 }, { token: 'owner1' })).status).toBe(400)
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule, baseRevision: data.revision },
+          { token: 'owner1' },
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      (await call('GET', `/api/shuls/${slug}`)).data.schedule.notices.map((n: any) => n.id),
+    ).toEqual(['r'])
+    const bad = {
+      ...schedule,
+      notices: [{ id: 'b', kind: 'bulletin', from: '2020-01-01', text: { en: 'x' } }],
+    }
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule: bad, baseRevision: data.revision + 1 },
+          { token: 'owner1' },
+        )
+      ).status,
+    ).toBe(400)
     const nameless = { ...schedule, cholim: [{ id: 'c', added: '2026-11-01', name: { en: '' } }] }
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: nameless, baseRevision: data.revision + 1 }, { token: 'owner1' })).status).toBe(400)
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule: nameless, baseRevision: data.revision + 1 },
+          { token: 'owner1' },
+        )
+      ).status,
+    ).toBe(400)
     const cholim = [{ id: 'c', added: '2026-11-01', name: { en: '', he: 'שרה בת לאה' } }]
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: { ...schedule, cholim }, baseRevision: data.revision + 1 }, { token: 'owner1' })).status).toBe(200)
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule: { ...schedule, cholim }, baseRevision: data.revision + 1 },
+          { token: 'owner1' },
+        )
+      ).status,
+    ).toBe(200)
     expect((await call('GET', `/api/shuls/${slug}`)).data.schedule.cholim).toEqual(cholim)
+    const put = (extra: object, plus: number) =>
+      call(
+        'PUT',
+        `/api/shuls/${slug}`,
+        { schedule: { ...schedule, cholim, ...extra }, baseRevision: data.revision + plus },
+        { token: 'owner1' },
+      )
+    const name = { en: 'Sarah' }
+    expect((await put({ birthdays: [{ id: 'b', displayName: name }] }, 2)).status).toBe(400)
+    expect(
+      (await put({ birthdays: [{ id: 'b', displayName: name, hebrew: { day: 31, month: 8 } }] }, 2))
+        .status,
+    ).toBe(400)
+    expect(
+      (await put({ anniversaries: [{ id: 'a', displayName: name, gregorian: '5/3/2001' }] }, 2))
+        .status,
+    ).toBe(400)
+    const birthdays = [
+      { id: 'b', displayName: name, hebrew: { day: 18, month: 8 } },
+      { id: 'c', displayName: name, gregorian: '2001-03-05', by: 'gregorian' },
+    ]
+    expect((await put({ birthdays }, 2)).status).toBe(200)
+    expect((await call('GET', `/api/shuls/${slug}`)).data.schedule.birthdays).toEqual(birthdays)
   })
 
   it('can be read by the Siddur’s web build, and only it', async () => {
     const slug = await newShul()
     const read = (origin: string, method = 'GET', path = `/api/shuls/${slug}`) =>
-      call(method, path, undefined, { token: method === 'GET' && path.endsWith('/admin') ? 'owner1' : undefined, headers: { origin } })
+      call(method, path, undefined, {
+        token: method === 'GET' && path.endsWith('/admin') ? 'owner1' : undefined,
+        headers: { origin },
+      })
     const res = await read('https://siddur.one')
     expect(res.headers.get('access-control-allow-origin')).toBe('https://siddur.one')
     expect(res.headers.get('access-control-expose-headers')).toBe('etag')
     const pre = await read('https://tefila.baderech.app', 'OPTIONS')
     expect(pre.status).toBe(204)
     expect(pre.headers.get('access-control-allow-headers')).toBe('if-none-match')
-    expect((await read('https://evil.example')).headers.get('access-control-allow-origin')).toBeNull()
-    expect((await read('https://siddur.one', 'GET', `/api/shuls/${slug}/admin`)).headers.get('access-control-allow-origin')).toBeNull()
+    expect(
+      (await read('https://evil.example')).headers.get('access-control-allow-origin'),
+    ).toBeNull()
+    expect(
+      (await read('https://siddur.one', 'GET', `/api/shuls/${slug}/admin`)).headers.get(
+        'access-control-allow-origin',
+      ),
+    ).toBeNull()
   })
 
   it('limits each visitor’s reads', async () => {
     const slug = await newShul()
     const headers = { 'cf-connecting-ip': '203.0.113.7' }
     const statuses = []
-    for (let i = 0; i < 4; i++) statuses.push((await call('GET', `/api/shuls/${slug}`, undefined, { headers })).status)
+    for (let i = 0; i < 4; i++)
+      statuses.push((await call('GET', `/api/shuls/${slug}`, undefined, { headers })).status)
     expect(statuses).toEqual([200, 200, 200, 429])
     expect((await call('GET', `/${slug}.ics`, undefined, { headers })).status).toBe(429)
     const other = { 'cf-connecting-ip': '203.0.113.8' }
-    expect((await call('GET', `/api/shuls/${slug}`, undefined, { headers: other })).status).toBe(200)
+    expect((await call('GET', `/api/shuls/${slug}`, undefined, { headers: other })).status).toBe(
+      200,
+    )
   })
 
   it('404s an unknown shul', async () => {
@@ -171,7 +293,9 @@ describe('editing', () => {
     const slug = await newShul('ed-owner')
     const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'ed-owner' })
     expect(data.role).toBe('owner')
-    expect((await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'stranger' })).status).toBe(403)
+    expect(
+      (await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'stranger' })).status,
+    ).toBe(403)
 
     const profile = { name: { en: 'Renamed' } }
     const put = (token: string, baseRevision: number) =>
@@ -187,7 +311,12 @@ describe('editing', () => {
 
   it('rejects a malformed schedule', async () => {
     const slug = await newShul('mal')
-    const res = await call('PUT', `/api/shuls/${slug}`, { schedule: { events: 'x' }, baseRevision: 1 }, { token: 'mal' })
+    const res = await call(
+      'PUT',
+      `/api/shuls/${slug}`,
+      { schedule: { events: 'x' }, baseRevision: 1 },
+      { token: 'mal' },
+    )
     expect(res.status).toBe(400)
   })
 
@@ -196,14 +325,24 @@ describe('editing', () => {
     const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'typed' })
     const minyan = { id: 'v', name: { en: 'Vasikin' }, kind: 'tefila', rules: [] }
     const save = (e: object) =>
-      call('PUT', `/api/shuls/${slug}`, { schedule: { ...data.schedule, events: [e] }, baseRevision: data.revision }, { token: 'typed' })
+      call(
+        'PUT',
+        `/api/shuls/${slug}`,
+        { schedule: { ...data.schedule, events: [e] }, baseRevision: data.revision },
+        { token: 'typed' },
+      )
     expect((await save(minyan)).status).toBe(400)
     expect((await save({ ...minyan, tefila: 'shacharis' })).status).toBe(200)
   })
 
   it('records who saved each revision', async () => {
     const slug = await newShul('hist')
-    await call('PUT', `/api/shuls/${slug}`, { profile: { name: { en: 'H' } }, baseRevision: 1 }, { token: 'hist' })
+    await call(
+      'PUT',
+      `/api/shuls/${slug}`,
+      { profile: { name: { en: 'H' } }, baseRevision: 1 },
+      { token: 'hist' },
+    )
     const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'hist' })
     expect(data.history.map((h: any) => h.revision)).toEqual([2, 1])
     expect(data.history[0].name).toBe('User hist')
@@ -213,18 +352,33 @@ describe('editing', () => {
 describe('the team', () => {
   it('invites an editor who can then edit but not invite', async () => {
     const slug = await newShul('team-owner')
-    const invite = await call('POST', `/api/shuls/${slug}/invites`, { role: 'editor' }, { token: 'team-owner' })
+    const invite = await call(
+      'POST',
+      `/api/shuls/${slug}/invites`,
+      { role: 'editor' },
+      { token: 'team-owner' },
+    )
     expect(invite.status).toBe(201)
     expect(invite.data.url).toBe(`${ORIGIN}/invite/${invite.data.token}`)
-    expect((await call('POST', `/api/invites/${invite.data.token}`, {}, { token: 'gabbai' })).data).toEqual({ slug })
-    expect((await call('POST', `/api/invites/${invite.data.token}`, {}, { token: 'other' })).status).toBe(404) // used up
-    expect((await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'gabbai' })).data.role).toBe('editor')
-    expect((await call('POST', `/api/shuls/${slug}/invites`, {}, { token: 'gabbai' })).status).toBe(403)
+    expect(
+      (await call('POST', `/api/invites/${invite.data.token}`, {}, { token: 'gabbai' })).data,
+    ).toEqual({ slug })
+    expect(
+      (await call('POST', `/api/invites/${invite.data.token}`, {}, { token: 'other' })).status,
+    ).toBe(404) // used up
+    expect(
+      (await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'gabbai' })).data.role,
+    ).toBe('editor')
+    expect((await call('POST', `/api/shuls/${slug}/invites`, {}, { token: 'gabbai' })).status).toBe(
+      403,
+    )
   })
 
   it('keeps at least one owner', async () => {
     const slug = await newShul('solo')
-    const res = await call('DELETE', `/api/shuls/${slug}/members/solo`, undefined, { token: 'solo' })
+    const res = await call('DELETE', `/api/shuls/${slug}/members/solo`, undefined, {
+      token: 'solo',
+    })
     expect(res.status).toBe(400)
   })
 
@@ -232,22 +386,31 @@ describe('the team', () => {
     const slug = await newShul('o2')
     const { data } = await call('POST', `/api/shuls/${slug}/invites`, {}, { token: 'o2' })
     await call('POST', `/api/invites/${data.token}`, {}, { token: 'e2' })
-    expect((await call('DELETE', `/api/shuls/${slug}/members/o2`, undefined, { token: 'e2' })).status).toBe(403)
-    expect((await call('DELETE', `/api/shuls/${slug}/members/e2`, undefined, { token: 'e2' })).status).toBe(204)
+    expect(
+      (await call('DELETE', `/api/shuls/${slug}/members/o2`, undefined, { token: 'e2' })).status,
+    ).toBe(403)
+    expect(
+      (await call('DELETE', `/api/shuls/${slug}/members/e2`, undefined, { token: 'e2' })).status,
+    ).toBe(204)
   })
 })
 
 describe('displays', () => {
   it('records heartbeats the gabbai can see', async () => {
     const slug = await newShul('disp')
-    expect((await call('POST', `/api/shuls/${slug}/displays/lobby-tv-0001`, { label: 'Lobby' })).status).toBe(204)
+    expect(
+      (await call('POST', `/api/shuls/${slug}/displays/lobby-tv-0001`, { label: 'Lobby' })).status,
+    ).toBe(204)
     const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'disp' })
-    expect(data.displays).toEqual([{ id: 'lobby-tv-0001', label: 'Lobby', lastSeen: expect.any(Number) }])
+    expect(data.displays).toEqual([
+      { id: 'lobby-tv-0001', label: 'Lobby', lastSeen: expect.any(Number) },
+    ])
   })
 
   it('caps the number of displays', async () => {
     const slug = await newShul('cap')
-    for (let i = 0; i < 22; i++) await call('POST', `/api/shuls/${slug}/displays/display-${String(i).padStart(4, '0')}`)
+    for (let i = 0; i < 22; i++)
+      await call('POST', `/api/shuls/${slug}/displays/display-${String(i).padStart(4, '0')}`)
     const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'cap' })
     expect(data.displays).toHaveLength(20)
   })
@@ -275,15 +438,34 @@ describe('calendar feed', () => {
           id: 'bbq',
           date,
           type: 'add',
-          event: { id: 'bbq', name: { en: 'Shul BBQ' }, kind: 'other', location: 'Pine Park', link: 'https://example.org/bbq', speaker: { en: 'Chef Dov' } },
+          event: {
+            id: 'bbq',
+            name: { en: 'Shul BBQ' },
+            kind: 'other',
+            location: 'Pine Park',
+            link: 'https://example.org/bbq',
+            speaker: { en: 'Chef Dov' },
+          },
           time: { clock: '12:00' },
           end: { clock: '15:00' },
         },
       ],
     }
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule, baseRevision: data.revision }, { token: 'owner1' })).status).toBe(200)
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule, baseRevision: data.revision },
+          { token: 'owner1' },
+        )
+      ).status,
+    ).toBe(200)
     const ics: string = (await call('GET', `/${slug}.ics`)).data
-    const bbq = ics.slice(ics.indexOf('SUMMARY:Shul BBQ') - 200, ics.indexOf('END:VEVENT', ics.indexOf('SUMMARY:Shul BBQ')))
+    const bbq = ics.slice(
+      ics.indexOf('SUMMARY:Shul BBQ') - 200,
+      ics.indexOf('END:VEVENT', ics.indexOf('SUMMARY:Shul BBQ')),
+    )
     expect(bbq).toContain('DURATION:PT180M')
     expect(bbq).toContain('LOCATION:Pine Park')
     expect(bbq).toContain('DESCRIPTION:Chef Dov')
@@ -301,10 +483,28 @@ describe('calendar feed', () => {
     const slug = await newShul('owner2')
     const { data } = await call('GET', `/api/shuls/${slug}/admin`, undefined, { token: 'owner2' })
     const schedule = { ...data.schedule, settings: { ...data.schedule.settings, names: 'he' } }
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule, baseRevision: data.revision }, { token: 'owner2' })).status).toBe(200)
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule, baseRevision: data.revision },
+          { token: 'owner2' },
+        )
+      ).status,
+    ).toBe(200)
     expect((await call('GET', `/${slug}.ics`)).data).toContain('SUMMARY:שחרית')
     const bad = { ...schedule, settings: { ...schedule.settings, names: 'fr' } }
-    expect((await call('PUT', `/api/shuls/${slug}`, { schedule: bad, baseRevision: data.revision + 1 }, { token: 'owner2' })).status).toBe(400)
+    expect(
+      (
+        await call(
+          'PUT',
+          `/api/shuls/${slug}`,
+          { schedule: bad, baseRevision: data.revision + 1 },
+          { token: 'owner2' },
+        )
+      ).status,
+    ).toBe(400)
   })
 })
 
@@ -313,7 +513,9 @@ describe('the directory', () => {
     const slug = await newShul()
     expect((await call('GET', `/api/directory?q=${slug}`)).data.shuls).toEqual([])
     await testEnv.DB.prepare('UPDATE shuls SET listed = 1 WHERE slug = ?').bind(slug).run()
-    expect((await call('GET', `/api/directory?q=${slug}`)).data.shuls).toEqual([{ slug, name: { en: expect.any(String) } }])
+    expect((await call('GET', `/api/directory?q=${slug}`)).data.shuls).toEqual([
+      { slug, name: { en: expect.any(String) } },
+    ])
   })
 })
 

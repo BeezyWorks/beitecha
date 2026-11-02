@@ -10,6 +10,8 @@ import {
   type NextUp,
   type Notice,
   type NoticeCategory,
+  type OccasionSettings,
+  type UpcomingOccasion,
   type UpcomingYahrzeit,
   type YahrzeitSettings,
   type ZmanKey,
@@ -60,6 +62,11 @@ export interface BoardProps {
   /** The yahrzeits kept in the days ahead, soonest first. */
   yahrzeits: UpcomingYahrzeit[]
   yahrzeitSettings?: YahrzeitSettings
+  /** The birthdays and anniversaries in the days ahead, soonest first. */
+  birthdays: UpcomingOccasion[]
+  birthdaySettings?: OccasionSettings
+  anniversaries: UpcomingOccasion[]
+  anniversarySettings?: OccasionSettings
   /** The zmanim listed among the Shabbos minyanim (`settings.print.shabbosZmanim`). */
   shabbosZmanim?: { friday: ZmanKey[]; shabbos: ZmanKey[] }
 }
@@ -80,6 +87,10 @@ export function Board({
   cholim,
   yahrzeits,
   yahrzeitSettings,
+  birthdays,
+  birthdaySettings,
+  anniversaries,
+  anniversarySettings,
   shabbosZmanim = DEFAULT_SHABBOS_ZMANIM,
 }: BoardProps) {
   const portrait = setup.orientation === 'portrait'
@@ -92,6 +103,8 @@ export function Board({
   const hasNotices =
     (on('notices') && notices.length > 0) ||
     (on('yahrzeits') && yahrzeits.length > 0) ||
+    (on('birthdays') && birthdays.length > 0) ||
+    (on('anniversaries') && anniversaries.length > 0) ||
     (on('cholim') && cholim.length > 0)
 
   const today = on('today') && (
@@ -124,6 +137,20 @@ export function Board({
         cholim={on('cholim') ? cholim : []}
         yahrzeits={on('yahrzeits') ? yahrzeits : []}
         yahrzeitSettings={yahrzeitSettings}
+        occasions={[
+          ...(on('birthdays')
+            ? [{ kind: 'birthday' as const, items: birthdays, settings: birthdaySettings }]
+            : []),
+          ...(on('anniversaries')
+            ? [
+                {
+                  kind: 'anniversary' as const,
+                  items: anniversaries,
+                  settings: anniversarySettings,
+                },
+              ]
+            : []),
+        ]}
       />
     )
   // The Shabbos minyanim list its own zmanim, so the zmanim panel gives way while Shabbos has the screen.

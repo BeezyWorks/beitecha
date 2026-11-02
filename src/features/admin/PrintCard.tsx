@@ -14,7 +14,15 @@ import { zmanLabel } from './forms'
 const ADD = ''
 
 const SHOWN: {
-  key: 'zmanimTable' | 'shiurim' | 'comingUp' | 'notices' | 'yahrzeits' | 'cholim'
+  key:
+    | 'zmanimTable'
+    | 'shiurim'
+    | 'comingUp'
+    | 'notices'
+    | 'yahrzeits'
+    | 'birthdays'
+    | 'anniversaries'
+    | 'cholim'
   label: string
   help: string
 }[] = [
@@ -35,6 +43,8 @@ const SHOWN: {
     help: 'Including sponsors on minyanim and shiurim.',
   },
   { key: 'yahrzeits', label: 'Yahrzeits', help: 'Those kept this week.' },
+  { key: 'birthdays', label: 'Birthdays', help: 'Those this week.' },
+  { key: 'anniversaries', label: 'Anniversaries', help: 'Those this week.' },
   { key: 'cholim', label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
 ]
 

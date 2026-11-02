@@ -142,6 +142,9 @@ export interface ShulSettings {
   print?: PrintSettings
   /** How the upcoming yahrzeits are titled and shown. */
   yahrzeits?: YahrzeitSettings
+  /** How the upcoming birthdays and anniversaries are titled and shown. */
+  birthdays?: OccasionSettings
+  anniversaries?: OccasionSettings
   /**
    * The shul's display setups ("Main lobby", "Upstairs, portrait"), each at `/<slug>/display/<id>`. Absent or empty =
    * one default landscape setup, which `/<slug>/display` shows; otherwise that address shows the first.
@@ -150,7 +153,7 @@ export interface ShulSettings {
 }
 
 /** The parts a display can show or hide; absent from `DisplaySetup.blocks` = shown. */
-export const DISPLAY_BLOCKS = ['next', 'today', 'shabbos', 'zmanim', 'notices', 'yahrzeits', 'cholim', 'qr'] as const
+export const DISPLAY_BLOCKS = ['next', 'today', 'shabbos', 'zmanim', 'notices', 'yahrzeits', 'birthdays', 'anniversaries', 'cholim', 'qr'] as const
 export type DisplayBlock = (typeof DISPLAY_BLOCKS)[number]
 
 export interface DisplaySetup {
@@ -193,6 +196,16 @@ export interface YahrzeitSettings {
   days?: number
 }
 
+/** How a list of birthdays or anniversaries looks; each person shows by the calendar they were entered in (`Occasion.by`). */
+export interface OccasionSettings {
+  /** The heading over the list. Default "Upcoming birthdays" / "Upcoming anniversaries". */
+  title?: Localized
+  /** Default `both`. */
+  names?: YahrzeitNames
+  /** How many days ahead (counting today) one is listed on the display and the Siddur. Default 7; the printed week lists its own days. */
+  days?: number
+}
+
 export interface PrintSettings {
   /** The week's zmanim, day by day, on the front. Default true. */
   zmanimTable?: boolean
@@ -204,6 +217,9 @@ export interface PrintSettings {
   notices?: boolean
   /** The week's yahrzeits. Default true. */
   yahrzeits?: boolean
+  /** The week's birthdays and anniversaries. Default true. */
+  birthdays?: boolean
+  anniversaries?: boolean
   /** The refuah shleimah list. Default true. */
   cholim?: boolean
   /**
@@ -533,6 +549,32 @@ export interface Yahrzeit {
   gregorian: DateString
 }
 
+/** A Hebrew date; the year is optional for birthdays and anniversaries, which come back every year. */
+export interface HebrewMonthDay {
+  day: number
+  /** Hebcal's numbering: 1 Nisan … 6 Elul, 7 Tishrei … 12 Adar (Adar I in a leap year), 13 Adar II. */
+  month: number
+  year?: number
+}
+
+export type OccasionKind = 'birthday' | 'anniversary'
+
+/**
+ * A birthday or an anniversary, kept by whichever calendar the gabbai chose. Only one date is needed: the other is
+ * derived (a Hebrew date without a year has no civil date, and is kept by the Hebrew calendar).
+ */
+export interface Occasion {
+  id: string
+  /** Hebrew name(s) in Hebrew letters: "מנחם בן מימון", or for an anniversary "מנחם ושרה". */
+  hebrewName?: string
+  /** What people know them by, in `en` and/or `he`: "Menachem Kohen", "Menachem & Sarah Kohen". */
+  displayName?: Localized
+  hebrew?: HebrewMonthDay
+  gregorian?: DateString
+  /** Which date it is kept and shown by. Default: `hebrew`, unless only a civil date was given. */
+  by?: 'hebrew' | 'gregorian'
+}
+
 export interface Schedule {
   settings: ShulSettings
   events: EventDef[]
@@ -542,6 +584,9 @@ export interface Schedule {
   cholim?: Choleh[]
   /** The yahrzeits the shul keeps. Absent on schedules from before them. */
   yahrzeits?: Yahrzeit[]
+  /** Birthdays and anniversaries the shul keeps. Absent on schedules from before them. */
+  birthdays?: Occasion[]
+  anniversaries?: Occasion[]
 }
 
 // ---------------------------------------------------------------------------

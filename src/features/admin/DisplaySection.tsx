@@ -25,6 +25,8 @@ const BLOCKS: Record<DisplayBlock, { label: string; help: string }> = {
   zmanim: { label: 'Zmanim', help: 'Today’s zmanim.' },
   notices: { label: 'Sponsors & announcements', help: 'Taking turns in the corner.' },
   yahrzeits: { label: 'Yahrzeits', help: 'Those kept this week.' },
+  birthdays: { label: 'Birthdays', help: 'Those this week.' },
+  anniversaries: { label: 'Anniversaries', help: 'Those this week.' },
   cholim: { label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
   qr: { label: 'QR code', help: 'For the times on a phone, in the Siddur.' },
 }

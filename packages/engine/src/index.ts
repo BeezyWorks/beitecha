@@ -57,6 +57,13 @@ export {
 export { nextUp, type NextUp } from './nextUp'
 export { ampm, civilDate, civilDateShort, clock, clockFull, makeT, untilText, type Wording } from './wording'
 export {
+  isRealMonthDay,
+  occasionsBetween,
+  resolveOccasion,
+  type ResolvedOccasion,
+  type UpcomingOccasion,
+} from './occasions'
+export {
   gregorianToHebrew,
   hebrewDateText,
   hebrewMonths,

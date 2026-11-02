@@ -79,6 +79,13 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   are listed under a customizable title on the display (`days` ahead) and the printed week, showing the names and dates
   the shul picks. The admin imports and exports CSV or JSON (`aiYahrzeits.ts`), with a prompt for any chat AI to turn a
   spreadsheet into the CSV.
+- **Birthdays and anniversaries** (`schedule.birthdays`/`anniversaries`, `settings.birthdays`/`anniversaries`, `Occasion`,
+  `occasions.ts`): the same names as a yahrzeit, but one date is enough: a Hebrew date (the year is optional) and/or a
+  civil one, the other derived (`resolveOccasion`). `by` says which the person is kept and shown by: `hebrew` unless only
+  a civil date was given; a Hebrew date without a year has no civil date and is always Hebrew. Each shows on the
+  display's notice rotation, the printed week and the Siddur like yahrzeits (their own display blocks and print
+  toggles, `days` ahead, a title). The admin has a tab for each, with the same CSV/JSON import, AI prompt and export
+  (`aiOccasions.ts`; `show_as` column).
 - **Display setups** (`settings.displays`, `display/setup.ts`): each at `/<slug>/display/<id>` (`/<slug>/display` is the
   first, or a default landscape one): landscape 1280×720 or portrait 720×1280, blocks on or off (the rest reflow),
   Shabbos focus (the Shabbos list takes the main place from Thursday night), theme, screen type and sleep (default

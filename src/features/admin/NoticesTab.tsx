@@ -633,6 +633,59 @@ function sponsorshipGroups(notices: Notice[], eventName: (id: string) => string)
   return [...groups.values()]
 }
 
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
+interface SponsorSection {
+  key: string
+  /** "This week", "December". */
+  label: string
+  groups: Group[]
+}
+
+/**
+ * Sponsorships as "This week" (through the coming Shabbos), then "Upcoming" by month, each with a heading per thing
+ * sponsored (Kiddush, Shalshidis, ...).
+ */
+function sponsorshipSections(
+  notices: Notice[],
+  today: DateString,
+  eventName: (id: string) => string,
+): SponsorSection[] {
+  const weekEnd = addDays(today, (6 - new Date(`${today}T12:00:00Z`).getUTCDay() + 7) % 7)
+  const sections: SponsorSection[] = []
+  const week = notices.filter((n) => n.from <= weekEnd)
+  if (week.length)
+    sections.push({ key: 'week', label: 'This week', groups: sponsorshipGroups(week, eventName) })
+  const months = new Map<string, Notice[]>()
+  for (const n of notices.filter((n) => n.from > weekEnd)) {
+    const key = n.from.slice(0, 7)
+    months.set(key, [...(months.get(key) ?? []), n])
+  }
+  for (const [key, list] of months) {
+    const [y, m] = key.split('-').map(Number)
+    const thisYear = y === +today.slice(0, 4)
+    sections.push({
+      key,
+      label: `${MONTHS[m - 1]}${thisYear ? '' : ` ${y}`}`,
+      groups: sponsorshipGroups(list, eventName),
+    })
+  }
+  return sections
+}
+
 function rowTitle(n: Notice): string {
   if (n.kind === 'sponsor') return n.sponsoredBy?.en || n.text.en || 'Untitled'
   return n.title?.en || n.text.en.split('\n')[0] || 'Untitled'
@@ -681,9 +734,8 @@ export function NoticesSection({
     .filter((n) => lastDay(n) >= today)
     .sort((a, b) => a.from.localeCompare(b.from))
   const past = own.filter((n) => lastDay(n) < today).sort((a, b) => b.from.localeCompare(a.from))
-  const groups = sponsor
-    ? sponsorshipGroups(current, eventName)
-    : announcementGroups(current, schedule.settings)
+  const groups = sponsor ? [] : announcementGroups(current, schedule.settings)
+  const sections = sponsor ? sponsorshipSections(current, today, eventName) : []
   const title = sponsor ? 'Sponsorships' : 'Announcements'
   const isNew = !!editing && !schedule.notices.some((n) => n.id === editing.id)
 
@@ -744,6 +796,20 @@ export function NoticesSection({
             {g.label}
           </Text>
           {g.list.map(row)}
+        </Stack>
+      ))}
+      {sections.map((sec, i) => (
+        <Stack key={sec.key} gap="xs">
+          {i === (sections[0].key === 'week' ? 1 : 0) && <Text variant="title">Upcoming</Text>}
+          <Text variant={sec.key === 'week' ? 'title' : 'headline'}>{sec.label}</Text>
+          {sec.groups.map((g) => (
+            <Stack key={g.key} gap="xs">
+              <Text variant="label" color={SemanticColor.TextSecondary}>
+                {g.label}
+              </Text>
+              {g.list.map(row)}
+            </Stack>
+          ))}
         </Stack>
       ))}
       {!current.length && !isNew && (

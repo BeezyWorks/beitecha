@@ -4,7 +4,9 @@ import {
   customZmanName,
   type DateString,
   DEFAULT_SHABBOS_ZMANIM,
+  type BulletinBand,
   type Schedule,
+  type ShulContact,
   type ShulProfile,
   ZMAN_LABELS,
   type ZmanId,
@@ -85,9 +87,23 @@ export function useWeek(
       ),
       layout: print.layout,
       header: print.header,
-      footer: print.footer,
+      footer: withContact(print.footer, on(print.contact) ? schedule.settings.contact : undefined),
     }
   }, [slug, profile, schedule, from, to, count, all])
+}
+
+/** The footer with the shul's contact info under whatever it doesn't say itself. */
+function withContact(footer: BulletinBand | undefined, contact: ShulContact | undefined) {
+  if (!contact) return footer
+  const pick = (...v: (string | undefined)[]) => v.find((x) => x?.trim())
+  const merged: BulletinBand = {
+    ...footer,
+    rabbi: pick(footer?.rabbi, contact.rabbi),
+    rabbiPhone: pick(footer?.rabbiPhone, contact.rabbiPhone),
+    officePhone: pick(footer?.officePhone, contact.officePhone),
+    email: pick(footer?.email, contact.officeEmail, contact.rabbiEmail),
+  }
+  return merged
 }
 
 /** The zmanim the shul lists among Friday night's and Shabbos day's minyanim, hidden or not. */

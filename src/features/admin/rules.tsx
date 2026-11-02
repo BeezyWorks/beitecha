@@ -3,12 +3,16 @@ import {
   civilDateShort,
   type DateString,
   derivedRelative,
+  NUSACH_LABELS,
+  SELICHOS_NUSACHIM,
   STANDARD_TEFILOS,
   TEFILA_LABELS,
   TEFILA_TYPES,
   type EventDef,
   type EventKind,
+  type Localized,
   type Rule,
+  type SelichosNusach,
   type TefilaType,
 } from '@beitecha/engine'
 import React, { useState } from 'react'
@@ -27,17 +31,27 @@ const NEW_MINYAN_TIME: Record<TefilaType, string> = {
   mincha: '13:30',
   maariv: '21:00',
   minchaMaariv: '18:00',
+  selichos: '06:00',
 }
 
-export function newEvent(kind: EventKind, tefila?: TefilaType): EventDef {
+/** A selichos minyan's name carries its nusach, since a shul may have one of each. */
+function selichosName(nusach: SelichosNusach): Localized {
+  const n = NUSACH_LABELS[nusach]
+  const { name } = STANDARD_TEFILOS.selichos
+  return { en: `${name.en} (${n.en})`, he: `${name.he} (${n.he})` }
+}
+
+export function newEvent(kind: EventKind, tefila?: TefilaType, nusach?: SelichosNusach): EventDef {
   const id = newId()
   if (kind === 'tefila' && tefila) {
+    const isSelichos = tefila === 'selichos'
     const { name } = STANDARD_TEFILOS[tefila]
     return {
       id,
-      name: { ...name },
+      name: isSelichos ? selichosName(nusach ?? 'ashkenaz') : { ...name },
       kind,
       tefila,
+      ...(isSelichos && { nusach: nusach ?? 'ashkenaz' }),
       rules: [{ time: { clock: NEW_MINYAN_TIME[tefila] } }],
     }
   }
@@ -50,17 +64,33 @@ export function newEvent(kind: EventKind, tefila?: TefilaType): EventDef {
 export function retype(event: EventDef, tefila: TefilaType): EventDef {
   const was = event.tefila && STANDARD_TEFILOS[event.tefila].name
   const named = !event.name.en.trim() || (was && event.name.en === was.en)
+  const { nusach: _, ...rest } = event
+  if (tefila === 'selichos') {
+    const next = { ...rest, tefila, nusach: event.nusach ?? ('ashkenaz' as const) }
+    return named ? { ...next, name: selichosName(next.nusach) } : next
+  }
   return named
-    ? { ...event, tefila, name: { ...STANDARD_TEFILOS[tefila].name } }
-    : { ...event, tefila }
+    ? { ...rest, tefila, name: { ...STANDARD_TEFILOS[tefila].name } }
+    : { ...rest, tefila }
+}
+
+/** Switches a selichos minyan's nusach, renaming it too while it still has the name we gave it. */
+export function renusach(event: EventDef, nusach: SelichosNusach): EventDef {
+  const was = event.nusach && selichosName(event.nusach)
+  const named = !event.name.en.trim() || (was && event.name.en === was.en)
+  return { ...event, nusach, ...(named && { name: selichosName(nusach) }) }
 }
 
 export function TefilaPicker({
   value,
+  nusach,
   onChange,
+  onNusach,
 }: {
   value?: TefilaType
+  nusach?: SelichosNusach
   onChange: (t: TefilaType) => void
+  onNusach: (n: SelichosNusach) => void
 }) {
   return (
     <Stack gap="xs">
@@ -80,6 +110,27 @@ export function TefilaPicker({
           />
         ))}
       </Stack>
+      {value === 'selichos' && (
+        <Stack gap="xs">
+          <Text
+            variant="caption"
+            color={nusach ? SemanticColor.TextSecondary : SemanticColor.TextDanger}
+          >
+            Nusach: it’s shown only on that nusach’s selichos days. A shul with both adds one of
+            each.
+          </Text>
+          <Stack direction="row" wrap gap="xs">
+            {SELICHOS_NUSACHIM.map((n) => (
+              <Chip
+                key={n}
+                label={NUSACH_LABELS[n].en}
+                selected={nusach === n}
+                onPress={() => onNusach(n)}
+              />
+            ))}
+          </Stack>
+        </Stack>
+      )}
     </Stack>
   )
 }

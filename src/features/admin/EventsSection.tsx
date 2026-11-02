@@ -42,6 +42,7 @@ import {
   freeId,
   newEvent,
   RuleEditor,
+  renusach,
   retype,
   RulesSummary,
   ruleDays,
@@ -435,7 +436,12 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
           onChangeText={(v) => set({ adminName: v || undefined })}
         />
         {event.kind === 'tefila' && (
-          <TefilaPicker value={event.tefila} onChange={(t) => changeEditing(retype(event, t))} />
+          <TefilaPicker
+            value={event.tefila}
+            nusach={event.nusach}
+            onChange={(t) => changeEditing(retype(event, t))}
+            onNusach={(n) => changeEditing(renusach(event, n))}
+          />
         )}
       </Card>
 

@@ -106,8 +106,8 @@ describe('parseAiImport', () => {
     expect(result).toEqual({
       ok: false,
       errors: [
-        '"Early": a minyan needs "tefila": shacharis, mincha, maariv or minchaMaariv',
-        '"Late": "tefila" must be shacharis, mincha, maariv or minchaMaariv',
+        '"Early": a minyan needs "tefila": shacharis, mincha, maariv, minchaMaariv or selichos',
+        '"Late": "tefila" must be shacharis, mincha, maariv, minchaMaariv or selichos',
       ],
     })
     const ok = parseAiImport(

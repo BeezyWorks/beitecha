@@ -209,6 +209,8 @@ export class Calendar {
 
   /** Which rule of `event` applies on `date`, or -1. */
   matchingRule(event: EventDef, date: DateString): number {
+    // A selichos minyan happens only on its own nusach's selichos days, whatever its rules say.
+    if (event.tefila === 'selichos' && !(event.nusach && this.info(date).selichos.includes(event.nusach))) return -1
     return event.rules.findIndex(
       (r) => (!r.from || date >= r.from) && (!r.to || date <= r.to) && (!r.when || this.matches(r.when, date)),
     )
@@ -317,6 +319,7 @@ export class Calendar {
         name: event.kind === 'tefila' ? tefilaName(event, this.info(date).tags) : event.name,
         kind: event.kind,
         tefila: event.tefila,
+        nusach: event.nusach,
         category: guessCategory(event),
         audience: guessAudience(event),
         ages: event.ages,

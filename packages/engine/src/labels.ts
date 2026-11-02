@@ -7,6 +7,7 @@ import type {
   Localized,
   Minutes,
   NoticeKind,
+  SelichosNusach,
   TefilaType,
   Weekday,
   ZmanId,
@@ -114,6 +115,12 @@ export const TEFILA_LABELS: Record<TefilaType, string> = {
   mincha: 'Mincha',
   maariv: 'Maariv',
   minchaMaariv: 'Mincha/Maariv',
+  selichos: 'Selichos',
+}
+
+export const NUSACH_LABELS: Record<SelichosNusach, Localized> = {
+  ashkenaz: { en: 'Ashkenaz', he: 'אשכנז' },
+  sefard: { en: 'Sefard', he: 'ספרד' },
 }
 
 export const CATEGORY_LABELS: Record<EventCategory, Localized> = {

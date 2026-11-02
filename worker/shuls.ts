@@ -125,7 +125,9 @@ export function scheduleProblem(s: unknown): string | null {
     if (!isObject(e) || typeof e.id !== 'string' || !Array.isArray(e.rules))
       return 'every event needs an id and rules'
     if (e.kind === 'tefila' && !TEFILA_TYPES.includes(e.tefila as TefilaType))
-      return 'every minyan needs its tefila: shacharis, mincha, maariv or minchaMaariv'
+      return 'every minyan needs its tefila: shacharis, mincha, maariv, minchaMaariv or selichos'
+    if (e.tefila === 'selichos' && e.nusach !== 'ashkenaz' && e.nusach !== 'sefard')
+      return 'every selichos minyan needs its nusach: ashkenaz or sefard'
   }
   for (const n of s.notices as unknown[]) {
     if (!isObject(n) || !NOTICE_KINDS.includes(n.kind as NoticeKind))

@@ -2,6 +2,7 @@ import { HDate, months } from '@hebcal/core'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { dayInfo, zmanimFor } from '../day'
+import { specialZmanim } from '../special'
 import { zmanimForDay } from '../labels'
 import { addDays, hostDate } from '../dates'
 import {
@@ -392,6 +393,43 @@ describe('tefila types', () => {
       late: 'Late Maariv',
     })
     expect(names('2026-10-22')['mincha-maariv']).toBe('Mincha/Maariv')
+  })
+})
+
+describe('selichos minyanim', () => {
+  const selichos = (id: string, nusach?: 'ashkenaz' | 'sefard'): EventDef => ({
+    id,
+    name: { en: `Selichos ${id}` },
+    kind: 'tefila',
+    tefila: 'selichos',
+    nusach,
+    rules: [{ time: { clock: '06:00' } }],
+  })
+  const schedule: Schedule = {
+    ...sampleSchedule,
+    events: [selichos('ash', 'ashkenaz'), selichos('sef', 'sefard'), selichos('none')],
+    exceptions: [],
+  }
+  const on = (date: string) =>
+    computeDay(schedule, date).events.filter((e) => e.minutes !== null).map((e) => e.eventId)
+
+  it('happens only on its own nusach\'s selichos days', () => {
+    expect(on('2026-01-12')).toEqual([])
+    expect(on('2026-08-17')).toEqual(['sef']) // Elul, before Ashkenaz begins
+    expect(on('2026-09-07')).toEqual(['ash', 'sef'])
+    expect(on('2026-09-12')).toEqual([]) // Rosh Hashana
+    expect(on('2026-09-19')).toEqual([]) // Shabbos
+  })
+
+  it('carries its nusach, and is invalid without one', () => {
+    expect(computeDay(schedule, '2026-09-07').events[0].nusach).toBe('ashkenaz')
+    const bad = validate(schedule, '2026-09-07', 1).filter((i) => i.eventId === 'none')
+    expect(bad.map((i) => i.level)).toContain('error')
+  })
+
+  it('guesses the tefila from the name', () => {
+    expect(guessTefila({ id: 'x', name: { en: 'Selichos' } })).toBe('selichos')
+    expect(guessTefila({ id: 'x', name: { en: 'x', he: 'סליחות' } })).toBe('selichos')
   })
 })
 
@@ -1064,5 +1102,44 @@ describe('fast ends', () => {
     // Sunset rounds down and the fast's end up, so they can differ by a minute.
     expect(at({ minutes: 42 }) - zmanimFor(date, settings).sunset!).toBeGreaterThanOrEqual(42)
     expect(at({ minutes: 42 }) - zmanimFor(date, settings).sunset!).toBeLessThanOrEqual(43)
+  })
+})
+
+describe('special zmanim', () => {
+  const week = (sunday: string) => specialZmanim(sunday, settings)
+  const asText = (m: number) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`
+
+  it('is empty in an ordinary week and on Yom Kippur', () => {
+    expect(week('2025-11-02')).toEqual([])
+    expect(week('2025-10-05')).toEqual([]) // Yom Kippur 5786 is Friday 2025-10-03, the week before
+    expect(week('2025-09-28')).toEqual([])
+  })
+
+  it('gives a minor fast alos and the end of the fast', () => {
+    const [g] = week('2025-09-21') // Tzom Gedalya, Thursday 2025-09-25
+    expect(g.key).toBe('fast')
+    expect(g.rows.map((r) => r.id)).toEqual(['fastBegins', 'fastEnds'])
+    expect(g.rows[0].minutes).toBe(zmanimFor('2025-09-25', settings).alos)
+    expect(g.rows[1].minutes).toBe(zmanimFor('2025-09-25', settings).fastEnds)
+  })
+
+  it('begins Tish’a B’Av at the sunset before and adds chatzos', () => {
+    // Tisha B'Av 5785 was Sunday 2025-08-03 (nidche), so it begins in the week before, at Shabbos's sunset.
+    expect(week('2025-07-27')[0].rows[0].date).toBe('2025-08-02')
+    expect(week('2025-07-20').map((g) => g.title.en)).toEqual([])
+    const [n] = week('2025-08-03')
+    expect(n.rows.map((r) => r.id)).toEqual(['fastBegins', 'chatzos', 'fastEnds'])
+    expect(n.rows[0].date).toBe('2025-08-02')
+    expect(n.rows[0].minutes).toBe(zmanimFor('2025-08-02', settings).sunset)
+  })
+
+  it('lists the chametz times on Erev Pesach, MGA before GRA', () => {
+    const [g] = week('2026-03-29') // Erev Pesach 5786: Wednesday 2026-04-01
+    expect(g.key).toBe('pesach')
+    const t = Object.fromEntries(g.rows.map((r) => [r.id, r.minutes]))
+    expect(t.eatMga).toBeLessThanOrEqual(t.eatGra)
+    expect(t.eatGra).toBeLessThan(t.burnGra)
+    expect(t.eatMga).toBeLessThan(t.burnMga)
+    expect(asText(t.eatGra)).toMatch(/^(9|10):/)
   })
 })

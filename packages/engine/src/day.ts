@@ -12,7 +12,19 @@ import {
 
 import { customInstants } from './custom'
 import { addDays, hostDate, isDst, minutesInZone, startOfWeek, weekdayOf } from './dates'
-import type { DateString, DayTag, LocalHoliday, Localized, ShulSettings, Weekday, ZmanId, ZmanTimes } from './types'
+import {
+  SELICHOS_NUSACHIM,
+  type DateString,
+  type DayTag,
+  type LocalHoliday,
+  type Localized,
+  type SelichosMinhag,
+  type SelichosNusach,
+  type ShulSettings,
+  type Weekday,
+  type ZmanId,
+  type ZmanTimes,
+} from './types'
 
 export interface DayInfo {
   date: DateString
@@ -22,6 +34,8 @@ export interface DayInfo {
   /** The shul's own civil holidays on this date. */
   localHolidays: LocalHoliday[]
   tags: Set<DayTag>
+  /** The nusachim whose selichos are said this morning (whatever the shul's own `selichos` setting is). */
+  selichos: SelichosNusach[]
 }
 
 function holidaysOn(hd: HDate, il: boolean): HolidayEvent[] {
@@ -32,12 +46,13 @@ const has = (evs: HolidayEvent[], mask: number) => evs.some((e) => (e.getFlags()
 
 /**
  * A fast day the shul davens differently on. Not Yom Kippur (it's Yom Tov), not Erev
- * Tish'a B'Av (Hebcal flags the fast's eve), not BeHaB or Bechoros (individuals' fasts).
+ * Tish'a B'Av (Hebcal flags the fast's eve), not BeHaB, Bechoros or Yom Kippur Katan (individuals' fasts).
  */
-const isPublicFast = (e: HolidayEvent) =>
+export const isPublicFast = (e: HolidayEvent) =>
   (e.getFlags() & (flags.MINOR_FAST | flags.MAJOR_FAST)) !== 0 &&
   (e.getFlags() & (flags.CHAG | flags.EREV | flags.BEHAB)) === 0 &&
-  e.getDesc() !== "Ta'anit Bechorot"
+  e.getDesc() !== "Ta'anit Bechorot" &&
+  !e.getDesc().startsWith('Yom Kippur Katan')
 
 function inChanukah(hd: HDate): boolean {
   // Kislev and Teves share a Hebrew year, so 25 Kislev of this year starts it.
@@ -54,8 +69,7 @@ function inOmer(hd: HDate): boolean {
 
 /** Selichos mornings: Ashkenaz from the Sunday at least four days before Rosh Hashana,
  * Sefard from 2 Elul; both through Erev Yom Kippur, skipping Shabbos and Yom Tov. */
-function isSelichos(date: DateString, hd: HDate, settings: ShulSettings, yomTov: boolean): boolean {
-  const minhag = settings.selichos ?? 'ashkenaz'
+export function isSelichosDay(date: DateString, hd: HDate, minhag: SelichosMinhag, yomTov: boolean): boolean {
   if (minhag === 'none' || yomTov || weekdayOf(date) === 6) return false
   const m = hd.getMonth()
   const d = hd.getDate()
@@ -97,13 +111,14 @@ export function dayInfo(date: DateString, settings: ShulSettings, localHolidays:
   if (inChanukah(hdate)) tags.add('chanukah')
   if (holidays.some((e) => e.getDesc() === 'Purim')) tags.add('purim')
   if (!HebrewCalendar.tachanun(hdate, israel).shacharit) tags.add('noTachanun')
-  if (isSelichos(date, hdate, settings, yomTov)) tags.add('selichos')
+  if (isSelichosDay(date, hdate, settings.selichos ?? 'ashkenaz', yomTov)) tags.add('selichos')
+  const selichos = SELICHOS_NUSACHIM.filter((n) => isSelichosDay(date, hdate, n, yomTov))
   if (hdate.getMonth() === months.TISHREI && hdate.getDate() <= 10) tags.add('aseresYemeiTeshuva')
   if (inOmer(hdate)) tags.add('omer')
   if (isDst(date, timeZone)) tags.add('dst')
   if (localHolidays.length) tags.add('legalHoliday')
 
-  return { date, weekday, hdate, holidays, localHolidays, tags }
+  return { date, weekday, hdate, holidays, localHolidays, tags, selichos }
 }
 
 export function holidayMatches(info: DayInfo, name: string): boolean {
@@ -215,4 +230,27 @@ export function zmanimFor(date: DateString, settings: ShulSettings): ZmanTimes {
   const instants = customInstants((elevation) => (elevation === useElevation ? z : other), custom, useElevation)
   for (const c of custom) put(c.id, instants.get(c.id)!, !c.deadline)
   return out
+}
+
+/**
+ * The last times to eat and to burn chametz on Erev Pesach, by the Magen Avraham (the day from alos to tzeis, 72
+ * minutes each) and the Gra (sunrise to sunset): four and five *shaos zmaniyos* into the day. Both round down.
+ */
+export function chametzZmanim(date: DateString, settings: ShulSettings) {
+  const { latitude, longitude, elevation, timeZone, israel } = settings.location
+  const loc = new Location(latitude, longitude, israel, timeZone, undefined, undefined, undefined, elevation ?? 0)
+  const z = new Zmanim(loc, new HDate(hostDate(date)), settings.zmanim?.useElevation ?? false)
+  const alos = z.alotHaShachar72().getTime()
+  const eatMga = z.sofZmanTfillaMGA().getTime()
+  const eatGra = z.sofZmanTfilla().getTime()
+  const sunrise = z.sunrise().getTime()
+  const down = (instant: number) =>
+    Number.isNaN(instant) ? undefined : Math.floor(minutesInZone(new Date(instant), date, timeZone))
+  return {
+    eatMga: down(eatMga),
+    eatGra: down(eatGra),
+    // A fifth hour is the fourth plus a quarter more of the day's first four.
+    burnMga: down(alos + ((eatMga - alos) * 5) / 4),
+    burnGra: down(sunrise + ((eatGra - sunrise) * 5) / 4),
+  }
 }

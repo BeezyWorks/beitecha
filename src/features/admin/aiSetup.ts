@@ -7,6 +7,7 @@ import {
   guessTefila,
   type Rule,
   type Schedule,
+  type SelichosNusach,
   type ShulProfile,
   STANDARD_TEFILOS,
   TEFILA_TYPES,
@@ -51,7 +52,8 @@ interface EventDef {
   name: { en: string; he?: string } // he = Hebrew name, if you know it
   adminName?: string // the gabbai's own name for it, only when the shown name is shared: "Shabbos Mincha" shown as Mincha
   kind: 'tefila' | 'shiur' | 'other' // tefila = a minyan
-  tefila?: 'shacharis' | 'mincha' | 'maariv' | 'minchaMaariv' // every minyan has one: which tefila it davens; other kinds none
+  tefila?: 'shacharis' | 'mincha' | 'maariv' | 'minchaMaariv' | 'selichos' // every minyan has one: which tefila it davens; other kinds none
+  nusach?: 'ashkenaz' | 'sefard' // selichos minyanim only, and required: it happens only on that nusach's selichos days, so don't add a selichos day condition; a shul with both has one minyan of each
   category?: 'program' | 'meal' // non-minyanim only; meal = Kiddush, Seudas Shlishis, Melava Malka
   audience?: 'men' | 'women' | 'kids' | 'teens' // omit when it's for everyone
   ages?: { en: string; he?: string } // who exactly, as the shul says it: "Boys 1st–5th"
@@ -429,9 +431,18 @@ export function parseEventList(list: unknown[], zmanim = zmanIds()): ImportResul
     const tefila =
       e.kind === 'tefila' && name ? (given ?? guessTefila({ id: id ?? '', name })) : undefined
     if (e.kind === 'tefila' && e.tefila !== undefined && !TEFILOS.includes(e.tefila as string))
-      errors.push(`${label}: "tefila" must be shacharis, mincha, maariv or minchaMaariv`)
+      errors.push(`${label}: "tefila" must be shacharis, mincha, maariv, minchaMaariv or selichos`)
     else if (e.kind === 'tefila' && !tefila)
-      errors.push(`${label}: a minyan needs "tefila": shacharis, mincha, maariv or minchaMaariv`)
+      errors.push(
+        `${label}: a minyan needs "tefila": shacharis, mincha, maariv, minchaMaariv or selichos`,
+      )
+    if (
+      e.kind === 'tefila' &&
+      tefila === 'selichos' &&
+      e.nusach !== 'ashkenaz' &&
+      e.nusach !== 'sefard'
+    )
+      errors.push(`${label}: a selichos minyan needs "nusach": ashkenaz or sefard`)
     if (!Array.isArray(e.rules)) errors.push(`${label}: needs a "rules" list`)
     const rules = Array.isArray(e.rules) ? e.rules : []
     rules.forEach((r: unknown, j: number) => checkRule(r, `${label} rule ${j + 1}`, errors, zmanim))
@@ -441,6 +452,7 @@ export function parseEventList(list: unknown[], zmanim = zmanIds()): ImportResul
       name: name ?? { en: '' },
       kind: e.kind as EventKind,
       tefila: e.kind === 'tefila' ? tefila : undefined,
+      nusach: tefila === 'selichos' ? (e.nusach as SelichosNusach) : undefined,
       rules: rules as Rule[],
     } as EventDef
   })

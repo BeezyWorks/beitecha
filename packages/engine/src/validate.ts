@@ -7,6 +7,7 @@ import {
   AUDIENCES,
   EVENT_CATEGORIES,
   NOTICE_KINDS,
+  SELICHOS_NUSACHIM,
   TEFILA_TYPES,
   ZMAN_IDS,
   type Condition,
@@ -110,7 +111,13 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
 
   for (const e of schedule.events) {
     if (e.kind === 'tefila' && !TEFILA_TYPES.includes(e.tefila!)) {
-      issues.push({ level: 'error', eventId: e.id, message: `Minyan "${e.name.en}" needs its tefila: Shacharis, Mincha, Maariv or Mincha/Maariv` })
+      issues.push({ level: 'error', eventId: e.id, message: `Minyan "${e.name.en}" needs its tefila: Shacharis, Mincha, Maariv, Mincha/Maariv or Selichos` })
+    }
+    if (e.tefila === 'selichos' && !SELICHOS_NUSACHIM.includes(e.nusach!)) {
+      issues.push({ level: 'error', eventId: e.id, message: `Selichos "${e.name.en}" needs its nusach: Ashkenaz or Sefard` })
+    }
+    if (e.nusach && e.tefila !== 'selichos') {
+      issues.push({ level: 'warning', eventId: e.id, message: `"${e.name.en}" isn't a selichos minyan, so its nusach is ignored` })
     }
     if (e.kind !== 'tefila' && e.tefila) {
       issues.push({ level: 'warning', eventId: e.id, message: `"${e.name.en}" isn't a minyan but has a tefila` })

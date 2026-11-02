@@ -82,6 +82,10 @@ export interface CustomZman {
 
 export type SelichosMinhag = 'ashkenaz' | 'sefard' | 'none'
 
+/** The nusach a selichos minyan says; it follows that nusach's own selichos days (see `isSelichosDay`). */
+export type SelichosNusach = Exclude<SelichosMinhag, 'none'>
+export const SELICHOS_NUSACHIM = ['ashkenaz', 'sefard'] as const satisfies readonly SelichosNusach[]
+
 /**
  * When a local (civil) holiday falls. Hebcal knows nothing of Thanksgiving or a UK
  * bank holiday, so the shul lists the ones it cares about.
@@ -155,7 +159,7 @@ export interface ShulSettings {
 }
 
 /** The parts a display can show or hide; absent from `DisplaySetup.blocks` = shown. */
-export const DISPLAY_BLOCKS = ['next', 'today', 'shabbos', 'zmanim', 'notices', 'yahrzeits', 'birthdays', 'anniversaries', 'cholim', 'qr'] as const
+export const DISPLAY_BLOCKS = ['next', 'today', 'shabbos', 'zmanim', 'notices', 'yahrzeits', 'birthdays', 'anniversaries', 'cholim', 'specialZmanim', 'qr'] as const
 export type DisplayBlock = (typeof DISPLAY_BLOCKS)[number]
 
 export interface DisplaySetup {
@@ -224,6 +228,8 @@ export interface PrintSettings {
   anniversaries?: boolean
   /** The refuah shleimah list. Default true. */
   cholim?: boolean
+  /** Below Shabbos, in weeks with a fast (when it begins and ends) or Erev Pesach (chametz); Tish'a B'Av adds chatzos. Default true. */
+  specialZmanim?: boolean
   /**
    * How many pages the sheet may run to, or `'unlimited'`. The content is shrunk to fit; unlimited keeps it at
    * full size and adds pages as needed. Default 2 (a second page only when there are announcements).
@@ -373,8 +379,11 @@ export type TimeExpr =
 /** `tefila` is a minyan, `shiur` a shiur, `other` any other event (a kiddush, a melava malka). */
 export type EventKind = 'tefila' | 'shiur' | 'other'
 
-/** Which tefila a minyan davens. `minchaMaariv` is Mincha with Maariv straight after it. */
-export const TEFILA_TYPES = ['shacharis', 'mincha', 'maariv', 'minchaMaariv'] as const
+/**
+ * Which tefila a minyan davens. `minchaMaariv` is Mincha with Maariv straight after it. `selichos` happens only on
+ * its `nusach`'s selichos days, however its rules read.
+ */
+export const TEFILA_TYPES = ['shacharis', 'mincha', 'maariv', 'minchaMaariv', 'selichos'] as const
 export type TefilaType = (typeof TEFILA_TYPES)[number]
 
 /**
@@ -430,6 +439,8 @@ export interface EventDef {
   kind: EventKind
   /** Which tefila; every `tefila` event has one, other kinds none. */
   tefila?: TefilaType
+  /** Which nusach a `selichos` minyan says (a shul may have one of each); other minyanim none. */
+  nusach?: SelichosNusach
   /** Non-minyanim only. See `EventCategory`. */
   category?: EventCategory
   audience?: Audience
@@ -613,6 +624,7 @@ export interface Occurrence {
   name: Localized
   kind: EventKind
   tefila?: TefilaType
+  nusach?: SelichosNusach
   /** Non-minyanim always have one: the event's, else guessed from its name. */
   category?: EventCategory
   /** The event's, else guessed from its name; absent = everyone. */

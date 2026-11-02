@@ -16,10 +16,12 @@ export const STANDARD_TEFILOS = {
     kind: 'tefila',
     tefila: 'minchaMaariv',
   },
+  selichos: { id: 'selichos', name: { en: 'Selichos', he: 'סליחות' }, kind: 'tefila', tefila: 'selichos' },
 } as const satisfies Record<TefilaType, Tefila>
 
 const SHACHARIS = /shach?a?ri[st]|שחרית|vasikin|netz/i
 const MINCHA = /mincha|minha|מנחה/i
+const SELICHOS = /selich?o[ts]h?|סליחות/i
 const MAARIV = /ma'?ariv|arvit|maariv|ערבית|מעריב/i
 
 /**
@@ -35,6 +37,7 @@ export function guessTefila(e: Pick<EventDef, 'id' | 'name' | 'tefila'>): Tefila
   if (mincha) return 'mincha'
   if (maariv) return 'maariv'
   if (SHACHARIS.test(text)) return 'shacharis'
+  if (SELICHOS.test(text)) return 'selichos'
   return undefined
 }
 

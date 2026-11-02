@@ -28,6 +28,10 @@ const BLOCKS: Record<DisplayBlock, { label: string; help: string }> = {
   birthdays: { label: 'Birthdays', help: 'Those this week.' },
   anniversaries: { label: 'Anniversaries', help: 'Those this week.' },
   cholim: { label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
+  specialZmanim: {
+    label: 'Fast & Pesach zmanim',
+    help: 'Below Shabbos in weeks with a fast or Erev Pesach.',
+  },
   qr: { label: 'QR code', help: 'For the times on a phone, in the Siddur.' },
 }
 

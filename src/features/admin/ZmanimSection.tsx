@@ -1,10 +1,17 @@
 import { Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
-import { type SelichosMinhag, type ShulSettings, ZMAN_IDS, type ZmanKey } from '@beitecha/engine'
+import {
+  FAST_ENDS_PRESETS,
+  type SelichosMinhag,
+  type ShulSettings,
+  ZMAN_IDS,
+  type ZmanKey,
+} from '@beitecha/engine'
 import React from 'react'
 
 import { Field } from '@/components/Field'
 import { NumberField } from '@/components/NumberField'
 import { Segments } from '@/components/Segments'
+import { Select } from '@/components/Select'
 import { CustomZmanimCard } from './CustomZmanimCard'
 import { zmanLabel } from './forms'
 import { SectionPage } from './SectionPage'
@@ -22,6 +29,10 @@ export function ZmanimSection() {
     setSettings({ ...schedule.settings, location: { ...location, ...patch } })
   const setZmanim = (patch: Partial<NonNullable<ShulSettings['zmanim']>>) =>
     setSettings({ ...schedule.settings, zmanim: { ...zmanim, ...patch } })
+  const fastEnds = zmanim.fastEnds ?? { angle: 6.45 }
+  const fastEndsKey =
+    FAST_ENDS_PRESETS.find((p) => JSON.stringify(p.value) === JSON.stringify(fastEnds))?.key ??
+    'custom'
   const havdalahMode = zmanim.havdalah && 'minutes' in zmanim.havdalah ? 'minutes' : 'angle'
 
   return (
@@ -107,6 +118,47 @@ export function ZmanimSection() {
               setZmanim({ havdalah: havdalahMode === 'minutes' ? { minutes: n } : { angle: n } })
             }
           />
+        </Stack>
+        <Stack gap="sm">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            Fast ends (siyum hatzom)
+          </Text>
+          <Select
+            accessibilityLabel="Fast ends"
+            value={fastEndsKey}
+            options={[
+              ...FAST_ENDS_PRESETS.map((p) => ({ value: p.key, label: p.label })),
+              { value: 'custom', label: 'Other…' },
+            ]}
+            onChange={(key) => {
+              const preset = FAST_ENDS_PRESETS.find((p) => p.key === key)
+              setZmanim({
+                fastEnds: preset?.value ?? { angle: 'angle' in fastEnds ? fastEnds.angle : 6 },
+              })
+            }}
+          />
+          {fastEndsKey === 'custom' && (
+            <>
+              <Segments
+                options={[
+                  { key: 'angle', label: 'Sun angle' },
+                  { key: 'minutes', label: 'Minutes after sunset' },
+                ]}
+                value={'minutes' in fastEnds ? 'minutes' : 'angle'}
+                onChange={(k) =>
+                  setZmanim({ fastEnds: k === 'minutes' ? { minutes: 50 } : { angle: 6.45 } })
+                }
+              />
+              <NumberField
+                label={'minutes' in fastEnds ? 'Minutes after sunset' : 'Degrees below the horizon'}
+                value={'minutes' in fastEnds ? fastEnds.minutes : fastEnds.angle}
+                onChange={(n) =>
+                  n !== undefined &&
+                  setZmanim({ fastEnds: 'minutes' in fastEnds ? { minutes: n } : { angle: n } })
+                }
+              />
+            </>
+          )}
         </Stack>
         <Stack direction="row" align="center" gap="md">
           <Stack grow>

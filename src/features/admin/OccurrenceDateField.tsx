@@ -1,4 +1,11 @@
-import { CalendarGrid, SemanticColor, Stack, Text, useResolvedColor } from '@beezyworks/design'
+import {
+  Badge,
+  CalendarGrid,
+  SemanticColor,
+  Stack,
+  Text,
+  useResolvedColor,
+} from '@beezyworks/design'
 import {
   addDays,
   Calendar,
@@ -25,21 +32,44 @@ const MONTHS = [
   'December',
 ]
 
+/** What else a Shabbos is: Mevarchim, Rosh Chodesh, the Arba Parshios, Shuva, HaGadol, Nachamu, Shirah, Chanukah… */
+function shabbosMarks(cal: Calendar, date: DateString): string[] {
+  const info = cal.info(date)
+  const out: string[] = []
+  if (info.tags.has('shabbosMevarchim')) {
+    const month = hebrewDateText(addDays(date, 7), 'en').split(' ').slice(1).join(' ')
+    out.push(`Shabbos Mevarchim ${month}`)
+  }
+  for (const e of info.holidays) {
+    const en = e.render('en')
+    if (/^(Shabbat|Rosh Chodesh|Chanukah)/.test(e.getDesc()) && !/Mevarchim/.test(en))
+      out.push(en.replace(/^Shabbat /, 'Shabbos '))
+  }
+  if (info.tags.has('roshChodesh') && !out.some((m) => m.startsWith('Rosh Chodesh')))
+    out.push('Rosh Chodesh')
+  return [...new Set(out)]
+}
+
 /** What a day is called for a sponsor: the parsha on Shabbos, the Yom Tov, else just the date. */
-export function occurrenceLabel(cal: Calendar, date: DateString): { title: string; sub: string } {
+export function occurrenceLabel(
+  cal: Calendar,
+  date: DateString,
+): { title: string; sub: string; marks: string[] } {
   const day = cal.day(date)
   const tags = new Set(day.tags)
   const holiday = day.holidays[0]?.en
   const when = civilDateShort(date)
+  const marks = tags.has('shabbos') && !tags.has('yomTov') ? shabbosMarks(cal, date) : []
   const sub = `${when} · ${hebrewDateText(date, 'en')}`
   if (tags.has('yomTov') && holiday)
-    return { title: `${holiday}${tags.has('shabbos') ? ' (Shabbos)' : ''}`, sub }
+    return { title: `${holiday}${tags.has('shabbos') ? ' (Shabbos)' : ''}`, sub, marks }
   if (tags.has('shabbos'))
     return {
       title: day.parsha ? `Shabbos Parshas ${day.parsha.en}` : `Shabbos ${holiday ?? ''}`.trim(),
       sub,
+      marks,
     }
-  return { title: when, sub: hebrewDateText(date, 'en') }
+  return { title: when, sub: hebrewDateText(date, 'en'), marks }
 }
 
 /** The Hebrew day of the month in letters: "י״ח". */
@@ -114,6 +144,13 @@ export function OccurrenceDateField({
         <Text variant="caption" color={SemanticColor.TextSecondary}>
           {label.sub}
         </Text>
+      )}
+      {!!label?.marks.length && (
+        <Stack direction="row" wrap gap="xs">
+          {label.marks.map((m) => (
+            <Badge key={m} label={m} tone="accent" />
+          ))}
+        </Stack>
       )}
       <CalendarGrid
         current={value}

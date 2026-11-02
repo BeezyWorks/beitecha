@@ -23,6 +23,7 @@ const SHOWN: {
     | 'birthdays'
     | 'anniversaries'
     | 'cholim'
+    | 'specialZmanim'
   label: string
   help: string
 }[] = [
@@ -46,6 +47,11 @@ const SHOWN: {
   { key: 'birthdays', label: 'Birthdays', help: 'Those this week.' },
   { key: 'anniversaries', label: 'Anniversaries', help: 'Those this week.' },
   { key: 'cholim', label: 'Refuah shleimah', help: 'The list for the Mi Shebeirach.' },
+  {
+    key: 'specialZmanim',
+    label: 'Fast & Pesach zmanim',
+    help: 'Below Shabbos in weeks with a fast or Erev Pesach.',
+  },
 ]
 
 /** the bulletin: whether it has the zmanim table, and which zmanim sit among the Shabbos minyanim. */

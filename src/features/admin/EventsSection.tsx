@@ -158,17 +158,16 @@ function ListPane({
   const rows = newOne ? [...events, newOne] : events
   return (
     <ScrollStack padding="md" gap="sm">
+      <Text variant="title">{TITLES[kind].title}</Text>
       <Stack direction="row" align="center" gap="sm">
-        <Stack grow>
-          <Text variant="title">{TITLES[kind].title}</Text>
-        </Stack>
         <Button
-          variant="secondary"
+          variant="primary"
           size="sm"
           icon="add"
           title="Add"
           onPress={() => (kind === 'tefila' ? setAdding((a) => !a) : onAdd(newEvent(kind)))}
         />
+        <Button variant="secondary" size="sm" title="Use AI" onPress={onAi} />
       </Stack>
       {kind === 'tefila' && adding && (
         <AddButtons
@@ -179,9 +178,6 @@ function ListPane({
           }}
         />
       )}
-      <Stack direction="row">
-        <Button variant="ghost" size="sm" title="Add with AI" onPress={onAi} />
-      </Stack>
       <Stack gap="xs">
         {rows.map((e) => {
           const selected = e.id === openId

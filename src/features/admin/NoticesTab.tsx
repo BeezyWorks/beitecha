@@ -91,16 +91,19 @@ export const KIND: Record<
 const KINDS_BEFORE: NoticeKind[] = ['reminder', 'announcement']
 const KINDS_AFTER: NoticeKind[] = ['simcha', 'condolence']
 
-const TARGETS: { kind: SponsorTarget['kind']; label: string }[] = [
-  { kind: 'event', label: 'Kiddush/Program' },
-  { kind: 'day', label: 'The day' },
-  { kind: 'notices', label: 'The notices' },
+/** What a sponsorship can be for; `program` is a weekly Kiddush or shiur, `event` a one-time event. */
+type TargetMode = 'program' | 'event' | 'day' | 'notices'
+const TARGETS: { mode: TargetMode; label: string }[] = [
+  { mode: 'program', label: 'Kiddush/Program' },
+  { mode: 'event', label: 'Event' },
+  { mode: 'day', label: 'The day' },
+  { mode: 'notices', label: 'The notices' },
 ]
 
 const NONE = '-'
 
 /** Events a notice can be about: weekly ones (the Kiddush) and one-time ones from today on. */
-function useEventOptions(today: DateString, oneTimeOnly: boolean) {
+function useEventOptions(today: DateString, oneTimeOnly: boolean, weeklyOnly = false) {
   const schedule = useAdmin((s) => s.schedule)
   if (!schedule) return []
   const oneTime = schedule.exceptions.flatMap((x) =>
@@ -112,6 +115,7 @@ function useEventOptions(today: DateString, oneTimeOnly: boolean) {
   const weekly = schedule.events
     .filter((e) => e.kind !== 'tefila' && e.visibility !== 'internal')
     .map((e) => ({ value: e.id, label: adminLabel(e) }))
+  if (weeklyOnly) return weekly
   return [...weekly, ...oneTime]
 }
 
@@ -131,7 +135,16 @@ export function NoticeForm({
   const [n, setN] = useState(initial)
   const [links, setLinks] = useState(() => noticeLinks(initial))
   const events = useEventOptions(today, n.kind === 'reminder')
+  const programs = useEventOptions(today, false, true)
+  const oneOffs = useEventOptions(today, true)
   const target = sponsorTarget(n)
+  const [eventMode, setEventMode] = useState<'program' | 'event'>(
+    target.kind === 'event' && !schedule?.events.some((e) => e.id === target.eventId)
+      ? 'event'
+      : 'program',
+  )
+  const mode: TargetMode = target.kind === 'event' ? eventMode : target.kind
+  const choices = eventMode === 'program' ? programs : oneOffs
   const copy = KIND[n.kind]
   // A sponsorship of a weekly event is for one day of it, picked from a calendar.
   const recurring =
@@ -191,33 +204,35 @@ export function NoticeForm({
           <Stack direction="row" wrap gap="xs" align="center">
             {TARGETS.map((t) => (
               <Chip
-                key={t.kind}
+                key={t.mode}
                 label={t.label}
-                selected={target.kind === t.kind}
-                onPress={() =>
-                  t.kind === 'event' && events[0]
-                    ? pickEvent(events[0].value)
-                    : setN(
-                        withSponsorTarget(
-                          n,
-                          t.kind === 'event' ? { kind: 'event', eventId: '' } : { kind: t.kind },
-                        ),
-                      )
-                }
+                selected={mode === t.mode}
+                onPress={() => {
+                  if (t.mode === 'program' || t.mode === 'event') {
+                    setEventMode(t.mode)
+                    const first = (t.mode === 'program' ? programs : oneOffs)[0]
+                    if (first) pickEvent(first.value)
+                    else setN(withSponsorTarget(n, { kind: 'event', eventId: '' }))
+                  } else setN(withSponsorTarget(n, { kind: t.mode }))
+                }}
               />
             ))}
-            {target.kind === 'event' && events.length > 0 && (
+            {target.kind === 'event' && choices.length > 0 && (
               <Select
                 value={target.eventId}
-                options={events}
+                options={choices}
                 onChange={pickEvent}
-                accessibilityLabel="Sponsored event"
+                accessibilityLabel={
+                  eventMode === 'program' ? 'Sponsored program' : 'Sponsored event'
+                }
               />
             )}
           </Stack>
-          {target.kind === 'event' && !events.length && (
+          {target.kind === 'event' && !choices.length && (
             <Text variant="caption" color={SemanticColor.TextDanger}>
-              Add the Kiddush (or whatever is sponsored) in the Times tab first.
+              {eventMode === 'program'
+                ? 'Add the Kiddush (or whatever is sponsored) in the Times tab first.'
+                : 'Add the one-time event in This week first.'}
             </Text>
           )}
         </Stack>

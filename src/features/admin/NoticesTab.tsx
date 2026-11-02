@@ -29,6 +29,7 @@ import { NoticeCard } from '@/features/luach/NoticeCard'
 import { AiAssist } from './AiAssist'
 import { noticePrompt, parseNotices } from './aiItems'
 import { DateField } from './DateField'
+import { nextOccurrence, OccurrenceDateField } from './OccurrenceDateField'
 import {
   adminLabel,
   linkProblem,
@@ -91,7 +92,7 @@ const KINDS_BEFORE: NoticeKind[] = ['reminder', 'announcement']
 const KINDS_AFTER: NoticeKind[] = ['simcha', 'condolence']
 
 const TARGETS: { kind: SponsorTarget['kind']; label: string }[] = [
-  { kind: 'event', label: 'An event' },
+  { kind: 'event', label: 'Kiddush/Program' },
   { kind: 'day', label: 'The day' },
   { kind: 'notices', label: 'The notices' },
 ]
@@ -125,12 +126,25 @@ export function NoticeForm({
   onDone: () => void
 }) {
   const upsertNotice = useAdmin((s) => s.upsertNotice)
+  const schedule = useAdmin((s) => s.schedule)
   const categories = useAdmin((s) => s.schedule?.settings.noticeCategories) ?? []
   const [n, setN] = useState(initial)
   const [links, setLinks] = useState(() => noticeLinks(initial))
   const events = useEventOptions(today, n.kind === 'reminder')
   const target = sponsorTarget(n)
   const copy = KIND[n.kind]
+  // A sponsorship of a weekly event is for one day of it, picked from a calendar.
+  const recurring =
+    n.kind === 'sponsor' &&
+    target.kind === 'event' &&
+    !!schedule?.events.some((e) => e.id === target.eventId)
+  const pickEvent = (eventId: string) => {
+    const next = { ...withSponsorTarget(n, { kind: 'event', eventId }) }
+    if (schedule?.events.some((e) => e.id === eventId)) {
+      const { to: _t, ...rest } = next
+      setN({ ...rest, from: nextOccurrence(schedule, eventId, today) })
+    } else setN(next)
+  }
   const isSponsor = initial.kind === 'sponsor'
   const category = noticeCategory({ noticeCategories: categories }, n)
   const kindChip = (k: NoticeKind) => (
@@ -181,14 +195,14 @@ export function NoticeForm({
                 label={t.label}
                 selected={target.kind === t.kind}
                 onPress={() =>
-                  setN(
-                    withSponsorTarget(
-                      n,
-                      t.kind === 'event'
-                        ? { kind: 'event', eventId: events[0]?.value ?? '' }
-                        : { kind: t.kind },
-                    ),
-                  )
+                  t.kind === 'event' && events[0]
+                    ? pickEvent(events[0].value)
+                    : setN(
+                        withSponsorTarget(
+                          n,
+                          t.kind === 'event' ? { kind: 'event', eventId: '' } : { kind: t.kind },
+                        ),
+                      )
                 }
               />
             ))}
@@ -196,7 +210,7 @@ export function NoticeForm({
               <Select
                 value={target.eventId}
                 options={events}
-                onChange={(eventId) => setN(withSponsorTarget(n, { kind: 'event', eventId }))}
+                onChange={pickEvent}
                 accessibilityLabel="Sponsored event"
               />
             )}
@@ -266,31 +280,44 @@ export function NoticeForm({
         onChangeText={(he) => setN({ ...n, text: { ...n.text, he: he || undefined } })}
       />
       <LinksEditor links={links} onChange={setLinks} />
-      <Stack direction="row" gap="md" wrap>
-        <Stack grow>
-          <DateField
-            label="Show from"
-            value={n.from}
-            onChange={(from) => from && setN({ ...n, from })}
-          />
+      {recurring && schedule && target.kind === 'event' ? (
+        <OccurrenceDateField
+          schedule={schedule}
+          eventId={target.eventId}
+          value={n.from}
+          today={today}
+          onChange={(from) => {
+            const { to: _t, ...rest } = n
+            setN({ ...rest, from })
+          }}
+        />
+      ) : (
+        <Stack direction="row" gap="md" wrap>
+          <Stack grow>
+            <DateField
+              label="Show from"
+              value={n.from}
+              onChange={(from) => from && setN({ ...n, from })}
+            />
+          </Stack>
+          <Stack grow>
+            <DateField
+              label="Until"
+              value={n.to}
+              unsetLabel="Show it longer"
+              initial={addDays(n.from, 6)}
+              onChange={(to) => setN({ ...n, to })}
+              help={
+                n.to
+                  ? undefined
+                  : n.kind === 'reminder' && n.eventId
+                    ? 'Until the event'
+                    : 'Just that day'
+              }
+            />
+          </Stack>
         </Stack>
-        <Stack grow>
-          <DateField
-            label="Until"
-            value={n.to}
-            unsetLabel="Show it longer"
-            initial={addDays(n.from, 6)}
-            onChange={(to) => setN({ ...n, to })}
-            help={
-              n.to
-                ? undefined
-                : n.kind === 'reminder' && n.eventId
-                  ? 'Until the event'
-                  : 'Just that day'
-            }
-          />
-        </Stack>
-      </Stack>
+      )}
       <Stack direction="row" gap="sm">
         <Button
           title="Save"

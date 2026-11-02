@@ -1,21 +1,61 @@
 import { CalendarGrid, SemanticColor, Stack, Text, useResolvedColor } from '@beezyworks/design'
-import { addDays, Calendar, civilDateShort, type DateString, type Schedule } from '@beitecha/engine'
-import React, { useMemo, useState } from 'react'
+import {
+  addDays,
+  Calendar,
+  civilDateShort,
+  hebrewDateText,
+  type DateString,
+  type Schedule,
+} from '@beitecha/engine'
+import React, { useMemo } from 'react'
+import { Pressable, View } from 'react-native'
+
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
 
 /** What a day is called for a sponsor: the parsha on Shabbos, the Yom Tov, else just the date. */
-export function occurrenceLabel(cal: Calendar, date: DateString): string {
+export function occurrenceLabel(cal: Calendar, date: DateString): { title: string; sub: string } {
   const day = cal.day(date)
   const tags = new Set(day.tags)
   const holiday = day.holidays[0]?.en
   const when = civilDateShort(date)
+  const sub = `${when} · ${hebrewDateText(date, 'en')}`
   if (tags.has('yomTov') && holiday)
-    return `${holiday}${tags.has('shabbos') ? ' (Shabbos)' : ''} · ${when}`
+    return { title: `${holiday}${tags.has('shabbos') ? ' (Shabbos)' : ''}`, sub }
   if (tags.has('shabbos'))
-    return `Shabbos ${day.parsha ? `Parshas ${day.parsha.en}` : (holiday ?? '')} · ${when}`.replace(
-      '  ',
-      ' ',
-    )
-  return when
+    return {
+      title: day.parsha ? `Shabbos Parshas ${day.parsha.en}` : `Shabbos ${holiday ?? ''}`.trim(),
+      sub,
+    }
+  return { title: when, sub: hebrewDateText(date, 'en') }
+}
+
+/** The Hebrew day of the month in letters: "י״ח". */
+const hebrewDay = (d: DateString) => hebrewDateText(d, 'he').split(' ')[0]
+
+/** The Hebrew month or months a Gregorian month spans: "חשון – כסלו". */
+function hebrewMonthsOf(first: DateString): string {
+  const [y, m] = first.split('-').map(Number)
+  const last = addDays(
+    `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01`,
+    -1,
+  )
+  const name = (d: DateString) => hebrewDateText(d, 'he').split(' ').slice(1).join(' ')
+  const a = name(first)
+  const b = name(last)
+  return a === b ? a : `${a} – ${b}`
 }
 
 /** The first day from `from` that the event happens, within a year; else `from`. */
@@ -50,11 +90,7 @@ export function OccurrenceDateField({
   onChange: (d: DateString) => void
 }) {
   const cal = useMemo(() => new Calendar(schedule), [schedule])
-  const [month, setMonth] = useState<DateString>(`${value.slice(0, 7)}-01`)
   const accent = useResolvedColor(SemanticColor.AccentPrimary)
-  const onAccent = useResolvedColor(SemanticColor.TextOnAccent)
-  const text = useResolvedColor(SemanticColor.TextPrimary)
-  const faded = useResolvedColor(SemanticColor.TextTabInactive)
   const background = useResolvedColor(SemanticColor.SurfaceBackground)
 
   const happens = (d: DateString) => {
@@ -65,58 +101,84 @@ export function OccurrenceDateField({
     }
   }
 
-  const marked = useMemo(() => {
-    const out: Record<string, object> = {}
-    for (let i = -7; i < 42; i++) {
-      const d = addDays(month, i)
-      const ok = d >= today && happens(d)
-      if (d === value)
-        out[d] = {
-          selected: true,
-          customStyles: {
-            container: { backgroundColor: accent, borderRadius: 8 },
-            text: { color: onAccent, fontWeight: 'bold' },
-          },
-        }
-      else if (ok)
-        out[d] = {
-          customStyles: {
-            container: { borderWidth: 2, borderColor: accent, borderRadius: 8 },
-            text: { color: text, fontWeight: 'bold' },
-          },
-        }
-      else out[d] = { disabled: true, disableTouchEvent: true }
-    }
-    return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cal, month, value, today, eventId, accent, onAccent, text])
+  const label = happens(value) ? occurrenceLabel(cal, value) : undefined
+  const okOf = (d: DateString) => d >= today && happens(d)
 
   return (
     <Stack gap="xs">
       <Text variant="label" color={SemanticColor.TextSecondary}>
         Which one (outlined days are available)
       </Text>
+      <Text variant="title">{label?.title ?? 'Pick an outlined day'}</Text>
+      {!!label?.sub && (
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          {label.sub}
+        </Text>
+      )}
       <CalendarGrid
         current={value}
         minDate={today}
-        markingType="custom"
-        markedDates={marked}
-        onDayPress={(d) => happens(d.dateString) && onChange(d.dateString)}
-        onMonthChange={(m) => setMonth(`${m.dateString.slice(0, 7)}-01`)}
-        theme={{
-          calendarBackground: background,
-          dayTextColor: text,
-          textDisabledColor: faded,
-          monthTextColor: text,
-          arrowColor: accent,
-          todayTextColor: accent,
-          selectedDayBackgroundColor: accent,
-          selectedDayTextColor: onAccent,
+        renderHeader={(d: { toString: (f: string) => string }) => {
+          const first = `${d.toString('yyyy-MM')}-01`
+          return (
+            <Stack align="center">
+              <Text variant="headline">
+                {MONTHS[Number(first.slice(5, 7)) - 1]} {first.slice(0, 4)}
+              </Text>
+              <Text variant="caption" rtl color={SemanticColor.TextSecondary}>
+                {hebrewMonthsOf(first)}
+              </Text>
+            </Stack>
+          )
         }}
+        dayComponent={({ date }: { date?: { dateString: string; day: number } }) => {
+          if (!date) return null
+          const d = date.dateString
+          const ok = okOf(d)
+          const selected = d === value
+          return (
+            <Pressable
+              disabled={!ok}
+              onPress={() => onChange(d)}
+              accessibilityLabel={d}
+              style={{
+                width: 38,
+                height: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 8,
+                borderWidth: 2,
+                borderColor: ok ? accent : 'transparent',
+                backgroundColor: selected ? accent : 'transparent',
+                opacity: ok ? 1 : 0.45,
+              }}
+            >
+              <View style={{ alignItems: 'center' }}>
+                <Text
+                  variant={ok ? 'bodyStrong' : 'body'}
+                  color={
+                    selected
+                      ? SemanticColor.TextOnAccent
+                      : ok
+                        ? SemanticColor.TextPrimary
+                        : SemanticColor.TextTabInactive
+                  }
+                >
+                  {date.day}
+                </Text>
+                <Text
+                  variant="caption"
+                  rtl
+                  color={selected ? SemanticColor.TextOnAccent : SemanticColor.TextSecondary}
+                >
+                  {hebrewDay(d)}
+                </Text>
+              </View>
+            </Pressable>
+          )
+        }}
+        theme={{ calendarBackground: background, arrowColor: accent }}
       />
-      <Text variant="caption" color={SemanticColor.TextSecondary}>
-        {happens(value) ? occurrenceLabel(cal, value) : 'Pick a highlighted day'}
-      </Text>
     </Stack>
   )
 }

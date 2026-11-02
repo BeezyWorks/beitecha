@@ -32,18 +32,16 @@ const MONTHS = [
   'December',
 ]
 
-/** What else a Shabbos is: Mevarchim, Rosh Chodesh, the Arba Parshios, Shuva, HaGadol, Nachamu, Shirah, Chanukah… */
-function shabbosMarks(cal: Calendar, date: DateString): string[] {
+/** What else a day is: Mevarchim, Rosh Chodesh, the Arba Parshios, Shuva, a fast, Chanukah, a local holiday… */
+function dayMarks(cal: Calendar, date: DateString, skip?: string): string[] {
   const info = cal.info(date)
   const out: string[] = []
   if (info.tags.has('shabbosMevarchim')) {
     const month = hebrewDateText(addDays(date, 7), 'en').split(' ').slice(1).join(' ')
     out.push(`Shabbos Mevarchim ${month}`)
   }
-  for (const e of info.holidays) {
-    const en = e.render('en')
-    if (/^(Shabbat|Rosh Chodesh|Chanukah)/.test(e.getDesc()) && !/Mevarchim/.test(en))
-      out.push(en.replace(/^Shabbat /, 'Shabbos '))
+  for (const h of cal.day(date).holidays) {
+    if (h.en !== skip) out.push(h.en.replace(/^Shabbat /, 'Shabbos '))
   }
   if (info.tags.has('roshChodesh') && !out.some((m) => m.startsWith('Rosh Chodesh')))
     out.push('Rosh Chodesh')
@@ -59,17 +57,20 @@ export function occurrenceLabel(
   const tags = new Set(day.tags)
   const holiday = day.holidays[0]?.en
   const when = civilDateShort(date)
-  const marks = tags.has('shabbos') && !tags.has('yomTov') ? shabbosMarks(cal, date) : []
   const sub = `${when} · ${hebrewDateText(date, 'en')}`
   if (tags.has('yomTov') && holiday)
-    return { title: `${holiday}${tags.has('shabbos') ? ' (Shabbos)' : ''}`, sub, marks }
+    return {
+      title: `${holiday}${tags.has('shabbos') ? ' (Shabbos)' : ''}`,
+      sub,
+      marks: dayMarks(cal, date, holiday),
+    }
   if (tags.has('shabbos'))
     return {
       title: day.parsha ? `Shabbos Parshas ${day.parsha.en}` : `Shabbos ${holiday ?? ''}`.trim(),
       sub,
-      marks,
+      marks: dayMarks(cal, date, day.parsha ? undefined : holiday),
     }
-  return { title: when, sub: hebrewDateText(date, 'en'), marks }
+  return { title: when, sub: hebrewDateText(date, 'en'), marks: dayMarks(cal, date) }
 }
 
 /** The Hebrew day of the month in letters: "י״ח". */

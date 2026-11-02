@@ -103,7 +103,7 @@ export function Preview({
           />
         )}
       </Stack>
-      <Stack grow>
+      <Stack grow height={0}>
         <ScrollStack gap="md" padding="md">
           {days.map((d) => {
             const events = filtering ? d.events.filter((o) => o.eventId === highlight) : d.events

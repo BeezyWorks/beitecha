@@ -6,7 +6,8 @@ export type SectionKey =
   | 'programs'
   | 'events'
   | 'zmanim'
-  | 'notices'
+  | 'sponsorships'
+  | 'announcements'
   | 'cholim'
   | 'yahrzeits'
   | 'birthdays'
@@ -31,7 +32,8 @@ export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; labe
     {
       title: 'Announcements',
       sections: [
-        { key: 'notices', label: 'Sponsors & notices' },
+        { key: 'sponsorships', label: 'Sponsorships' },
+        { key: 'announcements', label: 'Announcements' },
         { key: 'cholim', label: 'Refuah shleimah' },
         { key: 'yahrzeits', label: 'Yahrzeits' },
         { key: 'birthdays', label: 'Birthdays' },

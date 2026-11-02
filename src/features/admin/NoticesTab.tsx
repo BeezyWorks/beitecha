@@ -1,4 +1,14 @@
-import { Button, Card, Chip, SemanticColor, Stack, Text } from '@beezyworks/design'
+import {
+  Button,
+  Card,
+  Chip,
+  ScrollStack,
+  SemanticColor,
+  Stack,
+  Text,
+  Touchable,
+  useIsWideLayout,
+} from '@beezyworks/design'
 import {
   addDays,
   civilDateShort,
@@ -11,7 +21,7 @@ import {
   type NoticeKind,
   type NoticeLink,
 } from '@beitecha/engine'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
@@ -32,7 +42,6 @@ import {
   type SponsorTarget,
 } from './forms'
 import { newId, useAdmin } from './store'
-import { SectionPage } from './SectionPage'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -78,7 +87,7 @@ export const KIND: Record<
 }
 
 /** The chips, in order: the shul's own categories go after Announcement, beside the built-in Mazal tov and Condolence. */
-const KINDS_BEFORE: NoticeKind[] = ['sponsor', 'reminder', 'announcement']
+const KINDS_BEFORE: NoticeKind[] = ['reminder', 'announcement']
 const KINDS_AFTER: NoticeKind[] = ['simcha', 'condolence']
 
 const TARGETS: { kind: SponsorTarget['kind']; label: string }[] = [
@@ -122,6 +131,7 @@ export function NoticeForm({
   const events = useEventOptions(today, n.kind === 'reminder')
   const target = sponsorTarget(n)
   const copy = KIND[n.kind]
+  const isSponsor = initial.kind === 'sponsor'
   const category = noticeCategory({ noticeCategories: categories }, n)
   const kindChip = (k: NoticeKind) => (
     <Chip
@@ -139,19 +149,21 @@ export function NoticeForm({
     !(n.kind === 'sponsor' && target.kind === 'event' && !target.eventId)
   return (
     <Card gap="md">
-      <Stack direction="row" wrap gap="xs">
-        {KINDS_BEFORE.map(kindChip)}
-        {categories.map((c) => (
-          <Chip
-            key={c.id}
-            label={c.name.en}
-            selected={category?.id === c.id}
-            onPress={() => setN(withNoticeKind(n, 'announcement', c.id))}
-          />
-        ))}
-        {KINDS_AFTER.map(kindChip)}
-        <NewCategoryChip onAdd={(c) => setN(withNoticeKind(n, 'announcement', c.id))} />
-      </Stack>
+      {!isSponsor && (
+        <Stack direction="row" wrap gap="xs">
+          {KINDS_BEFORE.map(kindChip)}
+          {categories.map((c) => (
+            <Chip
+              key={c.id}
+              label={c.name.en}
+              selected={category?.id === c.id}
+              onPress={() => setN(withNoticeKind(n, 'announcement', c.id))}
+            />
+          ))}
+          {KINDS_AFTER.map(kindChip)}
+          <NewCategoryChip onAdd={(c) => setN(withNoticeKind(n, 'announcement', c.id))} />
+        </Stack>
+      )}
       {n.kind === 'condolence' && (
         <Text variant="caption" color={SemanticColor.TextSecondary}>
           Shown quietly, without a banner.
@@ -534,92 +546,273 @@ export function NoticesAi({ today, onClose }: { today: DateString; onClose: () =
   )
 }
 
-/** Sponsorships, announcements, reminders, mazal tovs and condolences for the display, the bulletin and the Siddur. */
-export function NoticesTab({ today }: { today: DateString }) {
-  const notices = useAdmin((s) => s.schedule?.notices)
-  const exceptions = useAdmin((s) => s.schedule?.exceptions)
-  const removeNotice = useAdmin((s) => s.removeNotice)
+const BUILT_IN_GROUPS: { kind: NoticeKind; label: string }[] = [
+  { kind: 'announcement', label: 'Announcements' },
+  { kind: 'reminder', label: 'Reminders' },
+  { kind: 'simcha', label: 'Mazal tov' },
+  { kind: 'condolence', label: 'Condolences' },
+]
+
+interface Group {
+  key: string
+  label: string
+  list: Notice[]
+}
+
+/** Announcements under their category (the shul's own first, then the built-in kinds). */
+function announcementGroups(
+  notices: Notice[],
+  settings: { noticeCategories?: NoticeCategory[] },
+): Group[] {
+  const order = [
+    ...(settings.noticeCategories ?? []).map((c) => ({ key: c.id, label: c.name.en })),
+    ...BUILT_IN_GROUPS.map((g) => ({ key: g.kind, label: g.label })),
+  ]
+  return order
+    .map((g) => ({
+      ...g,
+      list: notices.filter((n) => (noticeCategory(settings, n)?.id ?? n.kind) === g.key),
+    }))
+    .filter((g) => g.list.length)
+}
+
+/** Sponsorships under what is sponsored: each event, the day, the notices. */
+function sponsorshipGroups(notices: Notice[], eventName: (id: string) => string): Group[] {
+  const groups = new Map<string, Group>()
+  for (const n of notices) {
+    const t = sponsorTarget(n)
+    const key = t.kind === 'event' ? `event:${t.eventId}` : t.kind
+    const label =
+      t.kind === 'event' ? eventName(t.eventId) : t.kind === 'day' ? 'The day' : 'The announcements'
+    const g = groups.get(key) ?? { key, label, list: [] }
+    g.list.push(n)
+    groups.set(key, g)
+  }
+  return [...groups.values()]
+}
+
+function rowTitle(n: Notice): string {
+  if (n.kind === 'sponsor') return n.sponsoredBy?.en || n.text.en || 'Untitled'
+  return n.title?.en || n.text.en.split('\n')[0] || 'Untitled'
+}
+
+function rowWhen(n: Notice): string {
+  return n.to && n.to !== n.from
+    ? `${civilDateShort(n.from)} – ${civilDateShort(n.to)}`
+    : civilDateShort(n.from)
+}
+
+/**
+ * Sponsorships or announcements (reminders, mazal tovs and condolences too), one at a time like minyanim: the list
+ * on the left, the open one on the right. Sponsorships are listed by what they sponsor, announcements by category.
+ */
+export function NoticesSection({
+  kind,
+  today,
+}: {
+  kind: 'sponsor' | 'announcement'
+  today: DateString
+}) {
   const schedule = useAdmin((s) => s.schedule)
+  const removeNotice = useAdmin((s) => s.removeNotice)
+  const wide = useIsWideLayout()
   const [editing, setEditing] = useState<Notice | null>(null)
   const [ai, setAi] = useState(false)
+  const [showPast, setShowPast] = useState(false)
   const fresh = useNewNotice(today)
-  if (!notices || !exceptions || !schedule) return null
-  const lastDay = (n: Notice) => noticeLastDay(n, exceptions)
-
-  const current = notices
+  const sponsor = kind === 'sponsor'
+  const own = useMemo(
+    () => (schedule?.notices ?? []).filter((n) => (n.kind === 'sponsor') === sponsor),
+    [schedule?.notices, sponsor],
+  )
+  if (!schedule) return null
+  const lastDay = (n: Notice) => noticeLastDay(n, schedule.exceptions)
+  const eventName = (id: string) => {
+    const e =
+      schedule.events.find((x) => x.id === id) ??
+      schedule.exceptions
+        .flatMap((x) => (x.type === 'add' ? [x.event] : []))
+        .find((x) => x.id === id)
+    return e ? adminLabel(e) : 'An event'
+  }
+  const current = own
     .filter((n) => lastDay(n) >= today)
     .sort((a, b) => a.from.localeCompare(b.from))
-  const past = notices
-    .filter((n) => lastDay(n) < today)
-    .sort((a, b) => b.from.localeCompare(a.from))
+  const past = own.filter((n) => lastDay(n) < today).sort((a, b) => b.from.localeCompare(a.from))
+  const groups = sponsor
+    ? sponsorshipGroups(current, eventName)
+    : announcementGroups(current, schedule.settings)
+  const title = sponsor ? 'Sponsorships' : 'Announcements'
+  const isNew = !!editing && !schedule.notices.some((n) => n.id === editing.id)
 
-  return (
-    <SectionPage
-      title="Sponsors & notices"
-      actions={
-        !editing && (
-          <Stack direction="row" gap="sm" wrap>
-            <Button
-              icon="add"
-              title="Add a sponsorship"
-              onPress={() => setEditing(fresh.sponsorship())}
-            />
-            <Button
-              variant="secondary"
-              icon="add"
-              title="Add a notice"
-              onPress={() => setEditing(fresh.announcement())}
-            />
-            <Button variant="ghost" title="Paste with AI" onPress={() => setAi(!ai)} />
-          </Stack>
-        )
-      }
-    >
-      {editing && <NoticeForm initial={editing} today={today} onDone={() => setEditing(null)} />}
-      {ai && !editing && <NoticesAi today={today} onClose={() => setAi(false)} />}
-      {!current.length && !editing && (
-        <Text variant="body" color={SemanticColor.TextSecondary}>
-          Nothing coming up. Sponsorships, announcements, reminders, mazal tovs and condolences show
-          on the display, the bulletin and in the Siddur from the day you choose.
-        </Text>
+  const row = (n: Notice) => {
+    const selected = editing?.id === n.id
+    return (
+      <Touchable
+        key={n.id}
+        onPress={() => setEditing(n)}
+        accessibilityLabel={`Edit ${rowTitle(n)}`}
+      >
+        <Stack
+          gap="none"
+          padding="sm"
+          radius="md"
+          background={selected ? SemanticColor.SurfaceSelected : undefined}
+          borderWidth={selected ? 1 : undefined}
+          borderColor={selected ? SemanticColor.BorderDefault : undefined}
+        >
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {rowTitle(n)}
+          </Text>
+          <Text variant="caption" color={SemanticColor.TextSecondary} numberOfLines={1}>
+            {rowWhen(n)}
+          </Text>
+        </Stack>
+      </Touchable>
+    )
+  }
+
+  const listPane = (
+    <ScrollStack padding="md" gap="sm">
+      <Text variant="title">{title}</Text>
+      <Stack direction="row" align="center" gap="sm">
+        <Button
+          variant="primary"
+          size="sm"
+          icon="add"
+          title="Add"
+          onPress={() => {
+            setAi(false)
+            setEditing(sponsor ? fresh.sponsorship() : fresh.announcement())
+          }}
+        />
+        <Button variant="secondary" size="sm" title="Use AI" onPress={() => setAi(!ai)} />
+      </Stack>
+      {isNew && editing && (
+        <Stack gap="xs">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            New, not saved yet
+          </Text>
+          {row(editing)}
+        </Stack>
       )}
-      {current.map((n) => (
-        <Stack key={n.id} gap="xs">
-          <NoticeCard notice={n} categories={schedule.settings.noticeCategories} />
-          <Stack direction="row" gap="sm">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="edit"
-              title="Edit"
-              onPress={() => setEditing(n)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="delete"
-              title="Delete"
-              onPress={() => removeNotice(n.id)}
-            />
-          </Stack>
+      {groups.map((g) => (
+        <Stack key={g.key} gap="xs">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            {g.label}
+          </Text>
+          {g.list.map(row)}
         </Stack>
       ))}
-      {!editing && <CategoriesCard notices={notices} />}
-      {past.length > 0 && (
-        <Card gap="sm">
-          <Text variant="sectionHeader">Past</Text>
-          {past.slice(0, 20).map((n) => (
-            <Stack key={n.id} direction="row" align="center" gap="sm">
-              <Text variant="body" numberOfLines={1}>
-                {n.from} · {n.title?.en ? `${n.title.en}: ` : ''}
-                {n.text.en}
-              </Text>
-              <Stack grow />
-              <Button variant="ghost" size="sm" title="Delete" onPress={() => removeNotice(n.id)} />
-            </Stack>
-          ))}
-        </Card>
+      {!current.length && !isNew && (
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          {sponsor
+            ? 'No sponsorships coming up. They show beside what they sponsor on the display, the bulletin and in the Siddur.'
+            : 'No announcements coming up. They show on the display, the bulletin and in the Siddur from the day you choose.'}
+        </Text>
       )}
-    </SectionPage>
+      {past.length > 0 && (
+        <Stack gap="xs">
+          <Button
+            variant="ghost"
+            size="sm"
+            title={showPast ? 'Hide past' : `Past (${past.length})`}
+            onPress={() => setShowPast(!showPast)}
+          />
+          {showPast &&
+            past.slice(0, 20).map((n) => (
+              <Stack key={n.id} direction="row" align="center" gap="xs">
+                <Stack grow width={0}>
+                  {row(n)}
+                </Stack>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="delete"
+                  title="Delete"
+                  onPress={() => removeNotice(n.id)}
+                />
+              </Stack>
+            ))}
+        </Stack>
+      )}
+    </ScrollStack>
+  )
+
+  const editor = editing && (
+    <Stack gap="lg" maxWidth={720}>
+      {!wide && (
+        <Stack direction="row">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="arrow-back"
+            title={title}
+            onPress={() => setEditing(null)}
+          />
+        </Stack>
+      )}
+      <NoticeForm
+        key={editing.id}
+        initial={editing}
+        today={today}
+        onDone={() => setEditing(null)}
+      />
+      {!isNew && (
+        <Stack direction="row">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="delete"
+            title="Delete"
+            onPress={() => {
+              removeNotice(editing.id)
+              setEditing(null)
+            }}
+          />
+        </Stack>
+      )}
+    </Stack>
+  )
+
+  const aiPanel = ai && <NoticesAi today={today} onClose={() => setAi(false)} />
+  const empty = (
+    <Stack gap="xs" maxWidth={720}>
+      <Text variant="title">
+        {sponsor ? 'Pick a sponsorship, or add one.' : 'Pick an announcement, or add one.'}
+      </Text>
+      <Text variant="body" color={SemanticColor.TextSecondary}>
+        {sponsor
+          ? 'Each is for a Kiddush, a shiur or the day, and shows for the dates you set.'
+          : 'Announcements, reminders, mazal tovs and condolences, grouped by category.'}
+      </Text>
+    </Stack>
+  )
+
+  if (!wide)
+    return editing ? (
+      <ScrollStack padding="md" gap="lg">
+        {editor}
+      </ScrollStack>
+    ) : (
+      <ScrollStack padding="md" gap="md">
+        {aiPanel}
+        {listPane}
+        {!sponsor && <CategoriesCard notices={schedule.notices} />}
+      </ScrollStack>
+    )
+
+  return (
+    <Stack direction="row" grow height={0}>
+      <Stack width={280}>{listPane}</Stack>
+      <Stack width={1} background={SemanticColor.BorderDefault} />
+      <Stack grow width={0}>
+        <ScrollStack padding="xl" gap="lg">
+          {aiPanel}
+          {editor || empty}
+          {!sponsor && !editing && <CategoriesCard notices={schedule.notices} />}
+        </ScrollStack>
+      </Stack>
+    </Stack>
   )
 }

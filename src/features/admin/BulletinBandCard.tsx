@@ -116,6 +116,15 @@ export function BulletinBandCard({
             )}
           </Stack>
           <Field
+            label="Or a logo web address"
+            help="Link to an image already online, so nothing is stored here."
+            value={band.logo?.startsWith('data:') ? '' : (band.logo ?? '')}
+            placeholder="https://example.org/logo.png"
+            autoCapitalize="none"
+            keyboardType="url"
+            onChangeText={(v) => set({ logo: v.trim() === '' ? undefined : v.trim() })}
+          />
+          <Field
             label={kind === 'header' ? 'Shul name' : 'Shul name (optional)'}
             help={kind === 'header' ? 'Leave blank to use the shul’s name.' : undefined}
             value={band.name?.en ?? ''}

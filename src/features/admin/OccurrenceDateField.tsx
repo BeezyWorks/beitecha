@@ -71,21 +71,35 @@ export function OccurrenceDateField({
       const d = addDays(month, i)
       const ok = d >= today && happens(d)
       if (d === value)
-        out[d] = { selected: true, selectedColor: accent, selectedTextColor: onAccent }
-      else if (!ok) out[d] = { disabled: true, disableTouchEvent: true }
+        out[d] = {
+          selected: true,
+          customStyles: {
+            container: { backgroundColor: accent, borderRadius: 8 },
+            text: { color: onAccent, fontWeight: 'bold' },
+          },
+        }
+      else if (ok)
+        out[d] = {
+          customStyles: {
+            container: { borderWidth: 2, borderColor: accent, borderRadius: 8 },
+            text: { color: text, fontWeight: 'bold' },
+          },
+        }
+      else out[d] = { disabled: true, disableTouchEvent: true }
     }
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cal, month, value, today, eventId, accent, onAccent])
+  }, [cal, month, value, today, eventId, accent, onAccent, text])
 
   return (
     <Stack gap="xs">
       <Text variant="label" color={SemanticColor.TextSecondary}>
-        Which one
+        Which one (outlined days are available)
       </Text>
       <CalendarGrid
         current={value}
         minDate={today}
+        markingType="custom"
         markedDates={marked}
         onDayPress={(d) => happens(d.dateString) && onChange(d.dateString)}
         onMonthChange={(m) => setMonth(`${m.dateString.slice(0, 7)}-01`)}

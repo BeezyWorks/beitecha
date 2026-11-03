@@ -10,7 +10,7 @@ import type {
   UpcomingYahrzeit,
   YahrzeitSettings,
 } from '@beitecha/engine'
-import React from 'react'
+import React, { useState } from 'react'
 
 import { makeT, useT } from '@/features/luach/language'
 import { SponsorName } from '@/features/luach/SponsorName'
@@ -25,6 +25,31 @@ const HEBREW = /[\u0590-\u05FF]/
 const CHOLIM_PER_PAGE = 12
 /** Yahrzeits, birthdays or anniversaries on one page of the notice panel. */
 const REMEMBERED_PER_PAGE = 4
+/** Pixels a sponsors page spends besides its sponsors (padding, heading, dots, gaps). */
+const SPONSOR_CHROME = 120
+/** A sponsor's name, its dedication line under it (one line), and the gap after. */
+const SPONSOR_NAME_H = 38
+const SPONSOR_TEXT_H = 32
+
+/** A sponsor group cut into pages that fit `room` pixels, so a long list never overruns its box. */
+function sponsorPages(group: SponsorGroup, room: number, t: ReturnType<typeof useT>) {
+  const avail = room - SPONSOR_CHROME
+  const pages: SponsorGroup[] = []
+  let cur: Notice[] = []
+  let used = 0
+  for (const n of group.sponsors) {
+    const h = SPONSOR_NAME_H + (t.text(n.text) ? SPONSOR_TEXT_H : 0)
+    if (cur.length && used + h > avail) {
+      pages.push({ ...group, sponsors: cur })
+      cur = []
+      used = 0
+    }
+    cur.push(n)
+    used += h
+  }
+  if (cur.length) pages.push({ ...group, sponsors: cur })
+  return pages.map((g, i) => ({ ...g, key: `${group.key}-${i}` }))
+}
 
 type Page =
   | { notice: Notice }
@@ -61,9 +86,15 @@ export function NoticeRotator({
   occasions?: OccasionList[]
 }) {
   const t = useT()
+  // A box that fills its place is measured, so the sponsors are paged to what it holds.
+  const [room, setRoom] = useState(300)
   const groups = sponsorGroups(t, notices, days)
   const pages: Page[] = [
-    ...groups.map((group) => ({ group })),
+    ...groups.flatMap((g) =>
+      sponsorPages(g, height ?? room, t).map((group) => ({
+        group,
+      })),
+    ),
     ...notices.filter((n) => !hasSponsor(n)).map((notice) => ({ notice })),
   ]
   const lists = [
@@ -82,13 +113,24 @@ export function NoticeRotator({
   if (!pages.length) return null
   const page = pages[i % pages.length]
   const dots = pages.length > 1 && <PageDots count={pages.length} index={i % pages.length} />
+  let body: React.ReactNode
   if ('remembered' in page)
-    return <RememberedPage key={page.key} height={height} list={page.remembered} dots={dots} />
-  if ('group' in page) return <SponsorsPage height={height} group={page.group} dots={dots} />
-  return 'notice' in page ? (
-    <NoticePage height={height} n={page.notice} categories={categories} dots={dots} />
-  ) : (
-    <CholimPage key={page.key} height={height} cholim={page.cholim} dots={dots} />
+    body = <RememberedPage key={page.key} height={height} list={page.remembered} dots={dots} />
+  else if ('group' in page)
+    body = <SponsorsPage key={page.group.key} height={height} group={page.group} dots={dots} />
+  else if ('notice' in page)
+    body = <NoticePage height={height} n={page.notice} categories={categories} dots={dots} />
+  else body = <CholimPage key={page.key} height={height} cholim={page.cholim} dots={dots} />
+  return (
+    <Stack
+      height={height}
+      grow={!height}
+      onLayout={(e: { nativeEvent: { layout: { height: number } } }) =>
+        setRoom(Math.round(e.nativeEvent.layout.height))
+      }
+    >
+      {body}
+    </Stack>
   )
 }
 
@@ -174,7 +216,7 @@ function SponsorsPage({
         <Stack key={n.id} gap="none">
           <SponsorName notice={n} variant="headerTitleWide" color={SemanticColor.TextPrimary} />
           {!!t.text(n.text) && (
-            <Text variant="titleLarge" numberOfLines={2} color={SemanticColor.TextPrimary}>
+            <Text variant="titleLarge" numberOfLines={1} color={SemanticColor.TextPrimary}>
               {t.text(n.text)}
             </Text>
           )}

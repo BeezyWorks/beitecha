@@ -22,6 +22,7 @@ const SECTION_NAMES: Record<BulletinSection, string> = {
   weekdays: 'Weekday minyanim',
   zmanimTable: 'Zmanim table',
   shiurim: 'Shiurim',
+  programs: 'Programs',
   comingUp: 'Coming up',
   remembrance: 'Yahrzeits & refuah shleimah',
   celebrations: 'Birthdays & anniversaries',
@@ -41,6 +42,7 @@ const SHOWN: {
   key:
     | 'zmanimTable'
     | 'shiurim'
+    | 'programs'
     | 'comingUp'
     | 'notices'
     | 'yahrzeits'
@@ -58,6 +60,7 @@ const SHOWN: {
     help: 'The week’s zmanim, day by day, on the front.',
   },
   { key: 'shiurim', label: 'Shiurim', help: 'The week’s shiurim.' },
+  { key: 'programs', label: 'Programs', help: 'The week’s weekday programs, like mahjong.' },
   {
     key: 'comingUp',
     label: 'Coming up',

@@ -63,7 +63,7 @@ const HEBREW = /[\u0590-\u05FF]/
 const WORDS = {
   shabbosMorning: { en: 'Shabbos morning', he: 'שבת בבוקר' },
   shabbosAfternoon: { en: 'Shabbos afternoon', he: 'שבת אחר הצהריים' },
-  others: { en: 'Shiurim & programs this week', he: 'שיעורים ותוכניות השבוע' },
+  programs: { en: 'Programs this week', he: 'תוכניות השבוע' },
   changed: { en: 'Changed this week', he: 'שינויים השבוע' },
   office: { en: 'Office', he: 'משרד' },
   rabbi: { en: 'Rabbi', he: 'הרב' },
@@ -110,6 +110,8 @@ export interface WeekProps {
   zmanimTable: boolean
   /** The week's shiurim on the announcements side. */
   shiurim: boolean
+  /** The week's weekday programs on the announcements side. */
+  programs: boolean
   /** A fast's or Erev Pesach's zmanim this week, boxed below Shabbos. */
   specialZmanim: SpecialZmanimGroup[]
   /** Which page each section goes on (`settings.print.layout`); absent = the automatic layout. */
@@ -119,8 +121,12 @@ export interface WeekProps {
   footer?: BulletinBand
 }
 
-/** Weekday shiurim and programs (mahjong) have their own timetable with the announcements; the front's weekday grid keeps to the minyanim. */
+/** Weekday shiurim and programs (mahjong) have their own timetables with the announcements; the front's weekday grid keeps to the minyanim. */
 const isMinyan = (e: Occurrence) => e.kind === 'tefila'
+const isShiur = (e: Occurrence) => e.kind === 'shiur'
+const isProgram = (e: Occurrence) => e.kind !== 'tefila' && e.kind !== 'shiur'
+const hasAny = (days: DaySchedule[], of: (e: Occurrence) => boolean) =>
+  days.some((d) => d.events.some(of))
 
 /** The days the shiurim list covers: Shabbos's (Friday from chatzos, and Shabbos itself) are on the Shabbos timeline. */
 const shiurDays = (days: DaySchedule[], shabbos: ShabbosPair[]): DaySchedule[] =>
@@ -148,6 +154,7 @@ export const hasAnnouncements = ({
   birthdays,
   anniversaries,
   shiurim,
+  programs,
 }: Pick<
   WeekProps,
   | 'days'
@@ -159,6 +166,7 @@ export const hasAnnouncements = ({
   | 'birthdays'
   | 'anniversaries'
   | 'shiurim'
+  | 'programs'
 >) =>
   notices.length > 0 ||
   comingUp.length > 0 ||
@@ -166,7 +174,8 @@ export const hasAnnouncements = ({
   yahrzeits.length > 0 ||
   birthdays.length > 0 ||
   anniversaries.length > 0 ||
-  (shiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !isMinyan(e))))
+  (shiurim && hasAny(shiurDays(days, shabbos), isShiur)) ||
+  (programs && hasAny(shiurDays(days, shabbos), isProgram))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
 export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: boolean }) {
@@ -247,13 +256,26 @@ function announcementBlocks({
   anniversaries,
   anniversarySettings,
   shiurim: showShiurim,
+  programs: showPrograms,
   contact,
 }: WeekProps): { key: BulletinSection; node: React.ReactNode }[] {
   const blocks: { key: BulletinSection; node: React.ReactNode }[] = []
-  if (showShiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !isMinyan(e))))
+  if (showShiurim && hasAny(shiurDays(days, shabbos), isShiur))
     blocks.push({
       key: 'shiurim',
-      node: <Shiurim days={shiurDays(days, shabbos)} notices={notices} />,
+      node: <Shiurim days={shiurDays(days, shabbos)} notices={notices} of={isShiur} />,
+    })
+  if (showPrograms && hasAny(shiurDays(days, shabbos), isProgram))
+    blocks.push({
+      key: 'programs',
+      node: (
+        <Shiurim
+          days={shiurDays(days, shabbos)}
+          notices={notices}
+          of={isProgram}
+          heading={WORDS.programs}
+        />
+      ),
     })
   if (comingUp.length > 0) blocks.push({ key: 'comingUp', node: <ComingUp items={comingUp} /> })
   if (notices.length > 0)
@@ -836,7 +858,18 @@ function EventGrid({
  * The week's shiurim as a list: the name, who gives it and where, and on the right its days and time: the same
  * time on several days is one range ("Sun–Fri 5:45"), different times are listed per day.
  */
-function Shiurim({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) {
+function Shiurim({
+  days,
+  notices,
+  of,
+  heading,
+}: {
+  days: DaySchedule[]
+  notices: Notice[]
+  /** Which events the list takes. */
+  of: (e: Occurrence) => boolean
+  heading?: Localized
+}) {
   const t = useT()
   const sponsors = days.map((d) => sponsorsOn(t, notices, d))
   const shiurim = new Map<
@@ -845,7 +878,7 @@ function Shiurim({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) 
   >()
   days.forEach((day, i) => {
     for (const e of day.events) {
-      if (isMinyan(e)) continue
+      if (!of(e)) continue
       const item = shiurim.get(e.eventId) ?? { first: e, entries: [] }
       item.entries.push({ day, e, sponsor: sponsors[i].get(e.eventId) })
       shiurim.set(e.eventId, item)
@@ -859,14 +892,14 @@ function Shiurim({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) 
   )
   return (
     <Stack gap="xs">
-      <Heading en={WORDS.others.en} he={WORDS.others.he} />
+      <Heading en={heading?.en ?? t.s.shiurimThisWeek} he={heading?.he ?? HE.s.shiurimThisWeek} />
       <Stack gap="none">
         {list.map(({ first, entries }) => {
           // Days with the same time (and the same changed or cancelled state) are one line.
           const lines = new Map<string, { days: DaySchedule['weekday'][]; e: Occurrence }>()
           for (const { day, e } of entries) {
             const said = e.untimed && e.relative ? t.relative(e.relative) : undefined
-            const at = said ?? (e.minutes === null ? '—' : t.timeRange(e.minutes, e.endMinutes))
+            const at = said ?? (e.minutes === null ? '—' : t.clock(e.minutes))
             const key = e.cancelled ? 'cancelled' : `${isChange(e) ? '◆' : ''}${at}`
             const line = lines.get(key) ?? { days: [], e }
             line.days.push(day.weekday)
@@ -886,7 +919,10 @@ function Shiurim({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) 
               borderColor={SemanticColor.BorderDefault}
             >
               <Stack grow width={0} gap="none">
-                <RowName name={first.name} caption={aboutShiur(t, first) || undefined} />
+                <RowName
+                  name={first.name}
+                  caption={aboutShiur(t, first, durationOf(first, t)) || undefined}
+                />
                 {sponsor.map((line) => (
                   <Text key={line} variant="caption" color={SemanticColor.TextSecondary}>
                     {line}
@@ -899,7 +935,7 @@ function Shiurim({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) 
                     <Text variant="body" color={SemanticColor.TextSecondary}>
                       {dayRange(t, line.days)}
                     </Text>
-                    <Time e={line.e} range strike />
+                    <Time e={line.e} strike />
                   </Stack>
                 ))}
               </Stack>
@@ -1100,12 +1136,23 @@ function RowName({ name, caption }: { name: Localized; caption?: string }) {
   )
 }
 
-/** "R’ Stern · Hilchos Shabbos · Beis Medrash" */
-function aboutShiur(t: T, e: Occurrence) {
-  return [e.speaker, e.topic]
-    .flatMap((l) => (l ? [t.text(l)] : []))
+/** "R’ Stern · 45 min · Hilchos Shabbos · Beis Medrash" (the length, if given, follows the speaker) */
+function aboutShiur(t: T, e: Occurrence, duration?: string) {
+  const said = (l?: Localized) => (l ? [t.text(l)] : [])
+  return [...said(e.speaker), ...(duration ? [duration] : []), ...said(e.topic)]
     .concat(e.room ?? [], e.location ?? [])
     .join(' · ')
+}
+
+/** "45 min", "1 hr 30 min": how long an event with an end time lasts. */
+function durationOf(e: Occurrence, t: T) {
+  if (e.cancelled || e.minutes === null || e.endMinutes === undefined) return undefined
+  const m = e.endMinutes - e.minutes
+  if (m <= 0) return undefined
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  if (t.lang === 'he') return h ? `${h} שע׳${r ? ` ${r} דק׳` : ''}` : `${m} דק׳`
+  return h ? `${h} hr${r ? ` ${r} min` : ''}` : `${m} min`
 }
 
 /** Starred events from now to their lead time: the date, what, when, and where. */

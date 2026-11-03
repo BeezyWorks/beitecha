@@ -77,6 +77,7 @@ export function useWeek(
       anniversarySettings: schedule.settings.anniversaries,
       zmanimTable: on(print.zmanimTable),
       shiurim: on(print.shiurim),
+      programs: on(print.programs),
       specialZmanim: on(print.specialZmanim)
         ? specialZmanim(from, schedule.settings, undefined, count)
         : [],

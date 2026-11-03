@@ -233,6 +233,7 @@ export const BULLETIN_SECTIONS = [
   'weekdays',
   'zmanimTable',
   'shiurim',
+  'programs',
   'comingUp',
   'remembrance',
   'celebrations',
@@ -281,6 +282,8 @@ export interface PrintSettings {
   zmanimTable?: boolean
   /** The week's shiurim, with the announcements. Default true. */
   shiurim?: boolean
+  /** The week's weekday programs (mahjong, kiddush clubs), with the announcements. Default true. */
+  programs?: boolean
   /** Starred events coming up after this week. Default true. */
   comingUp?: boolean
   /** Sponsorships and announcements. Default true. */

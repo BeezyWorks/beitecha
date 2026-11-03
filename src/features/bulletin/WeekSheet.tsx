@@ -881,9 +881,16 @@ function Shiurim({
       shiurim.set(e.eventId, item)
     }
   })
-  const earliest = (entries: { e: Occurrence }[]) =>
-    Math.min(...entries.map((x) => x.e.minutes ?? Infinity))
-  const list = [...shiurim.values()].sort((a, b) => earliest(a.entries) - earliest(b.entries))
+  // Chronological: by the first day it's held (days run in week order), then its time that day.
+  const firstAt = (entries: { day: DaySchedule; e: Occurrence }[]) => {
+    const { day, e } = entries[0]
+    return [days.indexOf(day), e.minutes ?? Infinity]
+  }
+  const list = [...shiurim.values()].sort((a, b) => {
+    const [da, ma] = firstAt(a.entries)
+    const [db, mb] = firstAt(b.entries)
+    return da - db || (ma === mb ? 0 : ma < mb ? -1 : 1)
+  })
   const changes = list.flatMap((s) =>
     s.entries.filter((x) => isChange(x.e)).map((x) => changeLine(t, x.day, x.e)),
   )

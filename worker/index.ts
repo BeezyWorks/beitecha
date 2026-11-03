@@ -1,5 +1,13 @@
 import type { Env } from './env'
-import { HttpError, fail } from './http'
+import { ApiError, HttpError, apiFail, fail } from './http'
+import {
+  createConnection,
+  listConnections,
+  patchConnection,
+  putApiSettings,
+  revokeAllConnections,
+  revokeConnection,
+} from './connections'
 import {
   acceptInvite,
   createInvite,
@@ -29,6 +37,12 @@ const routes: [method: string, pattern: RegExp, handler: Handler][] = [
   ['POST', /^\/api\/shuls\/([^/]+)\/invites$/, (r, env, [slug]) => createInvite(r, env, slug)],
   ['DELETE', /^\/api\/shuls\/([^/]+)\/members\/([^/]+)$/, (r, env, [slug, id]) => removeMember(r, env, slug, id)],
   ['POST', /^\/api\/shuls\/([^/]+)\/displays\/([^/]+)$/, (r, env, [slug, id]) => heartbeat(r, env, slug, id)],
+  ['GET', /^\/api\/shuls\/([^/]+)\/connections$/, (r, env, [slug]) => listConnections(r, env, slug)],
+  ['POST', /^\/api\/shuls\/([^/]+)\/connections$/, (r, env, [slug]) => createConnection(r, env, slug)],
+  ['POST', /^\/api\/shuls\/([^/]+)\/connections\/revoke-all$/, (r, env, [slug]) => revokeAllConnections(r, env, slug)],
+  ['PATCH', /^\/api\/shuls\/([^/]+)\/connections\/([^/]+)$/, (r, env, [slug, id]) => patchConnection(r, env, slug, id)],
+  ['DELETE', /^\/api\/shuls\/([^/]+)\/connections\/([^/]+)$/, (r, env, [slug, id]) => revokeConnection(r, env, slug, id)],
+  ['PUT', /^\/api\/shuls\/([^/]+)\/api$/, (r, env, [slug]) => putApiSettings(r, env, slug)],
   ['POST', /^\/api\/invites\/([^/]+)$/, (r, env, [token]) => acceptInvite(r, env, token)],
 ]
 
@@ -42,6 +56,7 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
     try {
       return await handler(request, env, m.slice(1).map(decodeURIComponent), url)
     } catch (e) {
+      if (e instanceof ApiError) return apiFail(e.status, e.code, e.message, e.details)
       if (e instanceof HttpError) return fail(e.status, e.message)
       throw e
     }
@@ -88,7 +103,7 @@ function devCors(request: Request, env: Env, response: Response): Response {
   const res = new Response(response.body, response)
   res.headers.set('access-control-allow-origin', origin)
   res.headers.set('access-control-allow-headers', 'content-type, authorization, if-none-match')
-  res.headers.set('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.headers.set('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.headers.set('access-control-expose-headers', 'etag')
   return res
 }

@@ -1,9 +1,16 @@
-import { Icon, ScrollStack, SemanticColor, Stack, Text, Touchable } from '@beezyworks/design'
+import { Badge, Icon, ScrollStack, SemanticColor, Stack, Text, Touchable } from '@beezyworks/design'
 import React from 'react'
 
 import { Segments } from '@/components/Segments'
 import { useAppearance, type Appearance } from '@/lib/appearance'
-import { SECTION_GROUPS, SEE_IT_SECTIONS, SETTINGS_SECTIONS, type SectionKey } from './sections'
+import { useConnect, pendingCountOf } from './connectStore'
+import {
+  CONNECT_SECTIONS,
+  SECTION_GROUPS,
+  SEE_IT_SECTIONS,
+  SETTINGS_SECTIONS,
+  type SectionKey,
+} from './sections'
 
 const APPEARANCES: { key: Appearance; label: string }[] = [
   { key: 'light', label: 'Light' },
@@ -15,10 +22,13 @@ function NavRow({
   label,
   selected,
   icon,
+  badge,
   onPress,
 }: {
   label: string
   selected?: boolean
+  /** A count after the label; nothing when 0. */
+  badge?: number
   icon?: 'external-link' | 'print'
   onPress: () => void
 }) {
@@ -41,6 +51,7 @@ function NavRow({
             {label}
           </Text>
         </Stack>
+        {!!badge && <Badge label={String(badge)} tone="accent" />}
         {icon && <Icon name={icon} size={16} color={SemanticColor.TextSecondary} />}
       </Stack>
     </Touchable>
@@ -63,6 +74,7 @@ export function Sidebar({
   onSiddur: () => void
 }) {
   const { appearance, setAppearance } = useAppearance()
+  const pending = useConnect((s) => pendingCountOf(s.changes))
   return (
     <Stack
       width={240}
@@ -113,6 +125,22 @@ export function Sidebar({
             />
           ))}
           <NavRow label="Siddur page" icon="external-link" onPress={onSiddur} />
+        </Stack>
+        <Stack gap="none" paddingTop="md">
+          <Stack paddingHorizontal="md" paddingBottom="xs">
+            <Text variant="label" color={SemanticColor.TextSecondary}>
+              Connect
+            </Text>
+          </Stack>
+          {CONNECT_SECTIONS.map((s) => (
+            <NavRow
+              key={s.key}
+              label={s.label}
+              badge={s.key === 'pending' ? pending : undefined}
+              selected={s.key === section}
+              onPress={() => onSection(s.key)}
+            />
+          ))}
         </Stack>
         <Stack gap="none" paddingTop="md">
           <Stack paddingHorizontal="md" paddingBottom="xs">

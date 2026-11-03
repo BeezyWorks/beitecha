@@ -68,6 +68,11 @@ interface AdminState {
   persist: (overwrite?: boolean) => Promise<void>
   /** Drops unsaved settings and reloads what's saved. */
   discard: () => void
+  /**
+   * The server's schedule changed under us (a connection's change was approved or undone). With nothing unsaved the
+   * new one is loaded quietly; with unsaved edits nothing is dropped, and the usual "someone else saved" choice shows.
+   */
+  reloadFromServer: () => Promise<void>
 }
 
 export const newId = () => Math.random().toString(36).slice(2, 10)
@@ -250,6 +255,32 @@ export const useAdmin = create<AdminState>((set, get) => {
     discard: () => {
       const { slug } = get()
       if (slug) get().load(slug)
+    },
+
+    reloadFromServer: async () => {
+      const { slug, dirty, editing, save } = get()
+      if (!slug) return
+      if (dirty || editing?.changed || save === 'saving') {
+        set({ save: 'conflict' })
+        return
+      }
+      try {
+        const loaded = await api.admin(slug)
+        // Edits made while it loaded win the same way: nothing is overwritten.
+        if (get().dirty || get().editing?.changed) {
+          set({ save: 'conflict' })
+          return
+        }
+        set({
+          loaded,
+          profile: loaded.profile,
+          schedule: withTefilos(loaded.schedule),
+          save: 'idle',
+          saveError: null,
+        })
+      } catch {
+        // The next save finds the conflict itself.
+      }
     },
   }
 })

@@ -42,6 +42,7 @@ import {
   withSponsorText,
   type SponsorTarget,
 } from './forms'
+import { ViaChip } from './ViaChip'
 import { newId, useAdmin } from './store'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -761,6 +762,11 @@ export function NoticesSection({
           <Text variant="caption" color={SemanticColor.TextSecondary} numberOfLines={1}>
             {rowWhen(n)}
           </Text>
+          {!!n.origin && (
+            <Stack direction="row" paddingTop="xs">
+              <ViaChip origin={n.origin} />
+            </Stack>
+          )}
         </Stack>
       </Touchable>
     )

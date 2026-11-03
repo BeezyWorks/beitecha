@@ -29,6 +29,7 @@ import { adminLabel } from './forms'
 import { KIND, NoticeForm, NoticesAi, useNewNotice } from './NoticesTab'
 import { AddOneOff, exceptionFor, OccurrenceRow } from './OccurrenceRow'
 import type { SectionKey } from './sections'
+import { ViaChip } from './ViaChip'
 import { useAdmin } from './store'
 
 const weekdayName = (date: DateString) => WEEKDAYS[weekdayOf(date)].en
@@ -149,6 +150,7 @@ function Different({ weekStart }: { weekStart: DateString }) {
               {sentence(x)}
             </Text>
           </Stack>
+          <ViaChip origin={x.origin} />
           <Button variant="ghost" size="sm" title="Undo" onPress={() => removeException(x.id)} />
         </Stack>
       ))}

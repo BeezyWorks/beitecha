@@ -8,13 +8,20 @@ import {
   ToggleSwitch,
   Touchable,
 } from '@beezyworks/design'
-import { makeT, type DateString, type Localized, type YahrzeitNames } from '@beitecha/engine'
+import {
+  makeT,
+  type DateString,
+  type Localized,
+  type Origin,
+  type YahrzeitNames,
+} from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { AiAssist } from './AiAssist'
 import { download, pickTextFile } from './aiClipboard'
 import type { Parsed } from './aiItems'
 import { SectionPage } from './SectionPage'
+import { ViaChip } from './ViaChip'
 import { newId, useAdmin } from './store'
 import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
@@ -25,6 +32,8 @@ export interface Remembered {
   hebrewName?: string
   displayName?: Localized
   hideFromBulletin?: boolean
+  /** Set when a connection added it. */
+  origin?: Origin
 }
 
 /** What the shul sets about how a list shows; the same for all three. */
@@ -425,6 +434,7 @@ export function RememberedTab<T extends Remembered, S extends RememberedSettings
                         {p.hideFromBulletin ? ' · Not on the bulletin' : ''}
                       </Text>
                     </Stack>
+                    <ViaChip origin={p.origin} />
                     <Button
                       variant="ghost"
                       size="sm"

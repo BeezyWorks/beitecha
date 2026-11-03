@@ -12,6 +12,10 @@ import { useAccount } from '@/features/account/store'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { siddurShulUrl } from '@/lib/config'
 import { CalendarTab } from './CalendarTab'
+import { ConnectSection } from './ConnectSection'
+import { PendingSection } from './PendingSection'
+import { RecentSection } from './RecentSection'
+import { useConnect, pendingCountOf } from './connectStore'
 import { CholimTab } from './CholimTab'
 import { OccasionsTab } from './OccasionsTab'
 import { YahrzeitsTab } from './YahrzeitsTab'
@@ -54,6 +58,12 @@ export function AdminScreen({ slug }: { slug: string }) {
   useEffect(() => {
     if (status === 'signedIn') load(slug)
   }, [status, slug, load])
+  // The assistants' connections and what's waiting (the sidebar's badge), once the shul is in.
+  const loadedSlug = loaded?.slug
+  useEffect(() => {
+    if (status === 'signedIn' && loadedSlug === slug) void useConnect.getState().load(slug)
+  }, [status, slug, loadedSlug])
+  const pending = useConnect((s) => pendingCountOf(s.changes))
 
   // Don't lose unsaved edits to a closed tab.
   const unsaved = dirty || !!editing?.changed
@@ -123,6 +133,9 @@ export function AdminScreen({ slug }: { slug: string }) {
       {section === 'calendar' && <CalendarSection slug={slug} />}
       {section === 'shul' && <ShulTab />}
       {section === 'team' && <TeamTab />}
+      {section === 'connect' && <ConnectSection />}
+      {section === 'pending' && <PendingSection />}
+      {section === 'recent' && <RecentSection />}
     </>
   )
 
@@ -159,7 +172,10 @@ export function AdminScreen({ slug }: { slug: string }) {
           </Stack>
           <Select
             value={section}
-            options={SECTIONS.map((s) => ({ value: s.key, label: s.label }))}
+            options={SECTIONS.map((s) => ({
+              value: s.key,
+              label: s.key === 'pending' && pending ? `Pending (${pending})` : s.label,
+            }))}
             onChange={(s) => go(s as SectionKey)}
           />
         </Stack>

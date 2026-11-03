@@ -17,6 +17,9 @@ export type SectionKey =
   | 'calendar'
   | 'shul'
   | 'team'
+  | 'connect'
+  | 'pending'
+  | 'recent'
 
 export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; label: string }[] }[] =
   [
@@ -50,6 +53,13 @@ export const SEE_IT_SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'calendar', label: 'Wall calendar' },
 ]
 
+/** Assistants and scripts that write to the schedule, and what they've asked for. */
+export const CONNECT_SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'connect', label: 'Assistants & API' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'recent', label: 'Recent changes' },
+]
+
 /** The last group in the sidebar. */
 export const SETTINGS_SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'shul', label: 'Shul settings' },
@@ -60,6 +70,7 @@ export const SETTINGS_SECTIONS: { key: SectionKey; label: string }[] = [
 export const SECTIONS = [
   ...SECTION_GROUPS.flatMap((g) => g.sections),
   ...SEE_IT_SECTIONS,
+  ...CONNECT_SECTIONS,
   ...SETTINGS_SECTIONS,
 ]
 

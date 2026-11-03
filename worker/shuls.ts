@@ -40,9 +40,9 @@ const MAX_DISPLAYS = 20
 /** Past exceptions and notices the public feed still carries (the display shows the past week). */
 const PUBLIC_HISTORY_DAYS = 7
 
-type Role = 'owner' | 'editor'
+export type Role = 'owner' | 'editor'
 
-interface ShulRow {
+export interface ShulRow {
   id: string
   slug: string
   profile: string
@@ -52,7 +52,7 @@ interface ShulRow {
   updated_at: number
 }
 
-const shulRecord = (row: ShulRow) => ({
+export const shulRecord = (row: ShulRow) => ({
   slug: row.slug,
   profile: JSON.parse(row.profile) as ShulProfile,
   schedule: JSON.parse(row.schedule) as Schedule,
@@ -193,7 +193,7 @@ function profileProblem(p: unknown): string | null {
   return null
 }
 
-async function findShul(env: Env, slug: string): Promise<ShulRow> {
+export async function findShul(env: Env, slug: string): Promise<ShulRow> {
   const row = await env.DB.prepare('SELECT * FROM shuls WHERE slug = ?').bind(slug).first<ShulRow>()
   if (!row) throw new HttpError(404, 'no such shul')
   return row
@@ -206,7 +206,12 @@ async function roleOf(env: Env, shulId: string, userId: string): Promise<Role | 
   return row?.role ?? null
 }
 
-async function requireRole(env: Env, shul: ShulRow, user: User, needed: Role): Promise<Role> {
+export async function requireRole(
+  env: Env,
+  shul: ShulRow,
+  user: User,
+  needed: Role,
+): Promise<Role> {
   const role = await roleOf(env, shul.id, user.id)
   if (!role || (needed === 'owner' && role !== 'owner')) throw new HttpError(403, 'not allowed')
   return role
@@ -368,6 +373,100 @@ export async function getAdmin(request: Request, env: Env, slug: string): Promis
   })
 }
 
+/** Who a save is for: the signed-in member, or the member a connection acts for (and the change behind it). */
+export interface Actor {
+  userId: string
+  connectionId?: string
+  changeId?: string
+}
+
+/** The revision-checked write every save goes through: one statement moves the document from `baseRevision` to the
+ * next, or matches nothing (null) because someone saved in between. Then the history row. */
+async function commitShul(
+  env: Env,
+  shulId: string,
+  baseRevision: number,
+  profile: string,
+  schedule: string,
+  actor: Actor,
+): Promise<ShulRow | null> {
+  const now = Date.now()
+  const updated = await env.DB.prepare(
+    `UPDATE shuls SET profile = ?1, schedule = ?2, revision = revision + 1, updated_at = ?3, updated_by = ?4
+     WHERE id = ?5 AND revision = ?6 RETURNING *`,
+  )
+    .bind(profile, schedule, now, actor.userId, shulId, baseRevision)
+    .first<ShulRow>()
+  if (!updated) return null
+  await env.DB.prepare(
+    'INSERT INTO history (shul_id, revision, user_id, at, connection_id, change_id) VALUES (?, ?, ?, ?, ?, ?)',
+  )
+    .bind(
+      shulId,
+      updated.revision,
+      actor.userId,
+      now,
+      actor.connectionId ?? null,
+      actor.changeId ?? null,
+    )
+    .run()
+  return updated
+}
+
+export const MAX_SAVE_ATTEMPTS = 3
+
+export type Mutation<T, E> = { schedule: Schedule; result: T } | { rejected: E }
+
+export type SaveOutcome<T, E> =
+  | { status: 'saved'; record: ReturnType<typeof shulRecord>; result: T; attempts: number }
+  /** `mutate` turned the change down (nothing was written). */
+  | { status: 'rejected'; rejected: E }
+  /** The changed document fails the same checks a whole-document save does. */
+  | { status: 'invalid'; message: string }
+  /** Still racing the admin's saves after `MAX_SAVE_ATTEMPTS`. */
+  | { status: 'conflict'; record: ReturnType<typeof shulRecord> }
+  | { status: 'missing' }
+
+/**
+ * Changes a shul's schedule through `mutate` and saves it with the revision check. On a revision conflict the
+ * schedule is read again and `mutate` runs again on it (so it must be pure), up to `MAX_SAVE_ATTEMPTS` times. The
+ * profile is never touched. This is how connections write; `putShul` keeps its own contract (a 409 for the client).
+ */
+export async function saveSchedule<T, E = never>(
+  env: Env,
+  shulId: string,
+  mutate: (
+    schedule: Schedule,
+    shul: { profile: ShulProfile; revision: number },
+  ) => Mutation<T, E> | Promise<Mutation<T, E>>,
+  actor: Actor,
+): Promise<SaveOutcome<T, E>> {
+  for (let attempts = 1; attempts <= MAX_SAVE_ATTEMPTS; attempts++) {
+    const row = await env.DB.prepare('SELECT * FROM shuls WHERE id = ?')
+      .bind(shulId)
+      .first<ShulRow>()
+    if (!row) return { status: 'missing' }
+    const record = shulRecord(row)
+    const mutation = await mutate(record.schedule, {
+      profile: record.profile,
+      revision: row.revision,
+    })
+    if ('rejected' in mutation) return { status: 'rejected', rejected: mutation.rejected }
+    const problem = scheduleProblem(mutation.schedule)
+    if (problem) return { status: 'invalid', message: problem }
+    const text = JSON.stringify(mutation.schedule)
+    if (text.length > MAX_SCHEDULE_BYTES)
+      return { status: 'invalid', message: 'the schedule is too large' }
+    const updated = await commitShul(env, shulId, row.revision, row.profile, text, actor)
+    if (updated)
+      return { status: 'saved', record: shulRecord(updated), result: mutation.result, attempts }
+  }
+  const current = await env.DB.prepare('SELECT * FROM shuls WHERE id = ?')
+    .bind(shulId)
+    .first<ShulRow>()
+  return current ? { status: 'conflict', record: shulRecord(current) } : { status: 'missing' }
+}
+
 /** Saves profile and/or schedule. `baseRevision` must match, else 409 with the current record. */
 export async function putShul(request: Request, env: Env, slug: string): Promise<Response> {
   const user = await requireUser(request, env)
@@ -387,27 +486,18 @@ export async function putShul(request: Request, env: Env, slug: string): Promise
     const e = scheduleProblem(body.schedule)
     if (e) throw new HttpError(400, e)
   }
-  const now = Date.now()
-  const updated = await env.DB.prepare(
-    `UPDATE shuls SET profile = ?1, schedule = ?2, revision = revision + 1, updated_at = ?3, updated_by = ?4
-     WHERE id = ?5 AND revision = ?6 RETURNING *`,
+  const updated = await commitShul(
+    env,
+    row.id,
+    body.baseRevision,
+    body.profile !== undefined ? JSON.stringify(body.profile) : row.profile,
+    body.schedule !== undefined ? JSON.stringify(body.schedule) : row.schedule,
+    { userId: user.id },
   )
-    .bind(
-      body.profile !== undefined ? JSON.stringify(body.profile) : row.profile,
-      body.schedule !== undefined ? JSON.stringify(body.schedule) : row.schedule,
-      now,
-      user.id,
-      row.id,
-      body.baseRevision,
-    )
-    .first<ShulRow>()
   if (!updated) {
     const current = await findShul(env, slug)
     return json({ error: 'revision conflict', ...shulRecord(current) }, { status: 409 })
   }
-  await env.DB.prepare('INSERT INTO history (shul_id, revision, user_id, at) VALUES (?, ?, ?, ?)')
-    .bind(row.id, updated.revision, user.id, now)
-    .run()
   return json(shulRecord(updated))
 }
 

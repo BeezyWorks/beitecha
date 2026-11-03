@@ -264,11 +264,15 @@ export const BULLETIN_SECTIONS = [
  * parts that replaced them, in place.
  */
 export const LEGACY_BULLETIN_SECTIONS = ['notices', 'remembrance', 'celebrations'] as const
-/** A shul's own announcement category (`category:<id>`) is a section of its own. */
+/**
+ * A shul's own announcement category (`category:<id>`) is a section of its own, and so is each thing sponsored with a
+ * named sponsor (`sponsors:announcements`, `sponsors:event:<eventId>`); plain `sponsors` holds the rest.
+ */
 export type BulletinSection =
   | (typeof BULLETIN_SECTIONS)[number]
   | (typeof LEGACY_BULLETIN_SECTIONS)[number]
   | `category:${string}`
+  | `sponsors:${string}`
 
 /** Which pages of the printed week carry a header or footer. */
 export type BandPages = 'all' | 'first' | 'last' | 'off'

@@ -18,6 +18,7 @@ import {
   SheetStyle,
   type Paper,
 } from '@/components/Bulletin'
+import { useCollapsed } from '@/lib/useCollapsed'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { ThemeRoot } from '@/components/ThemeRoot'
@@ -47,6 +48,7 @@ export function BulletinSection({ slug }: { slug: string }) {
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
   const [paper, setPaper] = React.useState<Paper | null>(null)
   const [full, setFull] = React.useState(false)
+  const [folded, toggleFolded] = useCollapsed('bulletin-preview')
   if (!profile || !schedule) return null
 
   const range = weekContaining(today, schedule.settings.print)
@@ -188,6 +190,8 @@ export function BulletinSection({ slug }: { slug: string }) {
         ))}
         <BulletinCard
           settings={schedule.settings}
+          events={schedule.events}
+          notices={schedule.notices}
           onChange={(settings) => setSchedule({ ...schedule, settings })}
         />
       </Stack>
@@ -209,6 +213,13 @@ export function BulletinSection({ slug }: { slug: string }) {
           icon="external-link"
           onPress={() => setFull(true)}
         />
+        <Button
+          variant="ghost"
+          size="sm"
+          title="Hide preview"
+          icon="chevron-right"
+          onPress={toggleFolded}
+        />
       </Stack>
       <SheetPreview slug={slug} range={range} paper={chosen} width={RAIL - 32} />
     </ScrollStack>
@@ -222,9 +233,26 @@ export function BulletinSection({ slug }: { slug: string }) {
             {controls}
           </Stack>
           <Stack width={1} background={SemanticColor.BorderDefault} />
-          <Stack width={RAIL} background={SemanticColor.SurfaceSelected}>
-            {preview}
-          </Stack>
+          {folded ? (
+            <Stack
+              width={48}
+              align="center"
+              padding="xs"
+              background={SemanticColor.SurfaceSelected}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Show preview"
+                icon="chevron-left"
+                onPress={toggleFolded}
+              />
+            </Stack>
+          ) : (
+            <Stack width={RAIL} background={SemanticColor.SurfaceSelected}>
+              {preview}
+            </Stack>
+          )}
         </Stack>
       ) : (
         <Stack grow height={0}>

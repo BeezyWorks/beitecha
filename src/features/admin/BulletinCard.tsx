@@ -4,6 +4,9 @@ import {
   type BulletinSection,
   BULLETIN_DAY_NAMES,
   DEFAULT_SHABBOS_ZMANIM,
+  guessCategory,
+  type EventDef,
+  type Notice,
   type NoticeCategory,
   type PrintSettings,
   type ShulSettings,
@@ -37,24 +40,55 @@ const SECTION_NAMES: Record<(typeof BULLETIN_SECTIONS)[number], string> = {
   contact: 'Contact info',
 }
 
-const sectionName = (section: BulletinSection, categories: NoticeCategory[]) =>
+/** What can be sponsored, each its own section: the announcements, the meals and anything with a sponsorship. */
+export interface Sponsorable {
+  section: BulletinSection
+  name: string
+}
+
+export function sponsorables(events: EventDef[], notices: Notice[]): Sponsorable[] {
+  const sponsored = new Set(
+    notices.flatMap((n) => (n.kind === 'sponsor' && n.eventId ? [n.eventId] : [])),
+  )
+  return [
+    { section: 'sponsors:announcements', name: 'Announcement sponsors' },
+    ...events
+      .filter((e) => sponsored.has(e.id) || guessCategory(e) === 'meal')
+      .map((e) => ({
+        section: `sponsors:event:${e.id}` as const,
+        name: `${e.adminName ?? e.name.en} sponsors`,
+      })),
+  ]
+}
+
+interface Names {
+  categories: NoticeCategory[]
+  sponsoring: Sponsorable[]
+}
+
+const sectionName = (section: BulletinSection, { categories, sponsoring }: Names) =>
   section in SECTION_NAMES
     ? SECTION_NAMES[section as keyof typeof SECTION_NAMES]
-    : (categories.find((c) => `category:${c.id}` === section)?.name.en ?? section)
+    : (categories.find((c) => `category:${c.id}` === section)?.name.en ??
+      sponsoring.find((x) => x.section === section)?.name ??
+      section)
 
-/** Every section, announcement categories included, in the automatic order. */
-const allSections = (categories: NoticeCategory[]): BulletinSection[] => {
+/** Every section, announcement categories and sponsorships included, in the automatic order. */
+const allSections = ({ categories, sponsoring }: Names): BulletinSection[] => {
   const at = BULLETIN_SECTIONS.indexOf('announcements')
+  const sp = BULLETIN_SECTIONS.indexOf('sponsors')
   return [
-    ...BULLETIN_SECTIONS.slice(0, at),
+    ...BULLETIN_SECTIONS.slice(0, sp),
+    ...sponsoring.map((x) => x.section),
+    ...BULLETIN_SECTIONS.slice(sp, at),
     ...categories.map((c) => `category:${c.id}` as const),
     ...BULLETIN_SECTIONS.slice(at),
   ]
 }
 
 /** The automatic layout as a list: the times on the first page, the rest on the second. */
-const autoLayout = (categories: NoticeCategory[]) =>
-  allSections(categories).map((section) => ({
+const autoLayout = (names: Names) =>
+  allSections(names).map((section) => ({
     section,
     page: ['shabbos', 'specialZmanim', 'weekdays', 'zmanimTable'].includes(section) ? 1 : 2,
   }))
@@ -110,11 +144,8 @@ const SHOWN: {
 ]
 
 /** `layout` with its combined sections split up and the sections it leaves out added (after the rest, on the last page). */
-function completeLayout(
-  layout: NonNullable<PrintSettings['layout']>,
-  categories: NoticeCategory[],
-) {
-  const known = allSections(categories)
+function completeLayout(layout: NonNullable<PrintSettings['layout']>, names: Names) {
+  const known = allSections(names)
   const rows = expandLayout(layout, known).filter((r) => known.includes(r.section))
   const last = Math.max(1, ...rows.map((r) => r.page))
   return [
@@ -128,9 +159,13 @@ function completeLayout(
 /** the bulletin: whether it has the zmanim table, and which zmanim sit among the Shabbos minyanim. */
 export function BulletinCard({
   settings,
+  events,
+  notices,
   onChange,
 }: {
   settings: ShulSettings
+  events: EventDef[]
+  notices: Notice[]
   onChange: (settings: ShulSettings) => void
 }) {
   const print = settings.print ?? {}
@@ -183,9 +218,12 @@ export function BulletinCard({
     )
   }
 
-  const categories = settings.noticeCategories ?? []
+  const names: Names = {
+    categories: settings.noticeCategories ?? [],
+    sponsoring: sponsorables(events, notices),
+  }
   // A layout saved before the sections were split, and any section it doesn't list yet, shown as the rows they are.
-  const layout = print.layout && completeLayout(print.layout, categories)
+  const layout = print.layout && completeLayout(print.layout, names)
   const move = (i: number, by: number) => {
     if (!layout) return
     const next = [...layout]
@@ -208,7 +246,7 @@ export function BulletinCard({
         </Stack>
         <ToggleSwitch
           value={!!layout}
-          onValueChange={(on) => set({ layout: on ? autoLayout(categories) : undefined })}
+          onValueChange={(on) => set({ layout: on ? autoLayout(names) : undefined })}
           accessibilityLabel="Choose what goes on each page"
         />
       </Stack>
@@ -221,10 +259,10 @@ export function BulletinCard({
           {layout.map((row, i) => (
             <Stack key={row.section} direction="row" align="center" gap="md">
               <Stack grow>
-                <Text variant="body">{sectionName(row.section, categories)}</Text>
+                <Text variant="body">{sectionName(row.section, names)}</Text>
               </Stack>
               <Select
-                accessibilityLabel={`Page for ${sectionName(row.section, categories)}`}
+                accessibilityLabel={`Page for ${sectionName(row.section, names)}`}
                 value={String(row.page)}
                 options={PAGE_CHOICES}
                 onChange={(v) => setPage(i, Number(v))}

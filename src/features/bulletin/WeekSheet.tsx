@@ -1238,12 +1238,13 @@ function noticeParts(t: T, notices: Notice[], categories: NoticeCategory[], days
     notices: list,
   })
   const parts: NoticePart[] = [
+    ...sponsorGroups(t, notices, days).map((g) => ({
+      key: `sponsors:${g.key}` as const,
+      headings: [heading(g.key, g.title, undefined, g.sponsors)],
+    })),
     {
       key: 'sponsors',
       headings: [
-        ...sponsorGroups(t, notices, days).map((g) =>
-          heading(g.key, g.title, undefined, g.sponsors),
-        ),
         heading(
           'sponsor',
           t.s.sponsorships,

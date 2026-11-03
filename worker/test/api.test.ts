@@ -115,6 +115,16 @@ describe('creating a shul', () => {
   })
 })
 
+describe('framing', () => {
+  it('forbids framing on API and health responses', async () => {
+    for (const path of ['/api/directory', '/api/nope', '/health']) {
+      const { headers } = await call('GET', path)
+      expect(headers.get('content-security-policy')).toBe("frame-ancestors 'none'")
+      expect(headers.get('x-frame-options')).toBe('DENY')
+    }
+  })
+})
+
 describe('the public feed', () => {
   it('serves an ETag and answers 304', async () => {
     const slug = await newShul()

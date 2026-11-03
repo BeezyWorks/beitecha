@@ -93,23 +93,35 @@ function devCors(request: Request, env: Env, response: Response): Response {
   return res
 }
 
+/** No page of ours may be framed (clickjacking). `/embed/*` must be exempted when it's built (per-shul frame-ancestors). */
+function noFraming(response: Response): Response {
+  const res = new Response(response.body, response)
+  res.headers.set('content-security-policy', "frame-ancestors 'none'")
+  res.headers.set('x-frame-options', 'DENY')
+  return res
+}
+
+async function route(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url)
+  if (url.pathname === '/health') return Response.json({ ok: true })
+  if (url.pathname.startsWith('/api/')) {
+    const response =
+      request.method === 'OPTIONS'
+        ? new Response(null, { status: 204 })
+        : ((await rateLimited(request, env, url)) ?? (await handleApi(request, env, url)))
+    return devCors(request, env, siddurCors(request, url, response))
+  }
+  // `/<slug>.ics` is the short subscribe link printed under the QR code.
+  const ics = /^\/([a-z0-9-]+)\.ics$/.exec(url.pathname)
+  if (ics && request.method === 'GET') {
+    const api = new URL(`/api/shuls/${ics[1]}/calendar.ics`, url)
+    return (await rateLimited(request, env, api)) ?? handleApi(request, env, api)
+  }
+  return env.ASSETS.fetch(request)
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url)
-    if (url.pathname === '/health') return Response.json({ ok: true })
-    if (url.pathname.startsWith('/api/')) {
-      const response =
-        request.method === 'OPTIONS'
-          ? new Response(null, { status: 204 })
-          : ((await rateLimited(request, env, url)) ?? (await handleApi(request, env, url)))
-      return devCors(request, env, siddurCors(request, url, response))
-    }
-    // `/<slug>.ics` is the short subscribe link printed under the QR code.
-    const ics = /^\/([a-z0-9-]+)\.ics$/.exec(url.pathname)
-    if (ics && request.method === 'GET') {
-      const api = new URL(`/api/shuls/${ics[1]}/calendar.ics`, url)
-      return (await rateLimited(request, env, api)) ?? handleApi(request, env, api)
-    }
-    return env.ASSETS.fetch(request)
+    return noFraming(await route(request, env))
   },
 }

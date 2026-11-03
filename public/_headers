@@ -1,0 +1,4 @@
+# No page may be framed (clickjacking). /embed/* must be exempted when it's built.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY

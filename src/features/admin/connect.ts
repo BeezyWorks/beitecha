@@ -250,7 +250,7 @@ export function describeOperation(op: Operation, before?: Entry[], names?: Names
       const title = text(op.title)
       const body = text(op.text)
       const when = range(op.from, op.to)
-      return `Post a ${kind}${title ? ` ${quote(title)}` : ''}: ${body}${when ? ` (${when})` : ''}`
+      return `Post ${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}${title ? ` ${quote(title)}` : ''}: ${body}${when ? ` (${when})` : ''}`
     }
     case 'notice.update': {
       const was = entryLabel(before?.[0])

@@ -21,7 +21,7 @@ function PendingCard({ c, expired }: { c: ChangeView; expired?: boolean }) {
   return (
     <Card gap="sm">
       <Stack direction="row" align="center" gap="sm" wrap>
-        <Stack grow gap="none">
+        <Stack grow width={0} gap="none">
           <Text variant="caption" color={SemanticColor.TextSecondary}>
             {c.userName ?? 'A gabbai'} · {c.connectionLabel ?? 'an assistant'} ·{' '}
             {relativeTime(c.createdAt, now)}
@@ -109,7 +109,7 @@ export function PendingSection() {
           radius="md"
           background={SemanticColor.AccentTint}
         >
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">{error ?? notice}</Text>
           </Stack>
           <Button size="sm" variant="ghost" title="Dismiss" onPress={clearNotice} />

@@ -52,3 +52,4 @@ scripts/.cache
 # Wrangler
 .wrangler/
 .dev.vars
+__pycache__/

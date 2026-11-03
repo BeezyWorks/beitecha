@@ -46,7 +46,7 @@ function ScopePicker({ value, onChange }: { value: Scope[]; onChange: (s: Scope[
     <Stack gap="xs">
       {ALL_SCOPES.map((s) => (
         <Stack key={s} direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">{SCOPE_LABELS[s]}</Text>
           </Stack>
           <ToggleSwitch
@@ -75,7 +75,7 @@ function ApiCard({ owner }: { owner: boolean }) {
   return (
     <Card gap="md">
       <Stack direction="row" align="center" gap="md">
-        <Stack grow gap="xs">
+        <Stack grow width={0} gap="xs">
           <Text variant="sectionHeader">Assistants & API</Text>
           <Text variant="body" color={SemanticColor.TextSecondary}>
             Let an AI assistant, like Claude, or a script help keep the schedule up to date: add a
@@ -269,7 +269,7 @@ function ConnectionCard({ c, canManage }: { c: Connection; canManage: boolean })
   return (
     <Card gap="sm">
       <Stack direction="row" align="center" gap="sm" wrap>
-        <Stack grow gap="none">
+        <Stack grow width={0} gap="none">
           <Text variant="bodyStrong">{c.label}</Text>
           <Text variant="caption" color={SemanticColor.TextSecondary}>
             {c.userName ?? 'A gabbai'}
@@ -372,7 +372,7 @@ function ConnectionsList({ owner }: { owner: boolean }) {
   return (
     <Stack gap="sm">
       <Stack direction="row" align="center" gap="md">
-        <Stack grow>
+        <Stack grow width={0}>
           <Text variant="title">{owner ? 'Connections' : 'Your connections'}</Text>
         </Stack>
         {owner && active.length > 0 && (
@@ -483,7 +483,7 @@ export function ConnectSection() {
           radius="md"
           background={SemanticColor.AccentAlertFaded}
         >
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">{error}</Text>
           </Stack>
           <Button size="sm" variant="ghost" title="Dismiss" onPress={clearNotice} />
@@ -497,7 +497,7 @@ export function ConnectSection() {
           radius="md"
           background={SemanticColor.AccentTint}
         >
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">{notice}</Text>
           </Stack>
           <Button size="sm" variant="ghost" title="Dismiss" onPress={clearNotice} />

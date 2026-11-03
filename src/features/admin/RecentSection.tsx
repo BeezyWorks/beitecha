@@ -26,7 +26,7 @@ function ChangeCard({ c }: { c: ChangeView }) {
   return (
     <Card gap="sm">
       <Stack direction="row" align="center" gap="sm" wrap>
-        <Stack grow gap="none">
+        <Stack grow width={0} gap="none">
           <Text variant="caption" color={SemanticColor.TextSecondary}>
             {c.userName ?? 'A gabbai'} · {c.connectionLabel ?? 'an assistant'} ·{' '}
             {relativeTime(c.decidedAt ?? c.createdAt, Date.now())}
@@ -100,7 +100,7 @@ function UndoSince() {
       {active.map((c) => (
         <Stack key={c.id} gap="xs">
           <Stack direction="row" align="center" gap="sm" wrap>
-            <Stack grow>
+            <Stack grow width={0}>
               <Text variant="body">
                 {c.label}
                 <Text variant="caption" color={SemanticColor.TextSecondary}>
@@ -174,7 +174,7 @@ export function RecentSection() {
           radius="md"
           background={SemanticColor.AccentTint}
         >
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">{error ?? notice}</Text>
           </Stack>
           <Button size="sm" variant="ghost" title="Dismiss" onPress={clearNotice} />

@@ -18,7 +18,7 @@ export function SectionPage({
     <ScrollStack padding="xl" gap="lg">
       <Stack maxWidth={880} gap="lg">
         <Stack direction="row" align="center" gap="md" wrap>
-          <Stack grow gap="xs">
+          <Stack grow width={0} gap="xs">
             <Text variant="largeTitle">{title}</Text>
             {!!intro && (
               <Text variant="body" color={SemanticColor.TextSecondary}>

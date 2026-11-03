@@ -91,13 +91,20 @@ type Density = 'roomy' | 'compact'
 /** Row heights are fixed so the rows that fit a panel can be counted: [one line, with a second]. */
 const TODAY_ROW: Record<Density, [number, number]> = { roomy: [60, 88], compact: [44, 68] }
 
-const hasSub = (r: TodayRowItem) =>
-  r.justStarted || r.event.cancelled || !!r.event.note || (r.event.untimed && !!r.event.relative)
+/** The small heading over the day's shiurim and programs, which are listed apart from the minyanim. */
+const OTHERS_HEADING = { en: 'Shiurim & programs', he: 'שיעורים ותוכניות' }
+const HEADING_ROW: Record<Density, number> = { roomy: 44, compact: 36 }
 
-interface TodayRowItem {
-  event: Occurrence
-  justStarted: boolean
-}
+const hasSub = (r: TodayRowItem) =>
+  !!r.event &&
+  (r.justStarted || r.event.cancelled || !!r.event.note || (r.event.untimed && !!r.event.relative))
+
+/** A row of Today: an event, or the heading that starts the non-minyanim. */
+type TodayRowItem =
+  { event: Occurrence; justStarted: boolean } | { event?: undefined; justStarted?: undefined }
+
+const rowHeight = (r: TodayRowItem, d: Density) =>
+  r.event ? TODAY_ROW[d][hasSub(r) ? 1 : 0] : HEADING_ROW[d]
 
 /** What's left of the day: past ones go, except one that started a moment ago. */
 function remaining(events: Occurrence[], minutes: Minutes): TodayRowItem[] {
@@ -107,13 +114,17 @@ function remaining(events: Occurrence[], minutes: Minutes): TodayRowItem[] {
     undefined,
   )
   const recent = latest && !latest.cancelled && minutes - latest.minutes! <= JUST_STARTED_MIN
-  return events.flatMap<TodayRowItem>((e) =>
+  const rows = events.flatMap<TodayRowItem>((e) =>
     e.minutes === null || e.minutes >= minutes
       ? [{ event: e, justStarted: false }]
       : recent && e === latest
         ? [{ event: e, justStarted: true }]
         : [],
   )
+  // Minyanim first; shiurim and programs (mahjong) follow under a heading of their own.
+  const minyanim = rows.filter((r) => r.event!.kind === 'tefila')
+  const others = rows.filter((r) => r.event!.kind !== 'tefila')
+  return minyanim.length && others.length ? [...minyanim, {}, ...others] : rows
 }
 
 /** Panel padding, heading and the gap under it, with a little to spare. */
@@ -126,7 +137,7 @@ export function todayHeight(day: DaySchedule, minutes: Minutes, cap: number): nu
     TODAY_CHROME +
     Math.max(
       rows.length ? 0 : 40,
-      rows.reduce((sum, r, i) => sum + TODAY_ROW[d][hasSub(r) ? 1 : 0] + (i ? SEP : 0), 0),
+      rows.reduce((sum, r, i) => sum + rowHeight(r, d) + (i ? SEP : 0), 0),
     )
   return Math.min(cap, need(need('roomy') <= cap ? 'roomy' : 'compact'))
 }
@@ -148,7 +159,7 @@ export function Today({
   const t = useT()
   const { room, onLayout } = useRoom()
   const rows = remaining(day.events, minutes)
-  const heights = (d: Density) => rows.map((r) => TODAY_ROW[d][hasSub(r) ? 1 : 0])
+  const heights = (d: Density) => rows.map((r) => rowHeight(r, d))
   const density: Density =
     !reduced && paginate(heights('roomy'), room, SEP).length <= 1 ? 'roomy' : 'compact'
   const pages = paginate(heights(density), room, SEP)
@@ -159,15 +170,26 @@ export function Today({
       <Stack fill padding="lg" gap="sm">
         <PanelHeading en={t.s.today} he="סדר היום" />
         <Stack grow height={0} overflow="hidden" gap="xs" onLayout={onLayout}>
-          {page.flatMap((n, k) => [
-            ...(k > 0 ? [<Divider key={`${n}-rule`} />] : []),
-            <TodayRow
-              key={rows[n].event.eventId}
-              item={rows[n]}
-              isNext={rows[n].event === next}
-              density={density}
-            />,
-          ])}
+          {page.flatMap((n, k) => {
+            const row = rows[n]
+            if (!row.event)
+              return [
+                <Stack key="others" height={HEADING_ROW[density]} justify="end" paddingBottom="xs">
+                  <Text variant="itemHeader" color={SemanticColor.TextSecondary}>
+                    {t.text(OTHERS_HEADING)}
+                  </Text>
+                </Stack>,
+              ]
+            return [
+              ...(k > 0 && rows[page[k - 1]].event ? [<Divider key={`${n}-rule`} />] : []),
+              <TodayRow
+                key={row.event.eventId}
+                item={row}
+                isNext={row.event === next}
+                density={density}
+              />,
+            ]
+          })}
           {!day.events.length && (
             <Text variant="titleLarge" color={SemanticColor.TextSecondary}>
               {t.s.noMinyanim}
@@ -185,7 +207,7 @@ function TodayRow({
   isNext,
   density,
 }: {
-  item: TodayRowItem
+  item: TodayRowItem & { event: Occurrence }
   isNext: boolean
   density: Density
 }) {

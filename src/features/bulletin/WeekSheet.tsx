@@ -63,6 +63,7 @@ const HEBREW = /[\u0590-\u05FF]/
 const WORDS = {
   shabbosMorning: { en: 'Shabbos morning', he: 'שבת בבוקר' },
   shabbosAfternoon: { en: 'Shabbos afternoon', he: 'שבת אחר הצהריים' },
+  others: { en: 'Shiurim & programs this week', he: 'שיעורים ותוכניות השבוע' },
   changed: { en: 'Changed this week', he: 'שינויים השבוע' },
   office: { en: 'Office', he: 'משרד' },
   rabbi: { en: 'Rabbi', he: 'הרב' },
@@ -118,8 +119,8 @@ export interface WeekProps {
   footer?: BulletinBand
 }
 
-/** Weekday shiurim have their own timetable with the announcements; the front's weekday grid keeps to the minyanim. */
-const notShiur = (e: Occurrence) => e.kind !== 'shiur'
+/** Weekday shiurim and programs (mahjong) have their own timetable with the announcements; the front's weekday grid keeps to the minyanim. */
+const isMinyan = (e: Occurrence) => e.kind === 'tefila'
 
 /** The days the shiurim list covers: Shabbos's (Friday from chatzos, and Shabbos itself) are on the Shabbos timeline. */
 const shiurDays = (days: DaySchedule[], shabbos: ShabbosPair[]): DaySchedule[] =>
@@ -165,7 +166,7 @@ export const hasAnnouncements = ({
   yahrzeits.length > 0 ||
   birthdays.length > 0 ||
   anniversaries.length > 0 ||
-  (shiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !notShiur(e))))
+  (shiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !isMinyan(e))))
 
 /** The front: the masthead, Shabbos, the weekday minyanim and the week's zmanim (and, `withNotices`, the rest). */
 export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: boolean }) {
@@ -189,7 +190,7 @@ function WeekdayGrid({ days, shabbos, notices }: WeekProps) {
   const t = useT()
   const weekdays = withoutShabbos(days, shabbos).map((d) => ({
     ...d,
-    events: d.events.filter(notShiur),
+    events: d.events.filter(isMinyan),
   }))
   if (weekdays.length === 0) return null
   return <EventGrid days={weekdays} notices={notices} en={t.s.weekdays} he={HE.s.weekdays} />
@@ -249,7 +250,7 @@ function announcementBlocks({
   contact,
 }: WeekProps): { key: BulletinSection; node: React.ReactNode }[] {
   const blocks: { key: BulletinSection; node: React.ReactNode }[] = []
-  if (showShiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !notShiur(e))))
+  if (showShiurim && shiurDays(days, shabbos).some((d) => d.events.some((e) => !isMinyan(e))))
     blocks.push({
       key: 'shiurim',
       node: <Shiurim days={shiurDays(days, shabbos)} notices={notices} />,
@@ -844,7 +845,7 @@ function Shiurim({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) 
   >()
   days.forEach((day, i) => {
     for (const e of day.events) {
-      if (notShiur(e)) continue
+      if (isMinyan(e)) continue
       const item = shiurim.get(e.eventId) ?? { first: e, entries: [] }
       item.entries.push({ day, e, sponsor: sponsors[i].get(e.eventId) })
       shiurim.set(e.eventId, item)
@@ -858,7 +859,7 @@ function Shiurim({ days, notices }: { days: DaySchedule[]; notices: Notice[] }) 
   )
   return (
     <Stack gap="xs">
-      <Heading en={t.s.shiurimThisWeek} he={HE.s.shiurimThisWeek} />
+      <Heading en={WORDS.others.en} he={WORDS.others.he} />
       <Stack gap="none">
         {list.map(({ first, entries }) => {
           // Days with the same time (and the same changed or cancelled state) are one line.

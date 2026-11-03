@@ -1,279 +1,367 @@
-# Brief: public API, embeds, API keys, write API, MCP
+# Brief: public reads, embeds, connections, write API, MCP
 
-Status: draft for audit. Nothing here is built.
+Status: decided, ready to build in phases (§16). Nothing here is built yet.
 
 ## 1. Goal
 
-Let a shul manage its data from outside the admin and show it on its own site.
+The person we design for is the shul's office manager: not technical, and she won't learn new tech if she can avoid
+it. Every week she updates sponsorships, notices, one-time changes, yahrzeits and birthdays. The end goal: she opens the
+chat app she already uses, says "kiddush this week is sponsored by the Cohens in honor of Dovid's bar mitzvah", and it's
+done.
 
-1. **Read API + embeds**: a shul's own website shows its computed times, zmanim, shul info and bulletin.
-2. **Write API**: a narrow, safe way to change sponsors, notices, one-off changes and a few lists, from scripts and from an AI assistant ("kiddush this week is sponsored by X in honor of Y").
-3. **MCP server** over the write (and read) API, so an AI tool plugged in does exactly that.
+1. **Public reads + embeds**: a shul's own website shows its computed times, zmanim, info and notices. No key needed.
+2. **Write API**: a narrow set of operations (never a whole document) to change sponsorships, notices, one-time changes,
+   one-time events, yahrzeits, birthdays/anniversaries and refuah names.
+3. **Three ways in**, all through the same write API:
+   - **MCP** (hosted by us at `beitecha.baderech.app/mcp`): she pastes the URL into her chat app's connectors, clicks
+     Connect and signs in with her Baderech account. No key to copy.
+   - **Our script + skill**: the admin gives her a zip (a Python script with a key built in, plus a `SKILL.md`) to add to
+     Claude as a skill. This needs no OAuth server, so it ships before the MCP.
+   - **Their own script**: a technical shul member gets a plain API key.
 
-Non-goals: native apps using keys; editing rules, settings, displays or the team through a key; exposing the rules themselves; a developer portal or billing.
+Non-goals: email-in (the LLM cost would be ours; maybe later); public keys for browsers; editing rules, settings,
+displays or the team through any connection; a developer portal or billing.
 
-## 2. Ground truth in the current code
+## 2. Decisions
 
-The design has to fit these, so the auditor should check them:
+- **The Siddur keeps the whole feed.** `GET /api/shuls/:slug` stays as it is, with cholim, yahrzeits, birthdays and
+  anniversaries, and there is **no shul setting** to hide them from the Siddur. The stricter rules here apply only to
+  `/v1`.
+- **No public keys.** Everything a browser key would read is already public. Reads under `/v1` need no key and are
+  limited per IP; iframe embeds are gated by the shul's website list (`frame-ancestors`).
+- **Every connection belongs to a person and has a purpose.** A connection is either a key or an MCP sign-in grant; both
+  live in one table (§4). It works only while its user is still a member of the shul with the role it needs.
+- **A shul with no connections has no API.** `api_enabled` is off by default. While it's off, every `/v1` write path
+  returns 404 before anything is loaded.
+- **Review is a choice per connection**: "Post right away" or "Ask a gabbai first". A shul can live dangerously.
+  Retiming or cancelling a **minyan** is always queued, whatever the mode.
+- **One write path.** The MCP, our script and their scripts all call the same `/v1` operations.
+- **The accounts service (BeezyWorksAccounts) becomes the OAuth server** for the MCP, through Better Auth's own
+  `@better-auth/mcp` plugin (§12).
 
-- One JSON `Schedule` per shul in D1 (`shuls.schedule`), saved whole with `baseRevision` (`putShul`, `worker/shuls.ts`). `history` records only `(shul, revision, user, at)`, with no diffs and no way to revert.
-- Auth is a Baderech bearer token checked on the accounts Worker (`worker/auth.ts`). Roles: `owner`, `editor`. There is no API-key concept.
-- `GET /api/shuls/:slug` is **already public** and returns the whole schedule: rules, notices, `cholim`, `yahrzeits`, `birthdays`, `anniversaries`. It has CORS for the three Siddur hosts only and a per-IP limit (`PUBLIC_LIMIT`, 300/min). So the new API's privacy posture must be decided against what is already exposed (see §13).
-- The worker never computes times except for the ICS feed (`worker/ics.ts`, 60 days). The engine runs fine in the Worker, so server-computed days are not a new capability.
-- `Exception` (`packages/engine/src/types.ts`) is a union: `cancel`, `retime`, `note`, `add` (a single-date event). The admin's Today field edits these through `upsertException` / `removeException` in `features/admin/store.ts`. A write API should mirror those operations.
-- `Notice` covers sponsors, announcements, reminders, simcha and condolence. A sponsorship is a notice with `kind: 'sponsor'`, optionally an `eventId`, `sponsoredBy`, `inHonorOf` and `text`.
-- `Yahrzeit`, `Occasion` (birthday / anniversary) and `Choleh` carry names of people. The admin gets CSV/JSON import for them.
-- `scheduleProblem()` validates shape; `validate()` in the engine dry-runs a year. `scheduleProblem` currently validates the whole document, which is useful for write-op validation.
+## 3. Ground truth in the current code
 
-## 3. Key model
+- One JSON `Schedule` per shul in D1 (`shuls.schedule`), saved whole with `baseRevision` (`putShul`,
+  `worker/shuls.ts`). `history` records only `(shul, revision, user, at)`.
+- Auth: a Baderech bearer token checked with `GET /api/auth/get-session` on the accounts Worker (`worker/auth.ts`), over
+  the `AUTH` service binding. Roles: `owner`, `editor` (`members` table). The Siddur signs in to the same accounts
+  service (`auth.baderech.app`), so a person has one account across all the apps.
+- `GET /api/shuls/:slug` is public: the whole schedule, CORS for the Siddur's hosts, `PUBLIC_LIMIT` 300/min per IP.
+- The worker computes only the ICS feed (`worker/ics.ts`); the engine runs fine in the Worker.
+- `Exception` is `cancel | retime | note | add`; the admin's Today field edits them through `upsertException` /
+  `removeException` (`features/admin/store.ts`). A sponsorship is a `Notice` with `kind: 'sponsor'`.
+- `scheduleProblem()` validates shape; the engine's `validate()` dry-runs a year.
+- Static assets are served directly (`wrangler.jsonc` `assets`, `run_worker_first` only for `/api/*`, `/health`,
+  `/*.ics`). **No framing protection is set anywhere today** (no `frame-ancestors`, no `X-Frame-Options`).
 
-Two kinds of key, both per shul, created by an **owner** only.
+## 4. Connections
 
-| | Public key `bk_pub_…` | Secret key `bk_sec_…` |
+One table, two kinds:
+
+| | `key` | `oauth` |
 |---|---|---|
-| For | a browser on the shul's own site | server, script or AI tool |
-| Pinned to | 1–5 domains | none |
-| Can do | reads only | reads plus the write scopes it was given |
-| Guarded by | `Origin` check, rate limit, revoke | secrecy, scopes, rate limit, audit log, revoke, optional expiry |
+| Made by | a member in the admin ("Create key" or "Download Claude skill") | a member signing in from a chat app's connector |
+| Secret | `bk_sec_<32 base62>`, shown once (built into the skill zip) | an access token from the accounts service; refreshed by the chat app |
+| Purpose | picked at creation: AI assistant (skill), Script, Other + a note | "AI assistant, <client name>" from the OAuth client |
 
-Why two: browsers set `Origin` themselves and scripts can fake it, so domain pinning stops only reuse of a leaked key on another website. It cannot protect a write key, and an AI tool sends no Origin anyway. It is still worth having on public keys, because it keeps the honest case honest and makes leaked keys useless on other sites.
+Rules:
 
-**No apps.** A public key's requests must carry an `Origin` header that exactly matches a pinned origin (scheme, host, port; no wildcards beyond an explicit `*.example.org` form, to be decided). Requests with no `Origin` are rejected on public keys. Documented as "websites only". This is a speed bump, not a guarantee, and the docs should not claim otherwise.
+- **Owner of a connection = the member who made it.** It is checked on every request in the same SQL as the lookup
+  (`JOIN members ON shul_id AND user_id`), so removing a member or making an owner an editor ends their connections at
+  once.
+- **Who can create one**: any member, once an owner has turned on `api_enabled`. A connection can't do more than its
+  user's role allows. Owners see and revoke every connection in the shul; editors see and revoke their own.
+- **Every owner is told** (in the admin, and by email when we have email for it) when a connection is created.
+- **Keys**: stored as SHA-256 + a visible prefix; never logged; never accepted in a query string; `Authorization:
+  Bearer` only. Expiry is required: default 90 days, max 1 year. The admin warns 14 days before, and a skill whose key
+  expires is re-downloaded.
+- **OAuth grants**: Beitecha creates the connection row the first time a valid token for a new `(user, client)` arrives
+  (§12). If the user belongs to several shuls, tools take a `shul` argument and the row is per shul.
+- **Revoke one, revoke all, freeze.** Revoke takes effect on the next request (key lookups aren't cached for more than a
+  few seconds). "Revoke all" revokes every connection in the shul. Turning `api_enabled` off does the same and blocks new
+  ones. An env var `V1_WRITES=off` stops every write on every shul (kill switch).
+- **Limits**: 10 active connections per shul, 3 per user. Creating keys is rate-limited per user.
+- **What the admin shows per connection**: user, purpose, kind, mode, scopes, created, last used (throttled to one
+  write per few minutes), last IP and user agent, writes this week, expiry.
 
-Key handling:
+## 5. Public reads (no key)
 
-- Format `bk_pub_<22 base62>` / `bk_sec_<32 base62>`, 128+ bits of entropy.
-- Shown once at creation. Stored as SHA-256 of the key (a fast hash is fine for high-entropy random keys) plus a short visible prefix. Never logged. Redacted in error output.
-- Per key: label, scopes, domains (public), created by/at, last used at, optional expiry, revoked at, per-key rate limit tier.
-- Owners list, rotate (create new, revoke old after overlap) and revoke instantly. A revoked or expired key fails with 401 on the next request (no long cache on key lookups; at most a few seconds).
-- Limits: e.g. 10 active keys per shul.
-- Sent as `Authorization: Bearer bk_…` (or `x-api-key`). Never accepted in a query string, to keep keys out of logs and referrers. Embeds need a different mechanism (§5).
+Base `/v1/shuls/:slug/…`, JSON, versioned apart from the internal `/api`. All responses are **computed**: no `Rule`,
+`Condition` or `TimeExpr` appears. Limited per IP (`PUBLIC_LIMIT` or a sibling binding).
 
-## 4. Read API
+| Endpoint | Returns |
+|---|---|
+| `GET /info` | name, address, city, website, brand color, time zone, language, `israel`, `bulletinUrl` |
+| `GET /day/:date` | one day: Hebrew date, holidays, parsha, tags, zmanim, public events with computed times |
+| `GET /days?from&to` | a range, at most 62 days |
+| `GET /week` | the shul's current week, by the shul's clock |
+| `GET /zmanim?from&to` | zmanim only (built-in + custom, respecting `hidden`) |
+| `GET /next` | what's next, from the shul's clock |
+| `GET /notices` | current notices and sponsorships, with ids |
+| `GET /upcoming?days=14` | event **instances** with a stable `ref` (`<eventId>@<date>`), name, time and any existing sponsor, exception or note. Writes accept `ref` |
 
-Base `/v1/shuls/:slug/…`, JSON, versioned independently of the internal `/api` (which stays private and unversioned).
+- Events: `id`, localized `name`, `kind`, `tefila`, `category`, `audience`, `time`, optional `end`, `relative`,
+  `cancelled`, `note`, `source`, speaker/topic/room/link. Times as `minutes` and an ISO local string with the date's
+  UTC offset, plus the IANA zone. `internal` events never appear.
+- **Yahrzeits, birthdays, anniversaries and refuah names are not in `/v1` reads.** The Siddur's feed carries them.
+- Language from `settings.language`/`names` unless `?lang=` / `?names=`.
+- Caching: `ETag` from `(shul id, revision, shul's date, lang, names)`; `Cache-Control` with `s-maxage`. Nothing
+  key-dependent is cached at the edge.
+- CORS: open (`*`) for these reads, since the data is public.
+- `calendar.ics` stays public at its current URL. Calendar apps can't send headers.
+- The bulletin: `bulletinUrl` in `/info` and an iframe embed. No server-rendered PDF.
 
-All responses are **computed**: no `Rule`, `Condition` or `TimeExpr` ever appears.
+## 6. Embeds
 
-| Endpoint | Scope | Returns |
-|---|---|---|
-| `GET /info` | `info` | name, address, city, website, brand color, time zone, language, `israel` |
-| `GET /day/:date` | `times` | one day: Hebrew date, holidays, parsha, tags, zmanim, public events with computed times |
-| `GET /days?from&to` | `times` | a range; capped (e.g. 62 days) |
-| `GET /week` | `times` | the shul's current week, by the shul's clock |
-| `GET /zmanim?from&to` | `zmanim` | zmanim only (built-in + custom names, respecting `hidden`) |
-| `GET /next` | `times` | what's next, from the shul's clock |
-| `GET /notices` | `notices` | current announcements and sponsorships |
-| `GET /bulletin` | `bulletin` | the published week as HTML/PDF/JSON (see §12) |
-| `GET /calendar.ics` | `times` | existing feed under the same auth |
+- **Iframe** `https://beitecha.baderech.app/embed/:slug/<view>` (`week`, `today`, `shabbos`, `zmanim`, `sponsors`,
+  `bulletin`). Params `lang`, `theme`, `accent`, `compact`; height through `postMessage`.
+- **Gated by the shul's website list** (`profile.websites`, 1–5 origins, owner-edited): the Worker sets
+  `Content-Security-Policy: frame-ancestors <origins>` per response. With an empty list the view sends
+  `frame-ancestors 'none'` and doesn't render.
+- Add `/embed/*` to `run_worker_first` so the Worker can set the header (it then serves the SPA through `ASSETS`).
+- Views reuse the luach components and `ThemeRoot`; strings via `useT()`; no raw colors. Check bundle weight; this may
+  need a lean entry.
+- **Separately, and now**: send `frame-ancestors 'none'` (and `X-Frame-Options: DENY`) on everything else, the admin
+  above all. Today it can be framed (clickjacking).
 
-Event shape: `id`, localized `name`, `kind`, `tefila`, `category`, `audience`, `time`, optional `end`, `relative` ("after Maariv"), `cancelled`, `note`, `source: 'rule' | 'exception'`, speaker/topic/room/link where set. Times are given as both `minutes` and an ISO local string with the shul's UTC offset for that date, plus the IANA zone, so consumers never do zone math. `internal` events are never returned.
+## 7. Scopes and operations
 
-Cross-cutting:
-
-- Responses use the shul's `language` and `names` settings unless `?lang=` / `?names=` overrides.
-- `ETag` from `(shul id, revision, shul's date)` and `Cache-Control` with `s-maxage`, so Cloudflare serves most traffic. Because day output depends on the shul's date and on revision, cache keys include both.
-- CORS: for a public key, allow exactly the pinned origins (`Vary: Origin`). For secret keys, no CORS.
-- Rate limit per key (Workers rate-limit binding, like `PUBLIC_LIMIT`), plus a per-shul ceiling so a single shul's traffic can't starve others, plus a per-IP limit.
-- Cache hits should still enforce key checks. If the edge caches a response at the CDN, the key check happens in the Worker first; only the computation is cached (in-Worker cache keyed by shul, revision, date, options).
-
-## 5. Embeds
-
-Two ways to show a shul on another site:
-
-1. **Iframe**: `https://beitecha.baderech.app/embed/:slug/<view>` (views: `week`, `today`, `shabbos`, `zmanim`, `sponsors`). We serve it, so **no key is in the page**. Authorization is the shul's domain list, enforced with `Content-Security-Policy: frame-ancestors <pinned origins>` set per response. Params: `lang`, `theme` (light/dark/auto), `accent` (hex), `compact`. Resizing via `postMessage` height events.
-2. **JS widget** (`embed.js` data-attribute or custom element) that renders into the host page's DOM using a **public key** and the read API. More flexible, more fragile with host CSS. Phase 2 and optional.
-
-Use the same domain list for iframe `frame-ancestors` and public-key origins, so there is one setting: "websites allowed to show our times".
-
-The embed views reuse the existing luach components and `ThemeRoot` brand theming; strings via `useT()`. No raw colors in app code (per AGENTS.md); embed theming goes through the design system. Check bundle weight, since embed routes load the whole Expo web app today; may need a lean entry.
-
-## 6. Scopes
-
-Keys carry a set of scopes. Read scopes are above. Write scopes are in §7. Rules:
-
-- Scopes are checked per endpoint; an endpoint with no matching scope is 403.
-- A public key may hold only read scopes.
-- **Yahrzeits, birthdays and anniversaries are never readable through `/v1`**, by any key. No use case needs them: they are write-only here. (The Siddur gets them through the existing feed, §13.)
-- The refuah list is the one sensitive list a key can read: `cholim:read`, off by default, secret keys only (a tool needs it to find the name to remove).
-- `times`, `zmanim`, `info`, `notices` are the default for a new public key.
-
-## 7. Write API (secret keys)
-
-Principle: **writes are operations, not documents.** A write key can never replace the schedule, and can never touch `rules`, `settings`, `profile`, `displays`, `members` or `keys`. Each operation loads the current schedule, applies one change, validates, and saves with the revision check, retrying on conflict (bounded retries).
-
-### Operations and scopes
+Writes are **operations, not documents**: load, apply one change (`applyOperation`, §10), validate, save with the
+revision check, retry on conflict (at most 3 times). A connection can never replace the schedule or touch `rules`,
+`settings`, `profile`, `displays`, `members` or connections.
 
 | Scope | Operations |
 |---|---|
-| `sponsors:write` | create/update/delete a sponsorship notice (`kind: 'sponsor'`); fields as `Notice` incl. `eventId`, `from`/`to`, `sponsoredBy`, `inHonorOf`, `text` |
-| `notices:write` | create/update/delete announcement, reminder, simcha, condolence notices |
-| `changes:write` | `cancel` an event on a date; `retime` it; add a `note`; each is an `Exception`, and delete one. Mirrors the admin's Today field |
-| `events:write` | create a **one-time** event (an `add` exception, or equivalent single-date `EventDef`) and edit/delete events *this key created* |
-| `yahrzeits:write` | add, edit, delete a yahrzeit |
-| `occasions:write` | add, edit, delete a birthday / anniversary |
-| `cholim:write` | add a name; **remove a name**; confirm (renew `added`) |
-| `cholim:read` | list refuah names (secret keys only), so a tool can find the name to remove |
+| `sponsors` | create, update or delete a sponsorship (`kind: 'sponsor'`: `ref` or `eventId` + date, or `from`/`to`; `sponsoredBy`, `inHonorOf`, `text`) |
+| `notices` | create, update or delete an announcement, reminder, simcha or condolence notice |
+| `changes` | on a `ref`: `cancel`, `retime`, `note`, and delete one. **Retiming or cancelling a `tefila` event always goes to review** |
+| `events` | create a **one-time** event (date + clock time, no rule); edit or delete events this connection created |
+| `yahrzeits` | add, edit, delete a yahrzeit |
+| `occasions` | add, edit, delete a birthday or anniversary |
+| `cholim` | add, remove or renew a refuah name; `GET /cholim` (with this scope only) lists names to remove |
 
-Not offered, deliberately: creating or editing recurring events and rules, events not created by the key, settings, profile, custom zmanim, local holidays, display setups, print settings, team and keys.
-
-**Decided:** `events:write` creates **one-time events only** (a BBQ, a special shiur, a one-off kiddush on a given date). Nothing rule-based and nothing recurring, ever, through a key: a weekly shiur or a standing kiddush program is a rule and stays in the admin. A one-time event carries a single date and time; it can't carry a `Rule`, `Condition` or `TimeExpr` beyond a fixed clock time.
-
-**Removing and editing people-lists.** Removal is a first-class operation, mainly for refuah shleimah names (someone recovered):
-
-- `GET /cholim` (scope `cholim:read`, secret keys only) lists names with `id`, `name`, `added`.
-- `DELETE /cholim/:id`, or `POST /cholim/remove {match: "Yosef Chaim"}`. A match is accepted only if it identifies exactly one entry (case/diacritic-insensitive over `en`, `he`); with several candidates the API answers 400 with the list instead of removing anything. Same for yahrzeits and occasions.
-- Removing is the low-harm direction and is often urgent, so **removals apply immediately even on a `review` key**; they are logged, listed in the activity log, and revertable. Adds stay in the review queue per the rule below. (Auditor: is a mistaken removal of someone who still needs a refuah worse than a delayed one?)
-
-### Targeting by name, not just id
-
-An AI says "this week's kiddush". Ids and dates are brittle for it. Provide `GET /v1/shuls/:slug/upcoming?days=14` returning event **instances** with a stable `ref` (`<eventId>@<date>`), name, time and any existing sponsor/exception/note. Write ops accept `ref`. The MCP tools resolve fuzzy names to refs *before* writing, and the API refuses ambiguous matches (400 listing candidates) rather than guessing.
+- New connections default to `sponsors`, `notices`, `changes`, `events`, `yahrzeits`, `occasions`; `cholim` is opt-in.
+- **Targeting by name**: tools call `/upcoming` first and write by `ref`. Removing or editing people-list entries is
+  by the id returned on creation or by `match` (case- and diacritic-insensitive over `en`/`he`), which must find exactly
+  one entry. Otherwise the response is 400 with the candidates (name and date only), and nothing changes.
+- **Not offered**: recurring events or rules, events this connection didn't create, settings, profile, custom zmanim,
+  local holidays, displays, print settings, the team, connections.
 
 ### Semantics
 
-- **Idempotency**: `Idempotency-Key` header; repeated key within 24h returns the first result. Essential for AI retries.
-- **Upsert rules**: one sponsorship per `(eventId, date)`: creating again replaces or 409s depending on a `replace` flag. Cancel and retime are unique per `(eventId, date)`.
-- **Dates are the shul's** (`todayIn(tz)`). Reject past dates beyond a small window (e.g. 1 day) for exceptions; reject dates beyond ~1 year ahead.
-- **Lifetimes follow the data, not the key.**
-  - Sponsorships and anything tied to an event or date don't expire; they become past, as in the admin, and the public feed already drops them after `PUBLIC_HISTORY_DAYS`. A sponsorship needs an `eventId`/date, or a `to`.
-  - Announcements and reminders already carry `from`/`to`: require a `to` (default: `from` + 14 days, max 90) so a forgotten announcement can't stay on the lobby screen for good.
-  - Yahrzeits, birthdays, anniversaries and refuah names **never expire**. Refuah names keep their existing `added` date so the admin still asks about old ones; removal is explicit.
-- **Ownership tags**: items created through a key get `origin: { keyId }` (new optional field on `Notice`, `Exception`, `Yahrzeit`, `Occasion`, `EventDef`), used for the "events:write may only edit what it created" rule, for filtering in the admin, and for revert.
-- **Validation**: field-length caps (names 100 chars, notice text 500, list sizes), `https` only for links, no HTML or control characters, Hebrew/English both allowed; yahrzeits and occasions pass the same validators as the admin (`isRealMonthDay`, civil date format). Whole-document `scheduleProblem` + a `validate()` pass on the changed region after applying.
-- **Limits** per key per day (e.g. 200 writes) and per shul total caps on list sizes (e.g. cholim ≤ 300) so a runaway agent can't fill the 512 KB document.
-- **Responses** return the created/changed object, the new revision, and a `revertToken`.
+- **Idempotency**: `Idempotency-Key` header, scoped to the connection, kept for 24 h.
+- **Uniqueness**: one sponsorship per `(eventId, date)` (`replace: true` replaces, otherwise 409); one cancel/retime per
+  `(eventId, date)`.
+- **Dates are the shul's** (`todayIn(tz)`). Exceptions at most 1 day in the past and 1 year ahead.
+- **Lifetimes**: sponsorships and anything on a date become past as in the admin. Announcements and reminders need a
+  `to` (default `from` + 14 days, at most 90) so nothing stays on the lobby screen forever. Yahrzeits, occasions and
+  refuah names never expire; refuah names keep `added`.
+- **Origin tags**: what a connection creates carries `origin: { connectionId }` (new optional field on `Notice`,
+  `Exception`, `Yahrzeit`, `Occasion`, `EventDef`). Used for "edit only what you created", for the admin's "via <label>"
+  chip, and for revert.
+- **Text**: names 100 chars, notice text 500; plain text only (no HTML, everywhere renders it as text: verify display,
+  bulletin, ICS, Siddur); links `https` only. **Strip** C0/C1 controls, bidi overrides and isolates (U+202A–202E,
+  U+2066–2069), zero-width and other invisible characters (U+200B–200F, U+FEFF, U+2060); no word over 40 characters
+  (protects the 1280×720 layout). Yahrzeits and occasions pass the admin's validators (`isRealMonthDay`, civil date
+  format). Then `scheduleProblem` on the whole document.
+- **Caps**: per connection 50 writes a day, at most 5 live notices at once; per shul cholim ≤ 300 and the existing list
+  caps, so nothing can fill the 512 KB document. **Removals**: at most 3 a day applied at once per connection; any more
+  go to review.
+- **Responses**: the created or changed object, the new revision, the change id, and whether it is `applied` or
+  `pending`.
+- **Errors**: `{ error: { code, message, details? } }` with stable codes. An unknown shul, a shul with the API off and
+  a slug that doesn't match the connection's shul all return the **same 404**.
 
-### Review mode (default on)
+## 8. Review and undo
 
-Each secret key has `mode: 'review' | 'publish'`, default **`review`**.
+Each connection has `mode: 'publish' | 'review'`. The owner picks the shul's default for new connections when turning
+the API on (preselected: `review`); any connection can be switched later.
 
-- In `review`, a write is stored as a **pending change** (`api_changes` table), not applied. The admin shows a queue ("2 changes waiting") with before/after, and approve / reject / edit. Approval applies it with the same revision-checked path, as the approving gabbai.
-- In `publish`, writes apply immediately. Owners opt into this per key, with a warning. Maybe restrict `publish` to specific scopes (e.g. sponsors yes, cholim no).
-- Writes that touch **people's names** (yahrzeits, occasions, cholim) default to `review` even for a `publish` key, because wrong names on a lobby screen are worse than a wrong sponsor line. (Auditor: is that too paternalistic? Gabbaim wanting AI to add yahrzeits from a list will hit the queue each time.)
-- Pending changes expire (e.g. 14 days) and are capped (e.g. 50 per key).
+- **The chat or skill confirms before writing.** Tool descriptions and `SKILL.md` tell the model to show what it will
+  change and get an OK first. This is the review the office manager actually sees.
+- **`publish`**: applied at once. Exceptions: minyan retime/cancel and removals beyond the daily cap go to Pending.
+- **`review`**: stored in `api_changes` as `pending`. The admin shows **Pending** at the top ("3 changes from Rivka's
+  assistant"): each card shows the change as the display will show it, with Approve, Edit, Reject and Approve all. Any
+  member may approve. Approval re-applies it to the current schedule through the same path and fails clearly if it no
+  longer fits. Pending changes expire after 14 days; at most 50 per connection.
+- **Recent changes** in the admin: everything a connection did, newest first, each with **Undo** (if the target hasn't
+  changed since; otherwise it says what changed). **"Undo everything this connection did since…"** sits next to Revoke.
+- **Owners' weekly summary** of changes by connection, by email when the accounts service can send it (it already sends
+  mail); in the admin until then.
 
-### Audit and undo
-
-- New `audit` table: `(shul, at, key id or user id, operation, target ref, before, after, status)`. The existing `history` table keeps per-revision rows; add `key_id` and `change_id` there too.
-- `POST /v1/…/changes/:id/revert` (and an admin button) reverses an applied change if the target hasn't been changed since; otherwise 409 with what changed.
-- Owners get an email/notification option on writes (later).
-
-## 8. Data model changes (D1 migration `0002_api.sql`)
+## 9. Data model (`migrations/0002_api.sql`)
 
 ```sql
-CREATE TABLE api_keys (
+CREATE TABLE connections (
   id TEXT PRIMARY KEY,
   shul_id TEXT NOT NULL REFERENCES shuls(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('public','secret')),
-  prefix TEXT NOT NULL,          -- first chars, shown in the admin
-  hash TEXT NOT NULL UNIQUE,     -- sha-256 of the key
-  label TEXT NOT NULL,
-  scopes TEXT NOT NULL,          -- JSON array
-  origins TEXT,                  -- JSON array, public keys
-  mode TEXT NOT NULL DEFAULT 'review',
-  rate_tier TEXT NOT NULL DEFAULT 'standard',
-  created_by TEXT NOT NULL,
+  user_id TEXT NOT NULL,          -- the member it acts for; must still be in members
+  kind TEXT NOT NULL CHECK (kind IN ('key','oauth')),
+  purpose TEXT NOT NULL,          -- 'assistant' | 'skill' | 'script' | 'other'
+  label TEXT NOT NULL,            -- "Rivka's Claude", or the note given
+  prefix TEXT,                    -- key: first chars, shown in the admin
+  hash TEXT UNIQUE,               -- key: sha-256 of the key
+  oauth_client_id TEXT,           -- oauth: the client from the accounts service
+  scopes TEXT NOT NULL,           -- JSON array
+  mode TEXT NOT NULL DEFAULT 'review' CHECK (mode IN ('publish','review')),
   created_at INTEGER NOT NULL,
+  expires_at INTEGER,             -- required for keys
+  revoked_at INTEGER,
   last_used_at INTEGER,
-  expires_at INTEGER,
-  revoked_at INTEGER
+  last_ip TEXT,
+  last_user_agent TEXT,
+  UNIQUE (shul_id, user_id, oauth_client_id)
 );
-CREATE TABLE api_changes (       -- pending or applied writes
+CREATE TABLE api_changes (
   id TEXT PRIMARY KEY,
   shul_id TEXT NOT NULL REFERENCES shuls(id) ON DELETE CASCADE,
-  key_id TEXT REFERENCES api_keys(id),
+  connection_id TEXT NOT NULL REFERENCES connections(id),
+  user_id TEXT NOT NULL,
   op TEXT NOT NULL, target TEXT, payload TEXT NOT NULL,
   before TEXT, after TEXT,
-  status TEXT NOT NULL,          -- pending|applied|rejected|expired|reverted
+  status TEXT NOT NULL CHECK (status IN ('pending','applied','rejected','expired','reverted')),
   idempotency_key TEXT,
   created_at INTEGER NOT NULL, decided_by TEXT, decided_at INTEGER
 );
+CREATE INDEX api_changes_by_shul ON api_changes(shul_id, status, created_at);
+CREATE UNIQUE INDEX api_changes_idem ON api_changes(connection_id, idempotency_key);
+ALTER TABLE shuls ADD COLUMN api_enabled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE shuls ADD COLUMN api_default_mode TEXT NOT NULL DEFAULT 'review';
+ALTER TABLE history ADD COLUMN connection_id TEXT;
+ALTER TABLE history ADD COLUMN change_id TEXT;
 ```
 
-Plus: `history.key_id`, the embed/site domain list (profile or `shuls` column), an index on `(shul_id, status)` for the queue. `last_used_at` writes should be throttled (once per few minutes per key) to avoid a D1 write per request.
+`profile.websites` (JSON in `profile`) holds the embed origins.
 
-Engine changes (submodule `packages/engine`, picked up by the Siddur too): optional `origin` on the entity types; a pure `applyOperation(schedule, op) → schedule` with its own tests, so the Worker and any future client share one definition; a `computeDay`/`computeRange` shaping function that returns the public JSON (so the Siddur and API cannot drift). Old Siddur builds must ignore the new optional fields.
+## 10. Engine changes (`packages/engine`, picked up by the Siddur)
 
-## 9. Worker structure
+- Optional `origin?: { connectionId: string }` on `Notice`, `Exception`, `Yahrzeit`, `Occasion`, `EventDef`. Old
+  Siddur builds ignore unknown fields; check that nothing strips or rejects them (`scheduleProblem` included).
+- `applyOperation(schedule, op, ctx) → { schedule, before, after } | { error }`: pure, one definition for the Worker
+  and any future client, with its own tests. `ctx` carries today in the shul's zone and the connection id.
+- `revertOperation(schedule, change) → schedule | { conflict }`.
+- `sanitizeText()` (the stripping rules in §7) and the field caps.
+- `computeDays(schedule, from, to, opts)` returning the public JSON of §5, so the API and any client agree.
 
-- `worker/keys.ts`: create/list/revoke/rotate (session-authenticated, owner only); key lookup + hash compare; scope and origin checks.
-- `worker/v1.ts`: read handlers; `worker/v1write.ts`: operations; `worker/changes.ts`: queue, approve, reject, revert.
-- A `v1` route group in `index.ts` with its own auth (`requireKey`) rather than `currentUser`; internal `/api` unchanged.
-- Write path reuses the revision-checked UPDATE from `putShul`; extract it into a shared `saveSchedule(env, shul, mutate, actor)` with bounded retry.
-- Error format: `{ error: { code, message, details? } }` for `/v1` with stable codes; documented.
-- Tests (Vitest pool-workers): key auth matrix (missing, wrong, revoked, expired, wrong scope, wrong origin, no Origin, public key on write), every operation, idempotency, conflict retry, review queue, revert, cache headers, CORS, per-key rate limit, field validation, and that no rule data appears in any response.
+## 11. Worker
 
-## 10. Admin UI
+- `worker/connections.ts`: create, list, revoke, revoke all, enable/disable API, default mode (session-authenticated;
+  owner/own-connection rules); `requireConnection(request, env, slug)`: key hash or OAuth token → connection row joined
+  with `members` and `shuls.api_enabled`; scope check.
+- `worker/v1.ts` (public reads), `worker/v1write.ts` (operations), `worker/changes.ts` (pending, approve, reject, undo).
+- `saveSchedule(env, shulId, mutate, actor)` taken out of `putShul`, with bounded retry. **The admin's `putShul` must
+  behave exactly as before**; tests guard it.
+- The shul id for every write comes from the connection row, never from the URL.
+- `/v1` and `/mcp` routes in `index.ts`; add `/v1/*`, `/mcp`, `/embed/*` to `run_worker_first`.
+- Security headers on every response (§6).
+- Tests (Vitest pool-workers): the auth matrix (no secret, wrong, revoked, expired, member removed, demoted, API off,
+  wrong shul's slug, wrong scope); every operation; minyan retime always pending; removal cap; idempotency; conflict
+  retry against an admin save in between; pending/approve/reject/expire; undo and undo-all; text stripping; caps; the
+  identical 404s; no rule data and no people lists in any `/v1` read; `frame-ancestors` per shul.
 
-New section "Connect" (owner-only create; editors view):
+## 12. MCP and the accounts service
 
-- **Websites**: domain list; embed snippets (iframe, script) with a live preview and options.
-- **API keys**: create public/secret, scopes as checkboxes with plain-language labels, mode, expiry; copy-once dialog; list with prefix, last used, usage; revoke / rotate.
-- **Pending changes**: queue with approve / reject / edit, badge in the sidebar; applied-by-key items flagged in the Today field and the notices tab with a "via <key label>" chip.
-- **Activity log**: audit table with revert.
-- **Use with AI**: copyable MCP config and a prompt snippet.
+### BeezyWorksAccounts (`~/Projects/BeezyWorksAccounts`)
 
-Admin stays English (per AGENTS.md); embeds and any public output use `useT()`.
+- Bump `better-auth` and `@better-auth/expo` 1.7.7 → 1.7.15 (patch). Add `@better-auth/mcp` and `@better-auth/cimd`.
+- `src/auth.ts` plugins: `[expo(), bearer(), oneTimeToken(), jwt(), mcp({ loginPage, consentPage, resource, scopes }),
+  cimd()]`. Don't also add `oauthProvider()` (the docs say so).
+- Migration `0003_oauth.sql` from `npx auth generate`: `oauthClient`, `oauthAccessToken`, `oauthRefreshToken`,
+  `oauthConsent`, `oauthClientAssertion`, plus the `jwt` plugin's `jwks`.
+- Two Worker-hosted pages beside `/reset-password` and `/verified`: sign-in and consent ("Claude wants to manage
+  your shul's notices for you. Allow?"), naming the client clearly.
+- **CIMD on Workers needs a custom fetch transport**: resolve the host once, reject private and special-use addresses
+  (RFC 6890), pin the address, refuse redirects. If that proves too fiddly, enable dynamic client registration as the
+  fallback (`allowDynamicClientRegistration`).
+- **Scope it tightly**: the only resource is `https://beitecha.baderech.app/mcp` (token audience), scopes `beitecha:*`.
+  A token for Beitecha is useless anywhere else.
+- **Test on D1**: the plugin's replay protection (DPoP) uses the database adapter, and the docs don't mention D1.
+- **Existing users are unaffected**: sessions, `bearer()`, `get-session`, social sign-in and the Siddur's flows don't
+  change; the plugins only add tables and routes. Run the accounts test suite and a Siddur sign-in before deploying.
 
-## 11. MCP server
+### Beitecha `/mcp`
 
-A small server (`packages/mcp` or a separate repo) wrapping the `/v1` API, configured with the shul slug and a secret key. Tools (descriptions written so the model picks well):
+- On the Worker, with the MCP TypeScript SDK. Tokens are checked with the plugin's `createMcpProtectedRequestHandler`
+  against the accounts JWKS (fetched over the `AUTH` binding), audience and scopes required.
+- First request from a new `(user, client)` for a shul where the user is a member and `api_enabled` is on → a new
+  `oauth` connection in the shul's default mode. Not a member, or the API is off → the tool answers "This shul hasn't
+  turned on assistants. Ask a gabbai to turn it on in Beitecha → Connect."
+- Tools: `get_upcoming(days)`, `list_notices()`, `set_sponsor(ref, sponsoredBy, inHonorOf?, text?)`,
+  `add_notice(kind, title?, text, from?, to?)`, `edit_notice`, `remove_notice`, `cancel_event(ref, note?)`,
+  `retime_event(ref, time, note?)`, `add_note(ref, note)`, `create_event(name, date, time, …)`, `add_yahrzeit`,
+  `add_birthday`, `add_anniversary`, `remove_person(kind, idOrMatch)`, `add_refuah`/`remove_refuah` (with `cholim`),
+  `list_pending()`. Descriptions say: call `get_upcoming` first for anything about "this week"; show the change and get
+  an OK before writing; never guess a date.
+- Each result says plainly what happened: "Kiddush, Shabbos Vayera: sponsored by the Cohens in honor of Dovid's bar
+  mitzvah. Live now." or "… Waiting for a gabbai to approve."
 
-- `get_upcoming(days)`: instances with refs; used first for any request about "this week".
-- `set_sponsor(ref | event name + date, sponsoredBy, inHonorOf?)`
-- `add_notice(kind, text, from, to?)`
-- `cancel_event(ref, note?)`, `retime_event(ref, time, note?)`, `add_note(ref, note)`
-- `create_event(name, date, time, …)` (one-time)
-- `add_yahrzeit(hebrewName, displayName, hebrewDate | civilDate)`, `add_birthday`, `add_anniversary`
-- `list_pending()`, `remove(refOrId)`
+### Her setup (the help page in the admin's Connect section)
 
-Behavior: confirm back what changed ("Kiddush, Shabbos Vayera: sponsored by X in honor of Y. Waiting for approval"). Dates resolved with the shul's clock and Hebrew calendar, never the model's guess; ambiguous input returns candidates, not a write. Later: OAuth in place of pasted keys.
+Claude (any plan, Free included; Free allows one custom connector): Customize → Connectors → Add custom connector →
+paste `https://beitecha.baderech.app/mcp` → Connect → sign in → Allow. ChatGPT needs a paid plan with developer mode;
+Gemini only on paid plans inside Spark tasks. Write the help page for Claude first.
 
-**Prompt-injection stance**: the model may read emails or documents that contain instructions. The API cannot tell them from the gabbai. Mitigations are structural: narrow scopes, review mode default, caps, expiry on everything, audit, one-click revert, and tool descriptions telling the model to confirm destructive or people-name changes with the user.
+## 13. Our script + skill
 
-## 12. Bulletin
+- `packages/skill/` (or `tools/skill/`): `beitecha.py` (standard library only: `urllib`, `json`, `argparse`), the same
+  operations as the MCP tools as subcommands, JSON in and out; `SKILL.md` with the same guidance as the tool descriptions.
+- The admin's **Download Claude skill** creates a `key` connection (purpose `skill`, the user's name in the label) and
+  builds the zip with the key and the shul slug in a config file beside the script.
+- Her setup: Settings → Capabilities → turn on code execution, allow network access to `beitecha.baderech.app`, upload
+  the zip. **To verify**: that the extra-allowed-domains setting is available on the Free plan.
+- The same script works for a technical member with their own key, and in Claude Code or Cowork.
 
-Today the bulletin is composed in the browser (`components/Bulletin.tsx`, paper-sized sheets, `@page` CSS), not on the server. Options for `GET /bulletin`:
+## 14. Privacy and abuse
 
-- a) a link/redirect to `/<slug>/bulletin` (the published page) + the settings, cheap, no PDF;
-- b) server-rendered PDF (needs headless rendering or a PDF library; Workers can't run Chromium unless using Browser Rendering): bigger, and probably phase 3.
+- `/v1` reads carry no people lists. The Siddur's feed is unchanged by policy.
+- A stolen key or token: narrow scopes, review or caps, 5 live notices, 3 removals a day, minyan changes always
+  pending, revoke + "undo everything since", expiry, and the owners' summary.
+- Spoofed instructions to the AI (prompt injection from an email it reads): the API can't tell them from her. The
+  mitigations are the same structural ones, plus tool descriptions that ask for confirmation.
+- Key guessing: invalid secrets count against the per-IP limit; lookup is by hash index.
+- Cross-shul access: the shul id always comes from the connection row.
+- Oversized bodies: `readJson` with a small limit (8 KB) on every write.
+- Logs: never log `Authorization`, keys or tokens; redact them in errors.
+- ICS: new free text goes through `escape()`.
 
-Recommendation: ship (a) as `bulletinUrl` in `/info` and an iframe embed view; defer PDF. Auditor: confirm.
+## 15. Admin UI: "Connect" (owner-only settings; members see their own connections)
 
-## 13. Privacy and abuse
+- **Assistants & API**: turn on or off; default mode; the connection list (§4) with Revoke and Revoke all; Create key;
+  Download Claude skill; the "Connect Claude" help (§12).
+- **Pending** (badge in the sidebar) and **Recent changes** with Undo (§8). Items created by a connection get a
+  "via <label>" chip in the Today field and the notices, yahrzeits and birthdays tabs.
+- **Websites**: the embed origin list, snippets and a live preview.
+- The admin stays English.
 
-- The existing public feed already contains cholim, yahrzeits and birthdays. The new `/v1` API can be **stricter** than that, but the stricter posture means little while `GET /api/shuls/:slug` returns everything to anyone.
-- **Can the feed be limited to the Siddur alone? Not hard, with what we have.** `Origin` is browser-only and forgeable, native apps send none, and a key or shared secret inside the Siddur's apps or web build can be extracted. Also `siddur.one/shul/<slug>` is itself public and shows these lists, so the Siddur is a public window onto the data. What is achievable:
-  1. **Per-list visibility on the shul** (`settings.public` or similar): cholim, yahrzeits, birthdays, anniversaries each "show in the Siddur / display / bulletin" or hidden, applied by the server when it builds the feed. The `/v1` API honors the same flags and is stricter by default.
-  2. **Window the sensitive lists in the feed**: the server includes yahrzeits and occasions only for the next N days (the shul's `days` setting) instead of the whole list, since the Siddur only ever shows the coming week. Cuts what a scraper can harvest to a week at a time. Cost: the feed starts computing a little, and the client engine must tolerate a windowed list (and the Siddur needs no change if it only lists upcoming entries; verify its "all yahrzeits" views, if any).
-  A Worker-to-Worker service binding (only the Siddur's Worker fetches the feed) was considered and **rejected**: the Siddur's own endpoint would serve the same data publicly, so it only moves the exposure. What the shul shares is a policy (flags), not something to wall off.
-  Recommendation: do 1 and 2 together.
-  Yahrzeit/occasion lookups for the write API: `edit`/`delete` by the id returned on creation, or by a `match` that must identify exactly one entry; on ambiguity the 400 lists candidates (name and date only) to that secret key, the only place those names come back through a key. There is no list endpoint.
-- Birthdays/anniversaries of private families: per-list public toggle, default off for the API.
-- Scraping: keys + rate limits + short caching; the data is meant to be shown.
-- DoS: unauthenticated paths stay behind `PUBLIC_LIMIT`; invalid keys also count against the IP limit (so key guessing is throttled); key lookup is by hash index.
-- Key theft: shown once, hashed, revocable, last-used visible, optional expiry, secret keys never in browser code (docs and the admin warn; GitHub secret-scanning-friendly prefix `bk_sec_`).
-- Spam via write keys: caps, review mode, expiry.
-- Content moderation: text caps, no HTML (rendered as text everywhere; verify display/bulletin/ICS/Siddur never interpret markup), links `https` only.
-- ICS injection: escape properly (existing `escape()`); check new free-text fields flow through it.
+## 16. Phases and work packages
 
-## 14. Phasing
+Each package is a self-contained task. → marks what it needs first.
 
-1. **Read**: keys (public), `/v1` reads, domain list, iframe embeds with `frame-ancestors`, admin "Connect" (websites + public keys), tests. No schema change to `Schedule`.
-2. **Write**: secret keys, `applyOperation` in the engine, `/v1` writes, idempotency, `origin` tags, review queue, audit/revert, admin queue.
-3. **MCP** + docs, JS widget, PDF bulletin if wanted.
+**Phase 0 (now, independent)**
+- **P0a Security headers**: `frame-ancestors 'none'` + `X-Frame-Options: DENY` on the app (assets need
+  `run_worker_first` or a `_headers` file in `dist`). Small.
 
-## 15. Questions for the auditor
+**Phase 1: write API + script/skill** (no OAuth yet)
+- **P1a Engine** (`packages/engine`): `origin` fields, `applyOperation`, `revertOperation`, `sanitizeText`,
+  `computeDays`, with tests. Commit in the submodule.
+- **P1b Worker connections** → P1a's types: migration `0002_api.sql`, `connections.ts`, `requireConnection`, the
+  `saveSchedule` extraction with `putShul` unchanged, tests.
+- **P1c Worker `/v1`** → P1a, P1b: public reads, writes, pending/approve/undo, rate limits, tests.
+- **P1d Admin Connect** → P1c's endpoints: connections list, enable/default mode, create key, Pending, Recent changes,
+  chips. Jest for store and forms.
+- **P1e Script + skill** → P1c: `beitecha.py`, `SKILL.md`, the zip download in the admin.
 
-1. Is two key types the right cut, or should reads need no key at all and keys exist only for writes plus rate-limit attribution?
-2. Does `Origin`-only pinning give anything worth the complexity? Is `frame-ancestors` for iframes enough on its own?
-3. Gaps in the write surface: anything an agent could do through the allowed operations that effectively edits rules (e.g. a one-time `add` event that shadows a recurring minyan; `cancel` spam wiping a week; `note` text that misleads)?
-4. Concurrency: bounded retries on revision conflicts versus admin edits of the whole document. Does the admin's whole-document save clobber an API write that landed between its load and save? (It uses `baseRevision`, so it should 409; confirm the admin handles that without dropping the API change.)
-5. Review-mode defaults and the "people's names always reviewed" rule: right call?
-6. Revert correctness when later changes depend on the earlier one.
-7. Privacy inconsistency with the existing public feed (§13): are per-list visibility flags plus windowing the sensitive lists enough (a service-binding proxy was rejected as only moving the exposure)? Is returning candidate names on an ambiguous `match` an acceptable leak to a secret key? Does windowing break any Siddur or engine behavior (e.g. a yahrzeit view that lists beyond the coming week)?
-8. Caching correctness: day output depends on shul date, revision, language and hidden zmanim. Any missed cache-key dimension? Any case where a revoked key keeps being served from the edge?
-9. Engine changes ship through the submodule to the Siddur: forward/backward compatibility of the `origin` fields and the shared day-shaping function.
-10. Abuse we haven't thought of: key enumeration, cross-shul access (every query must be scoped by the key's `shul_id`), oversized bodies, timing, replay, log leakage.
-11. Is the MCP surface too broad for v1? Which tools would you cut?
-12. Anything in AGENTS.md's architecture ("rules are data, computing on the client; server computes only ICS") that this violates and should be recorded as a deliberate change?
+**Phase 2: MCP**
+- **P2a Accounts OAuth** (BeezyWorksAccounts, independent of phase 1): plugin upgrade, migration, pages, CIMD
+  transport, D1 test, tests that existing sign-in is unchanged.
+- **P2b `/mcp`** → P1c, P2a: the MCP server on the Worker, OAuth connections, tools, help page.
+
+**Phase 3**: iframe embeds and the website list; later, email-in if we find a way to pay for it.
+
+## 17. Open questions (defaults chosen; change if wrong)
+
+1. The preselected default mode when an owner turns the API on: `review`. (She can pick "Post right away" in one
+   click.)
+2. Editors may create connections for themselves. (Alternative: owners only.)
+3. Skill keys expire after 90 days. (Longer means fewer re-downloads and a longer life for a stolen key.)
+4. Removing a refuah name counts against the 3-a-day cap like any removal.

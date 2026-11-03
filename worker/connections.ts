@@ -128,6 +128,8 @@ function parseLabel(v: unknown): string {
 }
 
 const ACTIVE = `revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)`
+/** The same, with the time as `?8` (for the insert, which numbers its parameters). */
+const ACTIVE_ALL = `revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?8)`
 
 async function shulAndRole(request: Request, env: Env, slug: string, needed: Role) {
   const user = await requireUser(request, env)
@@ -420,8 +422,8 @@ type ActiveRow = ConnectionRow & {
   api_default_mode: Mode
 }
 
-/** Secrets are looked up by what they are: a `bk_sec_` key by its hash. An OAuth access token (P2b) goes here as a
- * second branch, verified against the accounts service and found by `(user, oauth_client_id)` with the same join. */
+/** A `bk_sec_` key is looked up by its hash. (A chat app's sign-in is not a secret of ours: `requireOAuthConnection`
+ * finds its row by `(user, client, shul)` with the same join instead.) */
 async function findActive(env: Env, token: string, now: number): Promise<ActiveRow | null> {
   if (token.startsWith(KEY_PREFIX)) {
     if (!KEY_RE.test(token)) return null
@@ -467,6 +469,16 @@ export async function requireConnection(
     throw unauthorized()
   }
   if (row.api_enabled !== 1 || row.slug !== slug) throw notFound()
+  return authedOf(env, request, row, now)
+}
+
+/** Records `last_used_*` (at most every 5 minutes) and shapes the row. */
+async function authedOf(
+  env: Env,
+  request: Request,
+  row: ActiveRow,
+  now: number,
+): Promise<AuthedConnection> {
   if (row.last_used_at === null || now - row.last_used_at >= LAST_USED_EVERY_MS) {
     await env.DB.prepare(
       `UPDATE connections SET last_used_at = ?2, last_ip = ?3, last_user_agent = ?4
@@ -495,6 +507,202 @@ export async function requireConnection(
     shul: { id: row.shul_id, slug: row.slug, defaultMode: row.api_default_mode },
     role: row.role,
   }
+}
+
+// ---------------------------------------------------------------------------
+// A chat app's sign-in (the MCP)
+
+/** Who a verified OAuth token is: the account, and the chat app (OAuth client) it was issued to. */
+export interface OAuthIdentity {
+  userId: string
+  clientId: string
+  /** Looks up the client's self-asserted name from the accounts service (called only when a connection is made). */
+  clientName?: () => Promise<string | null>
+}
+
+/** A shul the user is a member of, and what its API switch says. */
+export interface MemberShul {
+  id: string
+  slug: string
+  name: string
+  role: Role
+  apiEnabled: boolean
+  defaultMode: Mode
+  memberName: string | null
+}
+
+export const ASSISTANTS_OFF =
+  "This shul hasn't turned on assistants. Ask a gabbai to turn it on in Beitecha → Assistants & API."
+
+export async function userShuls(env: Env, userId: string): Promise<MemberShul[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT s.id, s.slug, s.api_enabled, s.api_default_mode, m.role, m.name AS member_name,
+            COALESCE(NULLIF(json_extract(s.profile, '$.name.en'), ''), json_extract(s.profile, '$.name.he'), s.slug) AS shul_name
+     FROM members m JOIN shuls s ON s.id = m.shul_id WHERE m.user_id = ? ORDER BY s.slug LIMIT 50`,
+  )
+    .bind(userId)
+    .all<{
+      id: string
+      slug: string
+      api_enabled: number
+      api_default_mode: Mode
+      role: Role
+      member_name: string | null
+      shul_name: string
+    }>()
+  return results.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    name: r.shul_name,
+    role: r.role,
+    apiEnabled: r.api_enabled === 1,
+    defaultMode: r.api_default_mode,
+    memberName: r.member_name,
+  }))
+}
+
+/** Which of the user's shuls a tool means: the `shul` argument, or the only one with assistants on. Throws a message
+ * written for the person (tools hand it straight back). Not a member and unknown look the same. */
+export function pickShul(shuls: MemberShul[], slug?: string): MemberShul {
+  if (slug) {
+    const mine = shuls.find((s) => s.slug === slug.trim().toLowerCase())
+    if (!mine || !mine.apiEnabled) throw new ApiError(403, 'assistants_off', ASSISTANTS_OFF)
+    return mine
+  }
+  const on = shuls.filter((s) => s.apiEnabled)
+  if (on.length === 1) return on[0]
+  if (on.length === 0) throw new ApiError(403, 'assistants_off', ASSISTANTS_OFF)
+  throw new ApiError(
+    400,
+    'which_shul',
+    `You belong to more than one shul here. Ask which one she means, then call again with shul set to its slug: ${on
+      .map((s) => `${s.name} (${s.slug})`)
+      .join(', ')}.`,
+    { shuls: on.map((s) => ({ slug: s.slug, name: s.name })) },
+  )
+}
+
+const findOAuth = (env: Env, identity: OAuthIdentity, shulId: string, now: number) =>
+  env.DB.prepare(
+    `${ACTIVE_CONNECTION} c.kind = 'oauth' AND c.user_id = ?2 AND c.oauth_client_id = ?3 AND c.shul_id = ?4`,
+  )
+    .bind(now, identity.userId, identity.clientId, shulId)
+    .first<ActiveRow>()
+
+/**
+ * The connection behind a verified OAuth token, for the shul the tool means (`pickShul`).
+ *
+ * - Found by `(user, client, shul)` with the same join as keys: revoked, or a user no longer on the team, never match.
+ * - First use for a member of a shul with assistants on: the row is made then, in the shul's default mode with the
+ *   default scopes and no expiry (revoking it in the admin is how it ends), within the shul's and the user's limits.
+ * - A revoked row is final. `(shul, user, client)` is unique, so it can't be remade; a gabbai who disconnected an
+ *   assistant has done it for good, and the person must ask. (Removing the connector in her chat app and adding it
+ *   again is a new client with a new sign-in; that is a new connection, as a new key would be.)
+ */
+export async function requireOAuthConnection(
+  env: Env,
+  request: Request,
+  identity: OAuthIdentity,
+  slug?: string,
+): Promise<AuthedConnection> {
+  const shul = pickShul(await userShuls(env, identity.userId), slug)
+  const now = Date.now()
+  const found = await findOAuth(env, identity, shul.id, now)
+  if (found) return authedOf(env, request, found, now)
+
+  const any = await env.DB.prepare(
+    `SELECT revoked_at FROM connections WHERE shul_id = ? AND user_id = ? AND oauth_client_id = ?`,
+  )
+    .bind(shul.id, identity.userId, identity.clientId)
+    .first<{ revoked_at: number | null }>()
+  if (any)
+    throw new ApiError(
+      403,
+      'disconnected',
+      `A gabbai of ${shul.name} disconnected this assistant, so it can't change the shul's schedule. Ask a gabbai if you want it back.`,
+    )
+
+  const first = (shul.memberName ?? '').trim().split(/\s+/)[0]
+  const client = (await identity.clientName?.().catch(() => null)) ?? 'assistant'
+  const label = parseLabelLoose(`${first ? `${first}'s ` : ''}${client}`)
+  const id = crypto.randomUUID()
+  let inserted: ConnectionRow | null = null
+  try {
+    inserted = await env.DB.prepare(
+      `INSERT INTO connections (id, shul_id, user_id, kind, purpose, label, oauth_client_id, scopes, mode, created_at)
+       SELECT ?1, ?2, ?3, 'oauth', 'assistant', ?4, ?5, ?6, ?7, ?8
+       WHERE (SELECT api_enabled FROM shuls WHERE id = ?2) = 1
+         AND (SELECT COUNT(*) FROM connections WHERE shul_id = ?2 AND ${ACTIVE_ALL}) < ?9
+         AND (SELECT COUNT(*) FROM connections WHERE shul_id = ?2 AND user_id = ?3 AND ${ACTIVE_ALL}) < ?10
+       RETURNING *`,
+    )
+      .bind(
+        id,
+        shul.id,
+        identity.userId,
+        label,
+        identity.clientId,
+        JSON.stringify(DEFAULT_SCOPES),
+        shul.defaultMode,
+        now,
+        MAX_PER_SHUL,
+        MAX_PER_USER,
+      )
+      .first<ConnectionRow>()
+  } catch (e) {
+    // Two first calls at once: the other made it.
+    if (!/UNIQUE|constraint/i.test(String((e as Error)?.message))) throw e
+  }
+  if (!inserted) {
+    const raced = await findOAuth(env, identity, shul.id, Date.now())
+    if (raced) return authedOf(env, request, raced, now)
+    const count = (sql: string, ...args: unknown[]) =>
+      env.DB.prepare(`SELECT COUNT(*) AS n FROM connections WHERE shul_id = ? AND ${sql}`)
+        .bind(shul.id, ...args)
+        .first<{ n: number }>()
+        .then((r) => r?.n ?? 0)
+    if ((await count(`user_id = ? AND ${ACTIVE}`, identity.userId, now)) >= MAX_PER_USER)
+      throw new ApiError(
+        409,
+        'limit',
+        `You already have ${MAX_PER_USER} active connections to ${shul.name}, which is the most one person can have. Ask a gabbai to disconnect one in Beitecha → Assistants & API.`,
+      )
+    if ((await count(ACTIVE, now)) >= MAX_PER_SHUL)
+      throw new ApiError(
+        409,
+        'limit',
+        `${shul.name} already has ${MAX_PER_SHUL} active connections, which is the most it can have. Ask a gabbai to disconnect one in Beitecha → Assistants & API.`,
+      )
+    throw new ApiError(403, 'assistants_off', ASSISTANTS_OFF)
+  }
+  return authedOf(env, request, { ...inserted, ...shulFields(shul) }, now)
+}
+
+const shulFields = (shul: MemberShul) => ({
+  role: shul.role,
+  slug: shul.slug,
+  api_enabled: 1,
+  api_default_mode: shul.defaultMode,
+})
+
+/** A label from text we don't control (the client's own name): cleaned and cut to 60, never an error. */
+function parseLabelLoose(text: string): string {
+  const r = sanitizeText(text.slice(0, 120), { max: 60, required: true })
+  return r.ok ? r.text : 'Assistant'
+}
+
+/** Does any of the user's active OAuth connections for this chat app hold the scope? (What `tools/list` shows.) */
+export async function oauthHasScope(
+  env: Env,
+  identity: OAuthIdentity,
+  scope: Scope,
+): Promise<boolean> {
+  const { results } = await env.DB.prepare(
+    `${ACTIVE_CONNECTION} c.kind = 'oauth' AND c.user_id = ?2 AND c.oauth_client_id = ?3`,
+  )
+    .bind(Date.now(), identity.userId, identity.clientId)
+    .all<ActiveRow>()
+  return results.some((r) => r.api_enabled === 1 && parseScopes(r.scopes).includes(scope))
 }
 
 /** 403 `forbidden` unless the connection holds the scope. */

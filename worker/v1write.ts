@@ -9,8 +9,21 @@ import {
   type Schedule,
 } from '@beitecha/engine'
 
-import { MAX_PENDING, expireStale, insertChange, pendingCount, type ChangeRow } from './changes'
-import { requireConnection, requireScope, notFound, type Connection } from './connections'
+import {
+  MAX_PENDING,
+  expireStale,
+  insertChange,
+  pendingCount,
+  type ChangeRow,
+  type ChangeStatus,
+} from './changes'
+import {
+  requireConnection,
+  requireScope,
+  notFound,
+  type AuthedConnection,
+  type Connection,
+} from './connections'
 import type { Env } from './env'
 import { ApiError, HttpError } from './http'
 import {
@@ -27,7 +40,7 @@ export const MAX_OPERATION_BYTES = 8 * 1024
 export const DAILY_WRITES = 50
 /** Edits of other people's items and removals a connection may have applied in a day before a gabbai must look. */
 export const DAILY_GUARDED = 3
-const IDEMPOTENCY_MS = 24 * 3_600_000
+export const IDEMPOTENCY_MS = 24 * 3_600_000
 
 type Applied = Extract<ReturnType<typeof applyOperation>, { schedule: Schedule }>
 
@@ -102,13 +115,28 @@ function idempotencyKey(request: Request): string | null {
   return key
 }
 
-/** What a change answers with. `revision` is the schedule's revision it produced, when it was applied. */
-async function responseOf(
+/** What a write came to. `revision` is the schedule's revision it produced, when it was applied. */
+export interface WriteResult {
+  status: ChangeStatus
+  changeId: string
+  target: string | null
+  revision?: number
+  before: Entry[]
+  after: Entry[]
+  reason?: string
+}
+export interface WriteOutcome {
+  result: WriteResult
+  /** The answer to an earlier request with the same idempotency key. */
+  replay: boolean
+}
+
+async function outcomeOf(
   env: Env,
   row: Pick<ChangeRow, 'id' | 'status' | 'target' | 'before' | 'after'>,
   extra: { revision?: number; reason?: string } = {},
   replay = false,
-): Promise<Response> {
+): Promise<WriteOutcome> {
   let revision = extra.revision
   if (revision === undefined && row.status !== 'pending') {
     const h = await env.DB.prepare(
@@ -118,8 +146,9 @@ async function responseOf(
       .first<{ revision: number }>()
     revision = h?.revision
   }
-  return Response.json(
-    {
+  return {
+    replay,
+    result: {
       status: row.status,
       changeId: row.id,
       target: row.target,
@@ -128,29 +157,48 @@ async function responseOf(
       after: JSON.parse(row.after ?? '[]'),
       ...(extra.reason && { reason: extra.reason }),
     },
-    { status: 201, headers: replay ? { 'idempotent-replay': 'true' } : {} },
-  )
+  }
 }
+
+/** The `/v1` answer for a write: 201 with the result, and `idempotent-replay` when it is an earlier answer again. */
+const toResponse = ({ result, replay }: WriteOutcome) =>
+  Response.json(result, { status: 201, headers: replay ? { 'idempotent-replay': 'true' } : {} })
 
 const isUnique = (e: unknown) => /UNIQUE|constraint/i.test(String((e as Error)?.message))
 
-/**
- * `POST /v1/shuls/:slug/operations` with one operation as the body.
- *
- * Connection → scope → idempotency replay → the day's write cap → the operation dry-run on the current schedule
- * (an engine error is the answer) → applied or pending (see `pendingReason`). Applied goes through `saveSchedule`
- * (revision-checked, retried); pending is stored and the schedule is untouched until a member approves it.
- */
-export async function postOperation(request: Request, env: Env, slug: string): Promise<Response> {
-  const { connection, shul } = await requireConnection(request, env, slug)
+export function assertWritesOn(env: Env): void {
   if (env.V1_WRITES === 'off')
     throw new ApiError(503, 'writes_disabled', 'Writes are paused for everyone right now')
+}
+
+/** `POST /v1/shuls/:slug/operations` with one operation as the body: the key's front door to `writeOperation`. */
+export async function postOperation(request: Request, env: Env, slug: string): Promise<Response> {
+  const auth = await requireConnection(request, env, slug)
+  assertWritesOn(env)
   const op = await readOperation(request)
+  return toResponse(await writeOperation(env, auth, op, { key: idempotencyKey(request) }))
+}
+
+/**
+ * One operation for one connection, whatever it signed in with (a key through `/v1`, a chat app through `/mcp`).
+ *
+ * Scope → idempotency replay → the day's write cap → the operation dry-run on the current schedule (an engine error
+ * is the answer) → applied or pending (see `pendingReason`). Applied goes through `saveSchedule` (revision-checked,
+ * retried); pending is stored and the schedule is untouched until a member approves it. `replayWindowMs` is how long
+ * an idempotency key stands for the same request (a day; the MCP, whose keys come from per-session request ids,
+ * uses minutes).
+ */
+export async function writeOperation(
+  env: Env,
+  { connection, shul }: Pick<AuthedConnection, 'connection' | 'shul'>,
+  op: Operation,
+  { key, replayWindowMs = IDEMPOTENCY_MS }: { key: string | null; replayWindowMs?: number },
+): Promise<WriteOutcome> {
+  assertWritesOn(env)
   const scope = operationScope(op)
   if (!scope)
     throw new ApiError(400, 'invalid', `${String(op.op).slice(0, 40)} is not an operation`)
   requireScope(connection, scope)
-  const key = idempotencyKey(request)
 
   const now = Date.now()
   if (key) {
@@ -159,16 +207,16 @@ export async function postOperation(request: Request, env: Env, slug: string): P
     )
       .bind(connection.id, key)
       .first<ChangeRow>()
-    if (seen && now - seen.created_at < IDEMPOTENCY_MS) {
+    if (seen && now - seen.created_at < replayWindowMs) {
       if (seen.payload !== JSON.stringify(op))
         throw new ApiError(
           409,
           'idempotency_conflict',
           'That Idempotency-Key was used for a different operation',
         )
-      return responseOf(env, seen, {}, true)
+      return outcomeOf(env, seen, {}, true)
     }
-    // Older than a day: free the key for reuse.
+    // Older than the window: free the key for reuse.
     if (seen)
       await env.DB.prepare('UPDATE api_changes SET idempotency_key = NULL WHERE id = ?')
         .bind(seen.id)
@@ -240,7 +288,7 @@ export async function postOperation(request: Request, env: Env, slug: string): P
       if (key && isUnique(e)) return replayOf(env, connection.id, key)
       throw e
     }
-    return responseOf(
+    return outcomeOf(
       env,
       {
         id: changeId,
@@ -307,7 +355,7 @@ export async function postOperation(request: Request, env: Env, slug: string): P
     if (key && isUnique(e)) return replayOf(env, connection.id, key)
     throw e
   }
-  return responseOf(
+  return outcomeOf(
     env,
     {
       id: changeId,
@@ -320,12 +368,12 @@ export async function postOperation(request: Request, env: Env, slug: string): P
   )
 }
 
-async function replayOf(env: Env, connectionId: string, key: string): Promise<Response> {
+async function replayOf(env: Env, connectionId: string, key: string): Promise<WriteOutcome> {
   const seen = await env.DB.prepare(
     'SELECT * FROM api_changes WHERE connection_id = ? AND idempotency_key = ?',
   )
     .bind(connectionId, key)
     .first<ChangeRow>()
   if (!seen) throw new HttpError(409, 'try again')
-  return responseOf(env, seen, {}, true)
+  return outcomeOf(env, seen, {}, true)
 }

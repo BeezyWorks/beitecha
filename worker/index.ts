@@ -15,6 +15,7 @@ import {
   undoOne,
   undoSince,
 } from './changes'
+import { handleMcp } from './mcp'
 import { PUBLIC_V1, handleV1, publicCors } from './v1'
 import {
   acceptInvite,
@@ -148,6 +149,10 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return publicCors(new Response(null, { status: 204 }))
     return publicCors((await rateLimited(request, env, url)) ?? (await handleV1(request, env, url)))
   }
+  // The hosted MCP server and the discovery documents a chat app reads before signing in.
+  if (url.pathname === '/mcp') return handleMcp(request, env)
+  if (/^\/\.well-known\/oauth-protected-resource(\/mcp)?$/.test(url.pathname) && request.method === 'GET')
+    return handleMcp(request, env)
   // `/<slug>.ics` is the short subscribe link printed under the QR code.
   const ics = /^\/([a-z0-9-]+)\.ics$/.exec(url.pathname)
   if (ics && request.method === 'GET') {

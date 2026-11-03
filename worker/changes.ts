@@ -8,7 +8,7 @@ import {
 } from '@beitecha/engine'
 
 import { requireUser } from './auth'
-import { requireConnection } from './connections'
+import { requireConnection, type Connection } from './connections'
 import type { Env } from './env'
 import { ApiError, HttpError, apiFail, fail, json, readJson } from './http'
 import { findShul, requireRole, saveSchedule, type Actor } from './shuls'
@@ -405,6 +405,25 @@ export async function undoSince(request: Request, env: Env, slug: string): Promi
 // ---------------------------------------------------------------------------
 // A key's own view (`/v1`)
 
+/** A connection's own changes, newest first (at most 100), optionally of one status. */
+export async function ownChanges(
+  env: Env,
+  connection: Pick<Connection, 'id'>,
+  shulId: string,
+  status: string | null,
+): Promise<ChangeRow[]> {
+  if (status !== null && !STATUSES.includes(status as ChangeStatus))
+    throw new ApiError(400, 'invalid', `status must be one of ${STATUSES.join(', ')}`)
+  await expireStale(env, shulId)
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM api_changes WHERE connection_id = ?1 AND (?2 IS NULL OR status = ?2)
+     ORDER BY created_at DESC, rowid DESC LIMIT 100`,
+  )
+    .bind(connection.id, status)
+    .all<ChangeRow>()
+  return results
+}
+
 /** `GET /v1/shuls/:slug/changes?status=` — this connection's own changes, newest first. */
 export async function listOwnChanges(
   request: Request,
@@ -413,29 +432,18 @@ export async function listOwnChanges(
   url: URL,
 ): Promise<Response> {
   const { connection, shul } = await requireConnection(request, env, slug)
-  const status = url.searchParams.get('status')
-  if (status !== null && !STATUSES.includes(status as ChangeStatus))
-    throw new ApiError(400, 'invalid', `status must be one of ${STATUSES.join(', ')}`)
-  await expireStale(env, shul.id)
-  const { results } = await env.DB.prepare(
-    `SELECT * FROM api_changes WHERE connection_id = ?1 AND (?2 IS NULL OR status = ?2)
-     ORDER BY created_at DESC, rowid DESC LIMIT 100`,
-  )
-    .bind(connection.id, status)
-    .all<ChangeRow>()
-  return json({ changes: results.map(keyChangeView) })
+  const rows = await ownChanges(env, connection, shul.id, url.searchParams.get('status'))
+  return json({ changes: rows.map(keyChangeView) })
 }
 
-/** `POST /v1/shuls/:slug/changes/:id/undo` — a key undoing its own applied change. */
-export async function undoOwnChange(
-  request: Request,
+/** A connection undoing its own applied change (the `/v1` route and the MCP's `undo_change`). */
+export async function undoForConnection(
   env: Env,
-  slug: string,
+  connection: Pick<Connection, 'id' | 'userId'>,
   id: string,
-): Promise<Response> {
-  const { connection } = await requireConnection(request, env, slug)
+): Promise<{ status: 'reverted'; changeId: string; revision: number }> {
   if (env.V1_WRITES === 'off')
-    return apiFail(503, 'writes_disabled', 'Writes are paused for everyone right now')
+    throw new ApiError(503, 'writes_disabled', 'Writes are paused for everyone right now')
   const row = await env.DB.prepare('SELECT * FROM api_changes WHERE id = ? AND connection_id = ?')
     .bind(id, connection.id)
     .first<ChangeRow>()
@@ -453,5 +461,16 @@ export async function undoOwnChange(
       res.message,
       res.conflict,
     )
-  return Response.json({ status: 'reverted', changeId: id, revision: res.revision })
+  return { status: 'reverted', changeId: id, revision: res.revision }
+}
+
+/** `POST /v1/shuls/:slug/changes/:id/undo` — a key undoing its own applied change. */
+export async function undoOwnChange(
+  request: Request,
+  env: Env,
+  slug: string,
+  id: string,
+): Promise<Response> {
+  const { connection } = await requireConnection(request, env, slug)
+  return Response.json(await undoForConnection(env, connection, id))
 }

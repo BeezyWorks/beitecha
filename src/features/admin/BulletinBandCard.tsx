@@ -10,7 +10,6 @@ import React from 'react'
 import { Logo } from '@/components/Bulletin'
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
-import { pickLogo } from './logoFile'
 
 const WHERE: { value: BandPages; label: string }[] = [
   { value: 'all', label: 'Every page' },
@@ -85,45 +84,32 @@ export function BulletinBandCard({
       </Stack>
       {(band.pages ?? pages) !== 'off' && (
         <>
-          <Stack gap="xs">
-            <Text variant="label" color={SemanticColor.TextSecondary}>
-              Logo
-            </Text>
-            <Stack direction="row" align="center" gap="md">
-              {!!band.logo && <Logo src={band.logo} size={48} />}
-              <Button
-                variant="secondary"
-                size="sm"
-                title={band.logo ? 'Change logo' : 'Choose logo'}
-                onPress={() => {
-                  setError(null)
-                  pickLogo((logo) => set({ logo }), setError)
-                }}
+          <Stack direction="row" align="end" gap="md">
+            {!!band.logo && <Logo src={band.logo} size={48} />}
+            <Stack grow width={0}>
+              <Field
+                label="Logo web address"
+                help={
+                  band.logo?.startsWith('data:')
+                    ? 'This logo was uploaded earlier; paste an address to replace it.'
+                    : 'Link to an image already online, so nothing is stored here.'
+                }
+                value={band.logo?.startsWith('data:') ? '' : (band.logo ?? '')}
+                placeholder="https://example.org/logo.png"
+                autoCapitalize="none"
+                keyboardType="url"
+                onChangeText={(v) => set({ logo: v.trim() === '' ? undefined : v.trim() })}
               />
-              {!!band.logo && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Remove"
-                  onPress={() => set({ logo: undefined })}
-                />
-              )}
             </Stack>
-            {!!error && (
-              <Text variant="caption" color={SemanticColor.TextDanger}>
-                {error}
-              </Text>
+            {!!band.logo && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Remove"
+                onPress={() => set({ logo: undefined })}
+              />
             )}
           </Stack>
-          <Field
-            label="Or a logo web address"
-            help="Link to an image already online, so nothing is stored here."
-            value={band.logo?.startsWith('data:') ? '' : (band.logo ?? '')}
-            placeholder="https://example.org/logo.png"
-            autoCapitalize="none"
-            keyboardType="url"
-            onChangeText={(v) => set({ logo: v.trim() === '' ? undefined : v.trim() })}
-          />
           <Field
             label={kind === 'header' ? 'Shul name' : 'Shul name (optional)'}
             help={kind === 'header' ? 'Leave blank to use the shul’s name.' : undefined}

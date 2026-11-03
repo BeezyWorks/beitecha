@@ -206,7 +206,10 @@ function WeekdayGrid({ days, shabbos, notices }: WeekProps) {
 }
 
 /** Each section of the week that has something to print, as a block that can go on any page (`print.layout`). */
-export function sectionBlocks(week: WeekProps): { key: BulletinSection; node: React.ReactNode }[] {
+export function sectionBlocks(
+  week: WeekProps,
+  t: T,
+): { key: BulletinSection; node: React.ReactNode }[] {
   const { days, notices } = week
   const own: { key: BulletinSection; node: React.ReactNode }[] = [
     {
@@ -226,7 +229,7 @@ export function sectionBlocks(week: WeekProps): { key: BulletinSection; node: Re
       ? [{ key: 'zmanimTable' as const, node: <ZmanimGrid days={days} /> }]
       : []),
   ]
-  return [...own, ...announcementBlocks(week)]
+  return [...own, ...announcementBlocks(week, t)]
 }
 
 /** The back: the week's shiurim, what's coming up, sponsorships and announcements. */
@@ -242,23 +245,26 @@ export function NoticesSide(week: WeekProps) {
 }
 
 /** The announcements side's parts in order, each a block that can start a page of its own. */
-function announcementBlocks({
-  days,
-  shabbos,
-  notices,
-  categories,
-  comingUp,
-  cholim,
-  yahrzeits,
-  yahrzeitSettings,
-  birthdays,
-  birthdaySettings,
-  anniversaries,
-  anniversarySettings,
-  shiurim: showShiurim,
-  programs: showPrograms,
-  contact,
-}: WeekProps): { key: BulletinSection; node: React.ReactNode }[] {
+function announcementBlocks(
+  {
+    days,
+    shabbos,
+    notices,
+    categories,
+    comingUp,
+    cholim,
+    yahrzeits,
+    yahrzeitSettings,
+    birthdays,
+    birthdaySettings,
+    anniversaries,
+    anniversarySettings,
+    shiurim: showShiurim,
+    programs: showPrograms,
+    contact,
+  }: WeekProps,
+  t: T,
+): { key: BulletinSection; node: React.ReactNode }[] {
   const blocks: { key: BulletinSection; node: React.ReactNode }[] = []
   if (showShiurim && hasAny(shiurDays(days, shabbos), isShiur))
     blocks.push({
@@ -278,28 +284,25 @@ function announcementBlocks({
       ),
     })
   if (comingUp.length > 0) blocks.push({ key: 'comingUp', node: <ComingUp items={comingUp} /> })
-  if (notices.length > 0)
+  for (const part of noticeParts(t, notices, categories ?? [], days))
+    blocks.push({ key: part.key, node: <NoticeSection part={part} /> })
+  if (yahrzeits.length > 0)
     blocks.push({
-      key: 'notices',
-      node: <Notices notices={notices} categories={categories ?? []} days={days} />,
+      key: 'yahrzeits',
+      node: <Remembered list={yahrzeitList(yahrzeits, yahrzeitSettings)} />,
     })
-  if (yahrzeits.length > 0 || cholim.length > 0)
-    blocks.push({
-      key: 'remembrance',
-      node: <Remembrance yahrzeits={yahrzeits} settings={yahrzeitSettings} cholim={cholim} />,
-    })
-  if (birthdays.length > 0 || anniversaries.length > 0)
-    blocks.push({
-      key: 'celebrations',
-      node: (
-        <Celebrations
-          lists={[
-            occasionList('birthday', birthdays, birthdaySettings),
-            occasionList('anniversary', anniversaries, anniversarySettings),
-          ]}
-        />
-      ),
-    })
+  if (cholim.length > 0) blocks.push({ key: 'cholim', node: <Cholim cholim={cholim} /> })
+  for (const key of ['birthday', 'anniversary'] as const) {
+    const list =
+      key === 'birthday'
+        ? occasionList('birthday', birthdays, birthdaySettings)
+        : occasionList('anniversary', anniversaries, anniversarySettings)
+    if (list.items.length > 0)
+      blocks.push({
+        key: key === 'birthday' ? 'birthdays' : 'anniversaries',
+        node: <Remembered list={list} />,
+      })
+  }
   if (hasContact(contact)) blocks.push({ key: 'contact', node: <ContactInfo contact={contact} /> })
   return blocks
 }
@@ -308,7 +311,7 @@ function Announcements(week: WeekProps) {
   const t = useT()
   return (
     <Stack gap="lg">
-      {announcementBlocks(week).map((b) => (
+      {announcementBlocks(week, t).map((b) => (
         <React.Fragment key={b.key}>{b.node}</React.Fragment>
       ))}
     </Stack>
@@ -320,7 +323,7 @@ export function useNoticesParts(week: WeekProps) {
   const t = useT()
   return {
     head: <Masthead {...week} />,
-    blocks: announcementBlocks(week),
+    blocks: announcementBlocks(week, t),
     top: <HeaderBand {...week} />,
     topWhere: week.header?.pages ?? HEADER_PAGES,
     bottom: <FooterBand {...week} />,
@@ -528,18 +531,12 @@ function ShabbosBlock({
   )
 }
 
-/** The week's fast and Pesach zmanim in a box of their own: a heading per fast or Erev Pesach, a row per time. */
+/** The week's fast and Pesach zmanim with a heading per fast or Erev Pesach, a row per time. */
 function SpecialZmanimBlock({ groups }: { groups: SpecialZmanimGroup[] }) {
   const t = useT()
   if (groups.length === 0) return null
   return (
-    <Stack
-      radius="lg"
-      padding="md"
-      gap="sm"
-      borderWidth={1}
-      borderColor={SemanticColor.AccentPrimary}
-    >
+    <Stack gap="sm">
       {groups.map((g, i) => (
         <Stack key={g.key} gap="none">
           <Ruled spaced={i > 0}>
@@ -1197,164 +1194,100 @@ function ComingUp({ items }: { items: WeekProps['comingUp'] }) {
   )
 }
 
+/** One kind of notice (or a few that go together) under its heading(s): a section of the bulletin that can be placed alone. */
+interface NoticePart {
+  key: BulletinSection
+  headings: { key: string; en: string; he?: string; notices: Notice[] }[]
+}
+
 /**
- * Each kind of notice under a heading of its own, in order: sponsorships, mazal tov, condolences, the shul's own
- * categories, then plain announcements and reminders. A notice's title (the people's names) is its sub-heading and
- * its text sits under it; the sections flow in two columns.
+ * The notices in the sections that can each be placed on their own, in order: sponsorships (those on minyanim and
+ * shiurim under a heading apiece, then the rest), mazal tov, condolences, the shul's own categories, then plain
+ * announcements and reminders. A notice's title (the people's names) is its sub-heading and its text sits under it.
  */
-function Notices({
-  notices,
-  categories,
-  days,
-}: {
-  notices: Notice[]
-  categories: NoticeCategory[]
-  days: DaySchedule[]
-}) {
-  const t = useT()
+function noticeParts(t: T, notices: Notice[], categories: NoticeCategory[], days: DaySchedule[]) {
   const of = (kind: Notice['kind']) => notices.filter((n) => n.kind === kind)
   const filed = (n: Notice) => noticeCategory({ noticeCategories: categories }, n)
-  const sections: { key: string; en: string; he?: string; notices: Notice[] }[] = [
-    ...sponsorGroups(t, notices, days).map((g) => ({
-      key: g.key,
-      en: g.title,
-      notices: g.sponsors,
-    })),
+  const heading = (key: string, en: string, he: string | undefined, list: Notice[]) => ({
+    key,
+    en,
+    he,
+    notices: list,
+  })
+  const parts: NoticePart[] = [
     {
-      key: 'sponsor',
-      en: t.s.sponsorships,
-      he: HE.s.sponsorships,
-      notices: of('sponsor').filter((n) => !hasSponsor(n)),
+      key: 'sponsors',
+      headings: [
+        ...sponsorGroups(t, notices, days).map((g) =>
+          heading(g.key, g.title, undefined, g.sponsors),
+        ),
+        heading(
+          'sponsor',
+          t.s.sponsorships,
+          HE.s.sponsorships,
+          of('sponsor').filter((n) => !hasSponsor(n)),
+        ),
+      ],
     },
     ...(['simcha', 'condolence'] as const).map((k) => ({
       key: k,
-      en: t.noticeKind(k),
-      he: NOTICE_LABELS[k].he,
-      notices: of(k),
+      headings: [heading(k, t.noticeKind(k), NOTICE_LABELS[k].he, of(k))],
     })),
     ...categories.map((c) => ({
-      key: c.id,
-      en: c.name.en,
-      he: c.name.he,
-      notices: notices.filter((n) => filed(n)?.id === c.id),
+      key: `category:${c.id}` as const,
+      headings: [
+        heading(
+          c.id,
+          c.name.en,
+          c.name.he,
+          notices.filter((n) => filed(n)?.id === c.id),
+        ),
+      ],
     })),
     {
-      key: 'announcement',
-      en: t.s.announcements,
-      he: HE.s.announcements,
-      notices: notices.filter(
-        (n) => n.kind === 'reminder' || (n.kind === 'announcement' && !filed(n)),
-      ),
+      key: 'announcements',
+      headings: [
+        heading(
+          'announcement',
+          t.s.announcements,
+          HE.s.announcements,
+          notices.filter((n) => n.kind === 'reminder' || (n.kind === 'announcement' && !filed(n))),
+        ),
+      ],
     },
   ]
-  const items: FlowItem[] = sections
-    .filter((g) => g.notices.length > 0)
-    .flatMap((g) => [
-      {
-        key: g.key,
-        weight: 1.6,
-        keep: true,
-        start: true,
-        node: (
-          <Ruled spaced={g.key !== sections.find((s) => s.notices.length > 0)?.key}>
-            <Heading en={g.en} he={g.he} />
+  return parts
+    .map((p) => ({ ...p, headings: p.headings.filter((h) => h.notices.length > 0) }))
+    .filter((p) => p.headings.length > 0)
+}
+
+/** A part of the notices as one column: a ruled heading per kind, the notices under it. */
+function NoticeSection({ part }: { part: NoticePart }) {
+  return (
+    <Stack gap="sm">
+      {part.headings.map((h, i) => (
+        <React.Fragment key={h.key}>
+          <Ruled spaced={i > 0}>
+            <Heading en={h.en} he={h.he} />
           </Ruled>
-        ),
-      },
-      ...g.notices.map((n) => ({
-        key: n.id,
-        weight: noticeWeight(n),
-        node: <NoticeBlock notice={n} />,
-      })),
-    ])
-  return <Flow items={items} gap="sm" />
-}
-
-/** About how many lines a notice takes, for balancing the columns. */
-function noticeWeight(n: Notice) {
-  const lines = (l: Localized) => Math.ceil(Math.max(l.en.length, l.he?.length ?? 0) / 40)
-  return (n.title ? 1 : 0) + lines(n.text) + (n.links?.length ?? 0) * 3.5 + 0.5
-}
-
-/** The week's yahrzeits and the refuah shleimah list side by side. */
-function Remembrance({
-  yahrzeits,
-  settings,
-  cholim,
-}: {
-  yahrzeits: UpcomingYahrzeit[]
-  settings?: YahrzeitSettings
-  cholim: Choleh[]
-}) {
-  const both = yahrzeits.length > 0 && cholim.length > 0
-  return (
-    <Stack direction="row" align="stretch" gap="md">
-      {yahrzeits.length > 0 && (
-        <Stack grow width={0}>
-          <Remembered list={yahrzeitList(yahrzeits, settings)} />
-        </Stack>
-      )}
-      {both && <Stack width={1} background={SemanticColor.BorderStrong} />}
-      {cholim.length > 0 && (
-        <Stack grow width={0}>
-          <Cholim cholim={cholim} />
-        </Stack>
-      )}
-    </Stack>
-  )
-}
-
-/** The week's birthdays and anniversaries side by side, each in a box of its own. */
-function Celebrations({ lists }: { lists: RememberedList[] }) {
-  const shown = lists.filter((l) => l.items.length > 0)
-  return (
-    <Stack direction="row" align="stretch" gap="md">
-      {shown.map((l, i) => (
-        <React.Fragment key={l.key}>
-          {i > 0 && <Stack width={1} background={SemanticColor.BorderStrong} />}
-          <Stack grow width={0}>
-            <Remembered list={l} />
-          </Stack>
+          {h.notices.map((n) => (
+            <NoticeBlock key={n.id} notice={n} />
+          ))}
         </React.Fragment>
       ))}
     </Stack>
   )
 }
 
-/** A box of items in three columns, filled top to bottom, so a short list still reads in order. */
-function ColumnBox<T>({ items, render }: { items: T[]; render: (item: T) => React.ReactNode }) {
-  const size = Math.ceil(items.length / 3)
-  const columns = [0, 1, 2].map((i) => items.slice(i * size, (i + 1) * size))
-  return (
-    <Stack
-      direction="row"
-      gap="md"
-      padding="sm"
-      radius="md"
-      borderWidth={1}
-      borderColor={SemanticColor.BorderStrong}
-    >
-      {columns
-        .filter((column) => column.length > 0)
-        .map((column, i) => (
-          <Stack key={i} grow width={0} gap="xs">
-            {column.map(render)}
-          </Stack>
-        ))}
-    </Stack>
-  )
-}
-
-/** The week's yahrzeits, birthdays or anniversaries, soonest first: the names the shul chose, and the day, in a box of their own. */
+/** The week's yahrzeits, birthdays or anniversaries, soonest first: the names the shul chose, and the day. */
 function Remembered({ list }: { list: RememberedList }) {
   const t = useT()
   const { en, he } = rememberedHeading(t, list)
   return (
     <Stack gap="sm">
       <Heading en={en} he={he} />
-      <ColumnBox
-        items={list.items}
-        render={(item) => (
+      <Stack direction="row" wrap gap="lg">
+        {list.items.map((item) => (
           <Stack key={item.key} gap="none">
             {t.yahrzeitNames(item.person, list.names).map((n) => (
               <Text key={n} variant="bodySerifLarge" rtl={HEBREW.test(n)}>
@@ -1365,8 +1298,8 @@ function Remembered({ list }: { list: RememberedList }) {
               {item.when(t)}
             </Text>
           </Stack>
-        )}
-      />
+        ))}
+      </Stack>
     </Stack>
   )
 }
@@ -1382,7 +1315,7 @@ const hasContact = (c?: ShulContact): c is ShulContact =>
     c.emeritus?.some((n) => n.trim())
   )
 
-/** The rabbi, rabbis emeritus and the office, each with phone and email, in a box under a "Contact" heading. */
+/** The rabbi, rabbis emeritus and the office, each with phone and email, under a "Contact" heading. */
 function ContactInfo({ contact }: { contact: ShulContact }) {
   const t = useT()
   const emeritus = (contact.emeritus ?? []).map((n) => n.trim()).filter(Boolean)
@@ -1409,14 +1342,7 @@ function ContactInfo({ contact }: { contact: ShulContact }) {
   return (
     <Stack gap="sm">
       <Heading en={WORDS.contact.en} he={WORDS.contact.he} />
-      <Stack
-        direction="row"
-        gap="md"
-        padding="sm"
-        radius="md"
-        borderWidth={1}
-        borderColor={SemanticColor.BorderStrong}
-      >
+      <Stack direction="row" gap="md">
         {entries.map((e) => (
           <Stack key={e.key} grow width={0} gap="xs">
             <Text variant="bodySerifLarge">{e.title ?? t.text(e.fallback)}</Text>
@@ -1438,21 +1364,21 @@ function ContactInfo({ contact }: { contact: ShulContact }) {
   )
 }
 
-/** The names to daven for, in three columns in a box of their own, like a Mi Shebeirach list. */
+/** The names to daven for, running along the line and wrapping, like a Mi Shebeirach list. */
 function Cholim({ cholim }: { cholim: Choleh[] }) {
   const t = useT()
   const names = cholim.map((c) => ({ id: c.id, name: t.choleh(c) }))
   return (
     <Stack gap="sm">
       <Heading en={t.s.refuahShleimah} he={HE.s.refuahShleimah} />
-      <ColumnBox
-        items={names}
-        render={({ id, name }) => (
+      <Stack direction="row" wrap gap="md">
+        {names.map(({ id, name }, i) => (
           <Text key={id} variant="bodySerifLarge" rtl={HEBREW.test(name)}>
             {name}
+            {i < names.length - 1 ? ' ·' : ''}
           </Text>
-        )}
-      />
+        ))}
+      </Stack>
     </Stack>
   )
 }

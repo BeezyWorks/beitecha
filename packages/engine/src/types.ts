@@ -172,7 +172,19 @@ export interface ShulContact {
 }
 
 /** The parts a display can show or hide; absent from `DisplaySetup.blocks` = shown. */
-export const DISPLAY_BLOCKS = ['next', 'today', 'shabbos', 'zmanim', 'notices', 'yahrzeits', 'birthdays', 'anniversaries', 'cholim', 'specialZmanim', 'qr'] as const
+export const DISPLAY_BLOCKS = [
+  'next',
+  'today',
+  'shabbos',
+  'zmanim',
+  'notices',
+  'yahrzeits',
+  'birthdays',
+  'anniversaries',
+  'cholim',
+  'specialZmanim',
+  'qr',
+] as const
 export type DisplayBlock = (typeof DISPLAY_BLOCKS)[number]
 
 export interface DisplaySetup {
@@ -229,17 +241,32 @@ export interface OccasionSettings {
 export const BULLETIN_SECTIONS = [
   'shabbos',
   'specialZmanim',
-  'notices',
   'weekdays',
   'zmanimTable',
   'shiurim',
   'programs',
   'comingUp',
-  'remembrance',
-  'celebrations',
+  'sponsors',
+  'simcha',
+  'condolence',
+  'announcements',
+  'yahrzeits',
+  'cholim',
+  'birthdays',
+  'anniversaries',
   'contact',
 ] as const
-export type BulletinSection = (typeof BULLETIN_SECTIONS)[number]
+/**
+ * Sections that once held several (`notices`: all sponsors and announcements; `remembrance`: yahrzeits and the refuah
+ * shleimah list; `celebrations`: birthdays and anniversaries). A saved layout may still name them; they stand for the
+ * parts that replaced them, in place.
+ */
+export const LEGACY_BULLETIN_SECTIONS = ['notices', 'remembrance', 'celebrations'] as const
+/** A shul's own announcement category (`category:<id>`) is a section of its own. */
+export type BulletinSection =
+  | (typeof BULLETIN_SECTIONS)[number]
+  | (typeof LEGACY_BULLETIN_SECTIONS)[number]
+  | `category:${string}`
 
 /** Which pages of the printed week carry a header or footer. */
 export type BandPages = 'all' | 'first' | 'last' | 'off'
@@ -552,7 +579,14 @@ export interface EventDef {
 
 export type Exception =
   | { id: string; date: DateString; type: 'cancel'; eventId: string; note?: Localized }
-  | { id: string; date: DateString; type: 'retime'; eventId: string; time: TimeExpr; note?: Localized }
+  | {
+      id: string
+      date: DateString
+      type: 'retime'
+      eventId: string
+      time: TimeExpr
+      note?: Localized
+    }
   | { id: string; date: DateString; type: 'note'; eventId: string; note: Localized }
   | {
       id: string

@@ -1,13 +1,13 @@
-import { pagesOf } from '../pages'
+import { expandLayout, pagesOf } from '../pages'
 
-const all = ['shabbos', 'notices', 'weekdays', 'shiurim'] as const
+const all = ['shabbos', 'sponsors', 'weekdays', 'shiurim'] as const
 
 describe('pagesOf', () => {
   it('puts sections on their pages in the list order', () => {
     expect(
       pagesOf(
         [
-          { section: 'notices', page: 1 },
+          { section: 'sponsors', page: 1 },
           { section: 'shabbos', page: 1 },
           { section: 'weekdays', page: 2 },
           { section: 'shiurim', page: 2 },
@@ -15,7 +15,7 @@ describe('pagesOf', () => {
         [...all],
       ),
     ).toEqual([
-      ['notices', 'shabbos'],
+      ['sponsors', 'shabbos'],
       ['weekdays', 'shiurim'],
     ])
   })
@@ -25,10 +25,28 @@ describe('pagesOf', () => {
       pagesOf(
         [
           { section: 'shabbos', page: 1 },
-          { section: 'notices', page: 3 },
+          { section: 'sponsors', page: 3 },
         ],
         ['shabbos', 'weekdays', 'shiurim'],
       ),
     ).toEqual([['shabbos', 'weekdays', 'shiurim']])
+  })
+
+  it('lets a saved combined section stand for the parts that replaced it', () => {
+    expect(
+      pagesOf(
+        [
+          { section: 'notices', page: 2 },
+          { section: 'shabbos', page: 1 },
+        ],
+        ['shabbos', 'sponsors', 'category:kiddush', 'announcements', 'yahrzeits'],
+      ),
+    ).toEqual([['shabbos'], ['sponsors', 'category:kiddush', 'announcements', 'yahrzeits']])
+    expect(
+      expandLayout([{ section: 'remembrance', page: 2 }], ['yahrzeits', 'cholim', 'contact']),
+    ).toEqual([
+      { section: 'yahrzeits', page: 2 },
+      { section: 'cholim', page: 2 },
+    ])
   })
 })

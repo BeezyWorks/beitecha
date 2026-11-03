@@ -3,6 +3,7 @@ import {
   BULLETIN_SECTIONS,
   type BulletinSection,
   DEFAULT_SHABBOS_ZMANIM,
+  type NoticeCategory,
   type PrintSettings,
   type ShulSettings,
   ZMAN_IDS,
@@ -11,31 +12,51 @@ import {
 import React from 'react'
 
 import { Select } from '@/components/Select'
+import { expandLayout } from '@/features/bulletin/pages'
 import { zmanLabel } from './forms'
 
 const ADD = ''
 
-const SECTION_NAMES: Record<BulletinSection, string> = {
+const SECTION_NAMES: Record<(typeof BULLETIN_SECTIONS)[number], string> = {
   shabbos: 'Shabbos',
   specialZmanim: 'Fast & Pesach zmanim',
-  notices: 'Sponsors & announcements',
   weekdays: 'Weekday minyanim',
   zmanimTable: 'Zmanim table',
   shiurim: 'Shiurim',
   programs: 'Programs',
   comingUp: 'Coming up',
-  remembrance: 'Yahrzeits & refuah shleimah',
-  celebrations: 'Birthdays & anniversaries',
+  sponsors: 'Sponsors',
+  simcha: 'Mazal tov',
+  condolence: 'Condolences',
+  announcements: 'Announcements',
+  yahrzeits: 'Yahrzeits',
+  cholim: 'Refuah shleimah',
+  birthdays: 'Birthdays',
+  anniversaries: 'Anniversaries',
   contact: 'Contact info',
 }
 
+const sectionName = (section: BulletinSection, categories: NoticeCategory[]) =>
+  section in SECTION_NAMES
+    ? SECTION_NAMES[section as keyof typeof SECTION_NAMES]
+    : (categories.find((c) => `category:${c.id}` === section)?.name.en ?? section)
+
+/** Every section, announcement categories included, in the automatic order. */
+const allSections = (categories: NoticeCategory[]): BulletinSection[] => {
+  const at = BULLETIN_SECTIONS.indexOf('announcements')
+  return [
+    ...BULLETIN_SECTIONS.slice(0, at),
+    ...categories.map((c) => `category:${c.id}` as const),
+    ...BULLETIN_SECTIONS.slice(at),
+  ]
+}
+
 /** The automatic layout as a list: the times on the first page, the rest on the second. */
-const AUTO_LAYOUT: { section: BulletinSection; page: number }[] = BULLETIN_SECTIONS.map(
-  (section) => ({
+const autoLayout = (categories: NoticeCategory[]) =>
+  allSections(categories).map((section) => ({
     section,
     page: ['shabbos', 'specialZmanim', 'weekdays', 'zmanimTable'].includes(section) ? 1 : 2,
-  }),
-)
+  }))
 const PAGE_CHOICES = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `Page ${n}` }))
 
 const SHOWN: {
@@ -86,6 +107,22 @@ const SHOWN: {
     help: 'Below Shabbos in weeks with a fast or Erev Pesach.',
   },
 ]
+
+/** `layout` with its combined sections split up and the sections it leaves out added (after the rest, on the last page). */
+function completeLayout(
+  layout: NonNullable<PrintSettings['layout']>,
+  categories: NoticeCategory[],
+) {
+  const known = allSections(categories)
+  const rows = expandLayout(layout, known).filter((r) => known.includes(r.section))
+  const last = Math.max(1, ...rows.map((r) => r.page))
+  return [
+    ...rows,
+    ...known
+      .filter((s) => !rows.some((r) => r.section === s))
+      .map((section) => ({ section, page: last })),
+  ]
+}
 
 /** the bulletin: whether it has the zmanim table, and which zmanim sit among the Shabbos minyanim. */
 export function BulletinCard({
@@ -145,7 +182,9 @@ export function BulletinCard({
     )
   }
 
-  const layout = print.layout
+  const categories = settings.noticeCategories ?? []
+  // A layout saved before the sections were split, and any section it doesn't list yet, shown as the rows they are.
+  const layout = print.layout && completeLayout(print.layout, categories)
   const move = (i: number, by: number) => {
     if (!layout) return
     const next = [...layout]
@@ -168,7 +207,7 @@ export function BulletinCard({
         </Stack>
         <ToggleSwitch
           value={!!layout}
-          onValueChange={(on) => set({ layout: on ? AUTO_LAYOUT : undefined })}
+          onValueChange={(on) => set({ layout: on ? autoLayout(categories) : undefined })}
           accessibilityLabel="Choose what goes on each page"
         />
       </Stack>
@@ -181,10 +220,10 @@ export function BulletinCard({
           {layout.map((row, i) => (
             <Stack key={row.section} direction="row" align="center" gap="md">
               <Stack grow>
-                <Text variant="body">{SECTION_NAMES[row.section]}</Text>
+                <Text variant="body">{sectionName(row.section, categories)}</Text>
               </Stack>
               <Select
-                accessibilityLabel={`Page for ${SECTION_NAMES[row.section]}`}
+                accessibilityLabel={`Page for ${sectionName(row.section, categories)}`}
                 value={String(row.page)}
                 options={PAGE_CHOICES}
                 onChange={(v) => setPage(i, Number(v))}

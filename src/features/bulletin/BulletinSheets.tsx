@@ -3,6 +3,7 @@ import { Stack } from '@beezyworks/design'
 import React, { useRef, useState } from 'react'
 
 import { bandShows, PagedSheets, BulletinSheet, type Paper } from '@/components/Bulletin'
+import { useT } from '@/features/luach/language'
 import { pagesOf } from './pages'
 import {
   Footer,
@@ -123,7 +124,7 @@ function ChosenSheets({
   textSize: number
   grow: boolean
 }) {
-  const blocks = sectionBlocks(week)
+  const blocks = sectionBlocks(week, useT())
   const pages = pagesOf(
     week.layout ?? [],
     blocks.map((b) => b.key),

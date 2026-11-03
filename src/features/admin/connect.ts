@@ -43,6 +43,7 @@ export const MODE_LABELS: Record<ConnectionMode, string> = {
 }
 
 export const PURPOSE_LABELS: Record<string, string> = {
+  assistant: 'AI assistant',
   skill: 'Claude skill',
   script: 'Script',
   other: 'Other',

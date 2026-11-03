@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { confirmAction } from '@/components/confirm'
 import { Field } from '@/components/Field'
 import { Segments } from '@/components/Segments'
-import { API_URL } from '@/lib/config'
+import { API_URL, SITE_URL } from '@/lib/config'
 import type { Connection, ConnectionMode, ConnectionPurpose } from '@/lib/api'
 import { copy } from './aiClipboard'
 import {
@@ -424,13 +424,46 @@ function ConnectionsList({ owner }: { owner: boolean }) {
   )
 }
 
+const MCP_URL = `${SITE_URL}/mcp`
+
 const MCP_STEPS = [
   'Open Claude and go to Customize, then Connectors.',
   'Choose “Add custom connector”.',
-  'Paste https://beitecha.baderech.app/mcp',
+  `Paste ${MCP_URL}`,
   'Press Connect and sign in with your Baderech account.',
-  'Choose this shul and press Allow.',
+  'Press Allow.',
 ]
+
+function McpCard({ enabled }: { enabled: boolean }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <Card gap="sm">
+      <Text variant="sectionHeader">Connect Claude</Text>
+      <Text variant="body" color={SemanticColor.TextSecondary}>
+        Nothing to download or copy: add Beitecha to Claude as a connector, sign in, and ask for
+        what you need (“kiddush this week is sponsored by the Cohens”).
+      </Text>
+      {MCP_STEPS.map((step, i) => (
+        <Text key={i} variant="body">
+          {i + 1}. {step}
+        </Text>
+      ))}
+      <Stack direction="row" gap="sm" wrap>
+        <Button
+          size="sm"
+          variant="secondary"
+          title={copied ? 'Copied' : 'Copy the connector address'}
+          onPress={async () => setCopied(await copy(MCP_URL))}
+        />
+      </Stack>
+      <Text variant="caption" color={SemanticColor.TextSecondary}>
+        {enabled
+          ? 'Each person who connects shows up above as a signed-in connection, and you can disconnect it there. A disconnected assistant stays disconnected.'
+          : 'Assistants are off for this shul. Turn them on above first; until then, Claude will say a gabbai needs to.'}
+      </Text>
+    </Card>
+  )
+}
 
 export function ConnectSection() {
   const slug = useAdmin((s) => s.slug)
@@ -566,20 +599,7 @@ export function ConnectSection() {
 
       {ready && (enabled || connections.length > 0) && <ConnectionsList owner={owner} />}
 
-      <Card gap="sm">
-        <Stack direction="row" align="center" gap="sm">
-          <Text variant="sectionHeader">Connect Claude (MCP)</Text>
-          <Badge label="Coming soon" tone="neutral" />
-        </Stack>
-        <Text variant="body" color={SemanticColor.TextSecondary}>
-          Soon you’ll be able to connect Claude without downloading anything:
-        </Text>
-        {MCP_STEPS.map((step, i) => (
-          <Text key={i} variant="body">
-            {i + 1}. {step}
-          </Text>
-        ))}
-      </Card>
+      <McpCard enabled={enabled} />
     </SectionPage>
   )
 }

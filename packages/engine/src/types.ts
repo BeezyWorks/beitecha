@@ -146,6 +146,8 @@ export interface ShulSettings {
   noticeCategories?: NoticeCategory[]
   /** How the printed week looks. */
   print?: PrintSettings
+  /** How the printed wall calendar looks and what's on it. */
+  calendar?: CalendarPrintSettings
   /** Who leads the shul and how to reach it; all optional. The printed week can list it as a contact section. */
   contact?: ShulContact
   /** How the upcoming yahrzeits are titled and shown. */
@@ -294,6 +296,53 @@ export interface BulletinBand {
    * the Siddur page again, with the given `label`.
    */
   qr?: { url?: string; label?: string } | false
+}
+
+export type CalendarBasis = 'civil' | 'hebrew'
+
+/** The kinds of holiday a printed calendar can turn off together. */
+export type CalendarGroup = 'yomTov' | 'cholHamoed' | 'fast' | 'minor' | 'other' | 'israeli' | 'civil'
+
+/** The printed wall calendar: a month to a sheet, with the shul's holidays, zmanim, events and people. */
+export interface CalendarPrintSettings {
+  /** The calendar the months and the big numbers are; the other is small. Default `civil`. */
+  basis?: CalendarBasis
+  /** Default `letter`. */
+  paper?: 'letter' | 'a4' | 'tabloid' | 'a3'
+  /** Default `landscape`. */
+  orientation?: 'portrait' | 'landscape'
+  /** `color` (default) or black ink only. */
+  ink?: 'color' | 'mono'
+  /** Kinds of holiday left off. */
+  hiddenGroups?: CalendarGroup[]
+  /** Individual holidays (or families of them, every Rosh Chodesh) left off, by `CalendarHoliday.id`. */
+  hiddenHolidays?: string[]
+  /** The parsha on Shabbos. Default true. */
+  parsha?: boolean
+  /** The day of the omer. Default true. */
+  omer?: boolean
+  /** Candle lighting and havdalah on the days they fall. Default true. */
+  restTimes?: boolean
+  /** When a fast begins and ends. Default true. */
+  fastTimes?: boolean
+  /** Zmanim on every day. */
+  dayZmanim?: ZmanKey[]
+  /** Zmanim on Shabbos and Yom Tov only. */
+  restZmanim?: ZmanKey[]
+  /** The shul's own events (minyanim, shiurim, programs) written on the days they happen, by event id. Default none. */
+  events?: string[]
+  /** One-time events written on their day, whether or not the event is picked. Default true. */
+  oneTime?: boolean
+  /** Yahrzeits, birthdays and anniversaries on their days. Default true each. */
+  yahrzeits?: boolean
+  birthdays?: boolean
+  anniversaries?: boolean
+  /** People (by yahrzeit/birthday/anniversary id) left off. */
+  hiddenPeople?: string[]
+  /** Text under every month. */
+  footer?: string
+  /** Text under one month instead of `footer`, by the month's first day (`2026-11-01`). */
+  monthFooters?: Record<string, string>
 }
 
 export interface PrintSettings {

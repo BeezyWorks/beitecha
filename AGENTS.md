@@ -44,7 +44,8 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     style props in app code; the exceptions are `components/ScaleToFit.tsx` (the display's fixed 1280×720 canvas
     scaled to the screen; a DL candidate), `components/ShrinkToFit.tsx` (one line shrunk to the room it
     has; same), `components/Select.tsx` (styled like the DL's own web pickers), `components/Bulletin.tsx` (paper-sized
-    sheets portalled out of the app's clipping root, `@page` CSS, scaled to fill one sheet) and
+    sheets portalled out of the app's clipping root, `@page` CSS, scaled to fill one sheet),
+    `features/calendar/html.ts` (the wall calendar's paper ink) and
     `components/Blackout.tsx` (the display's true-black sleep screen).
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
   - Headers are in Cardo, whose bold Hebrew is mostly regular weight; `lib/hebrewHeaders.ts` gives Cardo Bold's Hebrew
@@ -67,6 +68,15 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   the pages and `textSize` scales the text; content shrinks to fit its pages and grows (up to 1.4×) to fill them, and
   with more than two the announcements' blocks (`PagedSheets`) go whole onto as many sheets as they need, never split.
   Nothing carries meaning in color alone: `print.ink` is `color` (the brand on headings and rules) or `mono`.
+- **Wall calendar** (the admin's "Wall calendar" under "See it"; `settings.calendar`, engine `calendarPrint.ts`, page HTML in
+  `features/calendar/html.ts`): a month to a sheet (Letter, A4, Tabloid, A3, either way up), civil or Hebrew months as the
+  main calendar with the other small, from any run of months. The engine builds each month (`buildMonth`: weeks of cells
+  with holidays grouped as the Siddur's printed calendar groups them, parsha, omer, candle lighting/havdalah/fast times,
+  chosen zmanim, the shul's picked events by id plus one-time events, yahrzeits, birthdays and anniversaries); the app
+  turns it into a printable HTML document (an iframe preview, printed through a hidden one). Holidays are left off by
+  kind (`hiddenGroups`) or one by one (`hiddenHolidays`, a family like every Rosh Chodesh shares an id); people by id
+  (`hiddenPeople`), independent of `hideFromBulletin`. A footer goes under every month (`footer`) or under one month
+  instead (`monthFooters`, by the month's first day). No pictures or covers yet (the Siddur's has them).
 - **The Siddur link.** The display's and the bulletin's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
   the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its
   three web hosts only; the public reads are rate-limited per IP by `PUBLIC_LIMIT`, since CORS doesn't stop non-browsers) and computes with the same engine, so labels, dates and "next up" live in the engine

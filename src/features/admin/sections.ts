@@ -14,6 +14,7 @@ export type SectionKey =
   | 'anniversaries'
   | 'display'
   | 'bulletin'
+  | 'calendar'
   | 'shul'
   | 'team'
 
@@ -46,6 +47,7 @@ export const SECTION_GROUPS: { title?: string; sections: { key: SectionKey; labe
 export const SEE_IT_SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'display', label: 'Lobby display' },
   { key: 'bulletin', label: 'Bulletin' },
+  { key: 'calendar', label: 'Wall calendar' },
 ]
 
 /** The last group in the sidebar. */

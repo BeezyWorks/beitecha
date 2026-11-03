@@ -116,6 +116,8 @@ export interface WeekProps {
   specialZmanim: SpecialZmanimGroup[]
   /** Which page each section goes on (`settings.print.layout`); absent = the automatic layout. */
   layout?: PrintSettings['layout']
+  /** Day names left out of the column headings (`settings.print.hideDays`). */
+  hideDays?: string[]
   /** The header and footer (`settings.print.header` / `footer`). */
   header?: BulletinBand
   footer?: BulletinBand
@@ -187,7 +189,7 @@ export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: b
       <SpecialZmanimBlock groups={week.specialZmanim} />
       {withNotices && <Announcements {...week} />}
       <WeekdayGrid {...week} />
-      {week.zmanimTable && <ZmanimGrid days={days} />}
+      {week.zmanimTable && <ZmanimGrid days={days} hide={week.hideDays} />}
       <Stack grow />
       {withNotices && <Footer {...week} page={1} pages={1} />}
     </Stack>
@@ -195,14 +197,22 @@ export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: b
 }
 
 /** The weekday minyanim, Sunday to Friday; Erev Shabbos's and the shiurim are elsewhere. */
-function WeekdayGrid({ days, shabbos, notices }: WeekProps) {
+function WeekdayGrid({ days, shabbos, notices, hideDays }: WeekProps) {
   const t = useT()
   const weekdays = withoutShabbos(days, shabbos).map((d) => ({
     ...d,
     events: d.events.filter(isMinyan),
   }))
   if (weekdays.length === 0) return null
-  return <EventGrid days={weekdays} notices={notices} en={t.s.weekdays} he={HE.s.weekdays} />
+  return (
+    <EventGrid
+      days={weekdays}
+      notices={notices}
+      hide={hideDays}
+      en={t.s.weekdays}
+      he={HE.s.weekdays}
+    />
+  )
 }
 
 /** Each section of the week that has something to print, as a block that can go on any page (`print.layout`). */
@@ -226,7 +236,7 @@ export function sectionBlocks(
       : []),
     { key: 'weekdays', node: <WeekdayGrid {...week} /> },
     ...(week.zmanimTable
-      ? [{ key: 'zmanimTable' as const, node: <ZmanimGrid days={days} /> }]
+      ? [{ key: 'zmanimTable' as const, node: <ZmanimGrid days={days} hide={week.hideDays} /> }]
       : []),
   ]
   return [...own, ...announcementBlocks(week, t)]
@@ -775,11 +785,13 @@ function ShabbosRowView({ row, sponsor }: { row: ShabbosRow; sponsor?: string })
 function EventGrid({
   days,
   notices,
+  hide,
   en,
   he,
 }: {
   days: DaySchedule[]
   notices: Notice[]
+  hide?: string[]
   en: string
   he: string
 }) {
@@ -802,7 +814,7 @@ function EventGrid({
     <Stack gap="xs">
       <Heading en={en} he={he} />
       <Stack gap="none">
-        <DayColumns days={days} />
+        <DayColumns days={days} hide={hide} />
         {ids.map((id) => {
           const e = first.get(id)!
           return (
@@ -969,7 +981,7 @@ function dayRange(t: T, days: DaySchedule['weekday'][]) {
     .join(', ')
 }
 
-function ZmanimGrid({ days }: { days: DaySchedule[] }) {
+function ZmanimGrid({ days, hide }: { days: DaySchedule[]; hide?: string[] }) {
   const t = useT()
   const shown = days.map((d) => zmanimList(d))
   const ids = weekOrder(shown)
@@ -978,7 +990,7 @@ function ZmanimGrid({ days }: { days: DaySchedule[] }) {
     <Stack gap="xs">
       <Heading en={t.s.zmanimThisWeek} he={HE.s.zmanimThisWeek} />
       <Stack gap="none">
-        <DayColumns days={days} />
+        <DayColumns days={days} hide={hide} />
         {ids.map((id) => {
           const lit = id === 'candleLighting' || id === 'havdalah'
           return (
@@ -1046,30 +1058,34 @@ const zmanOrder = (id: ZmanId) =>
 const special = (d: DaySchedule) => d.weekday === 6 || d.tags.includes('yomTov')
 
 /** The column headings: weekday, date, and any holiday. */
-function DayColumns({ days }: { days: DaySchedule[] }) {
+function DayColumns({ days, hide = [] }: { days: DaySchedule[]; hide?: string[] }) {
   const t = useT()
   return (
     <TableRow label={null} header>
-      {days.map((d) => (
-        <Cell key={d.date} header>
-          <Text variant={strong(t)} color={special(d) ? SemanticColor.TextAccent : undefined}>
-            {t.weekdayShort(d.weekday)} {parseDate(d.date).day}
-          </Text>
-          <Text variant="caption" numberOfLines={1} color={SemanticColor.TextSecondary}>
-            {hebrewShort(d)}
-          </Text>
-          {d.holidays.length > 0 && (
-            <Text
-              variant="caption"
-              numberOfLines={1}
-              rtl={t.nameRtl}
-              color={SemanticColor.TextAccent}
-            >
-              {t.text(d.holidays[0])}
+      {days.map((d) => {
+        const holiday = d.holidays.find((h) => !hide.some((k) => h.en.startsWith(k)))
+        return (
+          <Cell key={d.date} header>
+            {/* Above the day, so a long name never pushes the date out of line. */}
+            {holiday && (
+              <Text
+                variant="caption"
+                numberOfLines={1}
+                rtl={t.nameRtl}
+                color={SemanticColor.TextAccent}
+              >
+                {t.text(holiday)}
+              </Text>
+            )}
+            <Text variant={strong(t)} color={special(d) ? SemanticColor.TextAccent : undefined}>
+              {t.weekdayShort(d.weekday)} {parseDate(d.date).day}
             </Text>
-          )}
-        </Cell>
-      ))}
+            <Text variant="caption" numberOfLines={1} color={SemanticColor.TextSecondary}>
+              {hebrewShort(d)}
+            </Text>
+          </Cell>
+        )
+      })}
     </TableRow>
   )
 }
@@ -1108,7 +1124,7 @@ function Cell({ header, children }: { header?: boolean; children: React.ReactNod
       grow
       width={0}
       align="center"
-      justify="center"
+      justify={header ? 'end' : 'center'}
       paddingVertical={header ? 'xs' : 2}
       paddingHorizontal={2}
     >

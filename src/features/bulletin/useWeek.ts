@@ -87,6 +87,7 @@ export function useWeek(
           : [],
       ),
       layout: print.layout,
+      hideDays: print.hideDays,
       header: print.header,
       footer: withContact(print.footer, on(print.contact) ? schedule.settings.contact : undefined),
     }

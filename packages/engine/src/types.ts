@@ -337,6 +337,8 @@ export interface PrintSettings {
    * listed ones, on the last page; empty sections and pages are dropped.
    */
   layout?: { section: BulletinSection; page: number }[]
+  /** Day names (`BULLETIN_DAY_NAMES` keys) left out of the weekday grid's column headings. Default none. */
+  hideDays?: string[]
   /** Text size on the sheet as a multiple of normal (1), shrunk anyway where it wouldn't fit the pages. Default 1. */
   textSize?: number
   /** `color` (default) tints headings and rules with the shul's brand color; `mono` is black ink only, for copiers. */
@@ -347,6 +349,21 @@ export interface PrintSettings {
    */
   shabbosZmanim?: { friday: ZmanKey[]; shabbos: ZmanKey[] }
 }
+
+/** Minor days a shul may not want named in the printed week's headings: each matches the English name's start. */
+export const BULLETIN_DAY_NAMES: { key: string; label: string }[] = [
+  { key: 'Rosh Chodesh', label: 'Rosh Chodesh' },
+  { key: 'Yom Kippur Katan', label: 'Yom Kippur Katan' },
+  { key: 'Chanukah', label: 'Chanukah (each day)' },
+  { key: 'Erev', label: 'Erev Pesach, Sukkos, etc.' },
+  { key: 'Shushan Purim', label: 'Shushan Purim' },
+  { key: 'Purim Katan', label: 'Purim Katan' },
+  { key: 'Tu BiShvat', label: 'Tu BiShvat' },
+  { key: 'Lag BaOmer', label: 'Lag BaOmer' },
+  { key: 'Tu B\'Av', label: 'Tu B’Av' },
+  { key: 'Pesach Sheni', label: 'Pesach Sheni' },
+  { key: 'Leil Selichot', label: 'Leil Selichot' },
+]
 
 /** The zmanim the printed week lists among Friday night's and Shabbos day's minyanim. */
 export const DEFAULT_SHABBOS_ZMANIM: NonNullable<PrintSettings['shabbosZmanim']> = {

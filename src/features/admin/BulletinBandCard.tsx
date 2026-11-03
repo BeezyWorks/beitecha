@@ -43,7 +43,6 @@ export function BulletinBandCard({
 }) {
   const { title, help, pages } = KINDS[kind]
   const band: BulletinBand = settings.print?.[kind] ?? {}
-  const [error, setError] = React.useState<string | null>(null)
   const set = (patch: Partial<BulletinBand>) => {
     const next: BulletinBand = { ...band, ...patch }
     // Anything left empty falls away, so the band is back to its defaults when all is cleared.

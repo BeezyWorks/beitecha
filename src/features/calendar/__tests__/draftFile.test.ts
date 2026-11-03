@@ -15,7 +15,7 @@ describe('calendar draft files', () => {
   const pictures = {
     ...defaultPictureSettings,
     imageIds: ['a'],
-    matches: { '2026-11-01': 'a', '2026-12-01': 'none', '2027-01-01': 'gone' },
+    matches: { '2026-11-01': 'a', '2027-01-01': 'gone' },
     frames: { a: { zoom: 2, cx: 0.4, cy: 0.5, rot: 90 } },
     coverId: 'a',
     backCoverId: 'gone',
@@ -44,7 +44,7 @@ describe('calendar draft files', () => {
   })
   it('drops what points at a picture the file does not carry', () => {
     const got = parseDraftFile(JSON.stringify(buildDraftFile(calendar, pictures, [image])))!
-    expect(got.pictures.matches).toEqual({ '2026-11-01': 'a', '2026-12-01': 'none' })
+    expect(got.pictures.matches).toEqual({ '2026-11-01': 'a' })
     expect(got.pictures.backCoverId).toBeUndefined()
     expect(got.pictures.coverId).toBe('a')
   })

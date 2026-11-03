@@ -36,6 +36,7 @@ export const FRAME_SCRIPT = `
       i.dataset.rot=f.rot;i.style.setProperty('--ar',aspect(o,f));
       i.style.setProperty('--z',f.z);i.style.setProperty('--cx',f.cx);i.style.setProperty('--cy',f.cy);
       refresh(o);});};
+  var post=function(m){parent.postMessage(m,'*');};
   var send=function(box,f){
     parent.postMessage({type:'calendar-frame',id:box.dataset.pic,zoom:f.z,cx:f.cx,cy:f.cy,rot:f.rot},'*');};
   var zoomAt=function(box,f,factor,px,py){
@@ -63,12 +64,31 @@ export const FRAME_SCRIPT = `
     var box=e.target.closest('[data-pic]');if(!box||e.target.closest('.tools'))return;
     var f={z:1,cx:.5,cy:.5,rot:0};apply(box,f);send(box,f);});
   document.addEventListener('click',function(e){
-    var btn=e.target.closest('.tools button');if(!btn||btn.disabled)return;
+    var btn=e.target.closest('.tools button');
+    if(!btn){var empty=e.target.closest('[data-slot].empty');
+      if(empty)post({type:'calendar-add',slot:empty.dataset.slot});
+      return;}
+    if(btn.disabled)return;
+    if(btn.dataset.act==='remove'){post({type:'calendar-remove',slot:btn.closest('[data-slot]').dataset.slot});return;}
     var box=btn.closest('[data-pic]'),f=read(box),act=btn.dataset.act;
     if(act==='reset')f={z:1,cx:.5,cy:.5,rot:0};
     else if(act==='rotate')f={z:1,cx:.5,cy:.5,rot:(f.rot+90)%360};
     else f=zoomAt(box,f,act==='in'?1.25:0.8);
     apply(box,f);send(box,f);});
+  // Pictures dropped on a page go on it (an empty one, or one to replace); dropped anywhere else they do nothing, not
+  // even open in the frame.
+  var over=null;
+  var mark=function(el){if(over&&over!==el)over.classList.remove('drop');over=el;if(el)el.classList.add('drop');};
+  var hasFiles=function(e){return e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],'Files')>=0;};
+  document.addEventListener('dragover',function(e){
+    if(!hasFiles(e))return;e.preventDefault();
+    mark(e.target.closest('[data-slot]'));});
+  document.addEventListener('dragleave',function(e){if(!e.relatedTarget)mark(null);});
+  document.addEventListener('drop',function(e){
+    if(!hasFiles(e))return;e.preventDefault();mark(null);
+    var box=e.target.closest('[data-slot]');if(!box)return;
+    var files=Array.prototype.filter.call(e.dataTransfer.files,function(f){return /^image\\//.test(f.type);});
+    if(files.length)post({type:'calendar-drop',slot:box.dataset.slot,files:files});});
   var timer;
   document.addEventListener('wheel',function(e){
     if(!e.ctrlKey&&!e.metaKey)return;

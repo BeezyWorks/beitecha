@@ -94,6 +94,7 @@ export {
   stepMonth,
   type CalendarCell,
   type CalendarEventLine,
+  type CalendarIcon,
   type CalendarHoliday,
   type CalendarMonth,
   type CalendarOptions,

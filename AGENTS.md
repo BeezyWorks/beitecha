@@ -75,12 +75,21 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   chosen zmanim, the shul's picked events by id plus one-time events, yahrzeits, birthdays and anniversaries); the app
   turns it into a printable HTML document (an iframe preview, printed through a hidden one). Holidays are left off by
   kind (`hiddenGroups`) or one by one (`hiddenHolidays`, a family like every Rosh Chodesh shares an id); people by id
-  (`hiddenPeople`), independent of `hideFromBulletin`. A footer goes under every month (`footer`) or under one month
-  instead (`monthFooters`, by the month's first day). Clock changes (`clockChange`, default off) mark the Sundays the clocks
+  (`hiddenPeople`), independent of `hideFromBulletin`. Nothing is colored in the writing: the date numbers carry it
+  (the Hebrew date red on a day without melacha, over blue for another holiday, over green for the shul's people; the
+  civil date blue for a civil holiday), Yom Tov's own days bold. Small icons (`CalendarIcon`, drawn by the app's
+  `icons.ts`): candles over the times where they're lit, a menorah with the day's candles on Chanukah, a clock by a clock
+  change, each with a toggle. Chanukah is written by its days (`chanukah: 'days'`, default: "Erev Chanukah", "Chanukah
+  1"–"8") or its nights, as hebcal has it; Chag HaBanot is its own, unmarked day. `english` writes everything in English
+  whatever the shul's language (the app builds the calendar with an English `makeT`; the Hebrew dates' numbers stay in
+  gematria). A footer goes under every month (`footer`) or under one month
+  instead (`monthFooters`, by the month's first day). Clock changes (`clockChange`, default on) mark the Sundays the clocks
   move, by the shul's time zone (a civil-group holiday, `civil:clockChange`; the Siddur's calendar has the same option).
-  Pictures (`features/calendar/pictures.ts`, `usePictures`): above each month or on the back of the page before it, a
+  Pictures (`features/calendar/pictures.ts`, `usePictures`): above each month, on the back of the page before it or none, a
   front and a back cover, fill or whole, cropped by drag, zoom and turn in the preview (`frameScript.ts`, ported from the
-  Siddur's). They stay in the browser (IndexedDB for the pixels, localStorage for the choices, per slug), never in the
+  Siddur's). They are put on pages, not listed: an empty page in the preview (`CalendarPreview`) takes a click or
+  dropped files (several fill the empty months after it), and hovering a picture offers to take it off. The preview
+  shows the empty pages; the print leaves them out. They stay in the browser (IndexedDB for the pixels, localStorage for the choices, per slug), never in the
   schedule or the server.
 - **The Siddur link.** The display's and the bulletin's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
   the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its

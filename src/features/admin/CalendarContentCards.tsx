@@ -18,6 +18,7 @@ import {
 import React from 'react'
 
 import { Field } from '@/components/Field'
+import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { adminLabel, zmanLabel } from './forms'
 
@@ -200,8 +201,44 @@ export function CalendarHolidaysCard({
       <Row
         label="Clock changes"
         help="The Sundays the clocks go forward and back, by the shul's time zone."
-        value={settings.clockChange === true}
-        onChange={(on) => set({ clockChange: on ? true : undefined })}
+        value={settings.clockChange !== false}
+        onChange={(on) => set({ clockChange: on ? undefined : false })}
+      />
+      <Stack gap="xs">
+        <Text variant="label" color={SemanticColor.TextSecondary}>
+          Chanukah
+        </Text>
+        <Segments<'days' | 'nights'>
+          options={[
+            { key: 'days', label: 'By its days' },
+            { key: 'nights', label: 'By its nights' },
+          ]}
+          value={settings.chanukah ?? 'days'}
+          onChange={(c) => set({ chanukah: c === 'days' ? undefined : c })}
+          accessibilityLabel="How Chanukah is written"
+        />
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          By its days: “Erev Chanukah”, then “Chanukah 1” to “Chanukah 8”, each with that many
+          candles. By its nights, as hebcal has it: “1 Candle” on the eve.
+        </Text>
+      </Stack>
+      <Row
+        label="Candles icon"
+        help="Two candles over the times on a day candles are lit."
+        value={settings.iconCandles !== false}
+        onChange={(on) => set({ iconCandles: on ? undefined : false })}
+      />
+      <Row
+        label="Menorah icon"
+        help="A menorah with the day's candles on each day of Chanukah."
+        value={settings.iconChanukah !== false}
+        onChange={(on) => set({ iconChanukah: on ? undefined : false })}
+      />
+      <Row
+        label="Clock icon"
+        help="Beside “Clocks forward” and “Clocks back”."
+        value={settings.iconClock !== false}
+        onChange={(on) => set({ iconClock: on ? undefined : false })}
       />
       <Stack direction="row">
         <Button

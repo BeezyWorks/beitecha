@@ -5,6 +5,7 @@ import {
   SemanticColor,
   Stack,
   Text,
+  ToggleSwitch,
   useIsWideLayout,
 } from '@beezyworks/design'
 import {
@@ -35,6 +36,7 @@ import {
   renderCalendarHtml,
 } from '@/features/calendar/html'
 import { type BackImage, frameFor, picturesForMonths } from '@/features/calendar/pictures'
+import { CalendarPreview } from '@/features/calendar/CalendarPreview'
 import {
   buildDraftFile,
   downloadText,
@@ -70,29 +72,7 @@ export function CalendarSection({ slug }: { slug: string }) {
   const [range, setRange] = React.useState<{ from: string; to: string } | null>(null)
   const [paneWidth, setPaneWidth] = React.useState(0)
   const pane = React.useRef<HTMLDivElement>(null)
-  const frame = React.useRef<HTMLIFrameElement>(null)
-  // Each change loads the page afresh, so where it was scrolled to is kept (as a fraction of the way down).
-  const scrolled = React.useRef(0)
   const setCrop = pics.setCrop
-  // The preview page reports a picture's new framing once a gesture ends.
-  React.useEffect(() => {
-    const listen = (e: MessageEvent) => {
-      const d = e.data
-      if (e.source !== frame.current?.contentWindow || d?.type !== 'calendar-frame') return
-      setCrop(d.id, { zoom: d.zoom, cx: d.cx, cy: d.cy, rot: d.rot })
-    }
-    window.addEventListener('message', listen)
-    return () => window.removeEventListener('message', listen)
-  }, [setCrop])
-  const restoreScroll = () => {
-    const win = frame.current?.contentWindow
-    if (!win) return
-    const root = win.document.documentElement
-    win.scrollTo(0, scrolled.current * root.scrollHeight)
-    win.addEventListener('scroll', () => {
-      scrolled.current = win.scrollY / Math.max(1, root.scrollHeight)
-    })
-  }
   React.useEffect(() => {
     const el = pane.current
     if (!el) return
@@ -106,7 +86,9 @@ export function CalendarSection({ slug }: { slug: string }) {
   const settings: CalendarPrintSettings = schedule?.settings.calendar ?? {}
   const options = calendarOptions(settings)
   const basis: CalendarBasis = options.basis
-  const lang = schedule?.settings.language === 'he' ? 'he' : 'en'
+  // Written in English whatever the shul's language, when asked.
+  const english = options.english
+  const lang = !english && schedule?.settings.language === 'he' ? 'he' : 'en'
 
   const choices = React.useMemo(
     () => monthStarts(basis, today, addDays(today, REACH * 30)),
@@ -121,25 +103,21 @@ export function CalendarSection({ slug }: { slug: string }) {
   const months: CalendarMonth[] = React.useMemo(() => {
     if (!schedule) return []
     const cal = new Calendar(schedule)
-    const t = makeT(
-      schedule.settings.language,
-      schedule.settings.timeFormat,
-      schedule.settings.names,
-    )
+    const t = english
+      ? makeT('en', schedule.settings.timeFormat, 'en')
+      : makeT(schedule.settings.language, schedule.settings.timeFormat, schedule.settings.names)
     return shown.map((start) => buildMonth(cal, start, schedule.settings.calendar, t))
     // `shown` follows from `from`, `to` and `choices`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schedule, from, to, choices])
+  }, [schedule, from, to, choices, english])
 
   const { settings: ps, images } = pics
   /** The calendar as a page: for the screen (small pictures, shrunk) or for the printer (full size). */
   const makePage = (scale?: number): CalendarPage | null => {
     if (!schedule || !months.length) return null
-    const t = makeT(
-      schedule.settings.language,
-      schedule.settings.timeFormat,
-      schedule.settings.names,
-    )
+    const t = english
+      ? makeT('en', schedule.settings.timeFormat, 'en')
+      : makeT(schedule.settings.language, schedule.settings.timeFormat, schedule.settings.names)
     const src = (image: BackImage) => (scale === undefined ? image.url : image.preview)
     const frame = (image: BackImage) => frameFor(image, cropsRef.current)
     const matched = picturesForMonths(months, images, ps.matches)
@@ -153,15 +131,17 @@ export function CalendarSection({ slug }: { slug: string }) {
       options,
       settings: schedule.settings.calendar,
       rtl: t.rtl,
-      pictures: images.length
-        ? {
-            images: matched.map((i) => i && src(i)),
-            frames: matched.map((i) => i && frame(i)),
-            fit: ps.fit,
-            placement: ps.placement,
-            titleOver: ps.titleOver && ps.placement === 'above',
-          }
-        : undefined,
+      addLabel: 'Click or drop a picture',
+      pictures:
+        ps.placement !== 'none'
+          ? {
+              images: matched.map((i) => i && src(i)),
+              frames: matched.map((i) => i && frame(i)),
+              fit: ps.fit,
+              placement: ps.placement,
+              titleOver: ps.titleOver && ps.placement === 'above',
+            }
+          : undefined,
       covers: {
         front: ps.front,
         back: ps.back,
@@ -207,7 +187,7 @@ export function CalendarSection({ slug }: { slug: string }) {
     })
   const label = (start: string) => {
     const { end } = monthBounds(basis, start)
-    return monthTitles(basis, start, end, lang).title
+    return monthTitles(basis, start, end, lang, english).title
   }
   const monthOptions = choices.map((c) => ({ value: c, label: label(c) }))
 
@@ -348,8 +328,22 @@ export function CalendarSection({ slug }: { slug: string }) {
               accessibilityLabel="Ink"
             />
           </Stack>
+          <Stack direction="row" align="center" gap="md">
+            <Stack grow gap="xs">
+              <Text variant="body">English for everything</Text>
+              <Text variant="caption" color={SemanticColor.TextSecondary}>
+                Months, holidays, parsha and times in English, whatever the shul’s language. The
+                Hebrew dates’ numbers stay in gematria.
+              </Text>
+            </Stack>
+            <ToggleSwitch
+              value={english}
+              onValueChange={(on) => set({ english: on ? true : undefined })}
+              accessibilityLabel="English for everything"
+            />
+          </Stack>
         </Card>
-        <CalendarPicturesCard pictures={pics} months={months} basis={basis} lang={lang} />
+        <CalendarPicturesCard pictures={pics} />
         <CalendarTimesCard settings={settings} schedule={schedule} set={set} />
         <CalendarHolidaysCard settings={settings} months={months} set={set} />
         <CalendarEventsCard settings={settings} schedule={schedule} set={set} />
@@ -365,15 +359,16 @@ export function CalendarSection({ slug }: { slug: string }) {
     </ScrollStack>
   )
 
-  // The page shown shrunk to the pane, as it will print.
+  // The page shown shrunk to the pane, as it will print. Its empty pages take a click or a dropped picture.
   const preview = (
     <div ref={pane} style={{ width: '100%', height: '100%' }}>
-      <iframe
-        ref={frame}
+      <CalendarPreview
+        html={html}
         title="Calendar preview"
-        srcDoc={html}
-        onLoad={restoreScroll}
-        style={{ width: '100%', height: '100%', border: 0 }}
+        onFrame={({ id, ...crop }) => setCrop(id, crop)}
+        onAdd={(slot) => void pics.load(slot, months)}
+        onDrop={(slot, files) => void pics.load(slot, months, files)}
+        onRemove={pics.clearSlot}
       />
     </div>
   )

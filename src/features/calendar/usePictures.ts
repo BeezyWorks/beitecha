@@ -1,6 +1,7 @@
+import { type CalendarMonth, monthKey } from '@beitecha/engine'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { pickBackImages } from './images'
+import { pickBackImages, readBackImages } from './images'
 import { type BackImage, type PictureSettings, defaultPictureSettings } from './pictures'
 import { loadImages, loadPictureSettings, saveImages, savePictureSettings } from './store'
 
@@ -12,6 +13,8 @@ export function usePictures(slug: string) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   // What's been loaded is what may be saved: saving before then would wipe what's stored.
   const ready = useRef(false)
+  const latest = useRef(settings)
+  latest.current = settings
 
   useEffect(() => {
     let live = true
@@ -43,43 +46,70 @@ export function usePictures(slug: string) {
     [],
   )
 
-  const add = useCallback(async () => {
-    const found = await pickBackImages((done, total) => setProgress({ done, total }))
-    setProgress(null)
-    if (!found.length) return
-    setImages((all) => [...all, ...found])
-    setSettings((s) => ({ ...s, imageIds: [...s.imageIds, ...found.map((i) => i.id)] }))
+  /** The pictures a page still uses; the rest are let go (they would otherwise be kept in the draft). */
+  const keepUsed = useCallback((next: PictureSettings, extra: BackImage[] = []) => {
+    const used = new Set<string | undefined>([
+      ...Object.values(next.matches),
+      next.coverId,
+      next.backCoverId,
+    ])
+    setSettings({
+      ...next,
+      imageIds: [...next.imageIds, ...extra.map((i) => i.id)].filter((id) => used.has(id)),
+    })
+    setImages((all) => [...all, ...extra].filter((i) => used.has(i.id)))
   }, [])
 
-  const remove = useCallback((id: string) => {
-    setImages((all) => all.filter((i) => i.id !== id))
-    setSettings((s) => ({
-      ...s,
-      imageIds: s.imageIds.filter((x) => x !== id),
-      matches: Object.fromEntries(Object.entries(s.matches).filter(([, v]) => v !== id)),
-      coverId: s.coverId === id ? undefined : s.coverId,
-      backCoverId: s.backCoverId === id ? undefined : s.backCoverId,
-    }))
-  }, [])
+  /**
+   * Puts pictures on a page of the preview: a month's (`month:` and its first day), the front cover's (`cover`) or the
+   * back cover's (`back`). The extra pictures go on the months after it that have none, in order.
+   */
+  const putInSlot = useCallback(
+    (slot: string, added: BackImage[], months: Pick<CalendarMonth, 'start'>[]) => {
+      if (!added.length) return
+      const s = latest.current
+      if (slot === 'cover') return keepUsed({ ...s, coverId: added[0].id, front: true }, added)
+      if (slot === 'back') return keepUsed({ ...s, backCoverId: added[0].id, back: true }, added)
+      const at = months.findIndex((m) => `month:${monthKey(m)}` === slot)
+      if (at < 0) return
+      const queue = [...added]
+      const matches = { ...s.matches }
+      months.slice(at).forEach((month, i) => {
+        const key = monthKey(month)
+        if (queue.length && (i === 0 || !matches[key])) matches[key] = queue.shift()!.id
+      })
+      keepUsed({ ...s, matches }, added)
+    },
+    [keepUsed],
+  )
 
-  const move = useCallback((id: string, by: -1 | 1) => {
-    setImages((all) => {
-      const i = all.findIndex((x) => x.id === id)
-      const j = i + by
-      if (i < 0 || j < 0 || j >= all.length) return all
-      const next = [...all]
-      ;[next[i], next[j]] = [next[j], next[i]]
-      return next
-    })
-    setSettings((s) => {
-      const i = s.imageIds.indexOf(id)
-      const j = i + by
-      if (i < 0 || j < 0 || j >= s.imageIds.length) return s
-      const ids = [...s.imageIds]
-      ;[ids[i], ids[j]] = [ids[j], ids[i]]
-      return { ...s, imageIds: ids }
-    })
-  }, [])
+  /** Takes a page's picture off. */
+  const clearSlot = useCallback(
+    (slot: string) => {
+      const s = latest.current
+      const next = { ...s, matches: { ...s.matches } }
+      if (slot === 'cover') next.coverId = undefined
+      else if (slot === 'back') next.backCoverId = undefined
+      else delete next.matches[slot.replace('month:', '')]
+      keepUsed(next)
+    },
+    [keepUsed],
+  )
+
+  /** Picture files, chosen (no `files`) or dropped on a page. */
+  const load = useCallback(
+    async (slot: string, months: Pick<CalendarMonth, 'start'>[], files?: File[]) => {
+      try {
+        const found = await (files
+          ? readBackImages(files, (done, total) => setProgress({ done, total }))
+          : pickBackImages((done, total) => setProgress({ done, total })))
+        putInSlot(slot, found, months)
+      } finally {
+        setProgress(null)
+      }
+    },
+    [putInSlot],
+  )
 
   /** Puts these pictures and choices in place of the current ones (a draft opened from a file). */
   const replace = useCallback((next: PictureSettings, all: BackImage[]) => {
@@ -93,5 +123,5 @@ export function usePictures(slug: string) {
     [],
   )
 
-  return { settings, images, loaded, progress, set, add, remove, move, setCrop, replace }
+  return { settings, images, loaded, progress, set, load, clearSlot, setCrop, replace }
 }

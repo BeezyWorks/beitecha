@@ -65,6 +65,11 @@ export const parseCalendarSettings = (raw: unknown): CalendarPrintSettings => {
     hiddenHolidays: nonEmpty(strings(raw.hiddenHolidays)),
     parsha: flag(raw.parsha),
     clockChange: flag(raw.clockChange),
+    iconCandles: flag(raw.iconCandles),
+    iconChanukah: flag(raw.iconChanukah),
+    iconClock: flag(raw.iconClock),
+    chanukah: pick(raw.chanukah, ['days', 'nights']),
+    english: flag(raw.english),
     omer: flag(raw.omer),
     restTimes: flag(raw.restTimes),
     fastTimes: flag(raw.fastTimes),
@@ -132,7 +137,7 @@ export const parseDraftFile = (text: string): OpenedDraft | undefined => {
       ...pictures,
       imageIds: pictures.imageIds.filter((id) => have.has(id)),
       matches: Object.fromEntries(
-        Object.entries(pictures.matches).filter(([, id]) => id === 'none' || have.has(id)),
+        Object.entries(pictures.matches).filter(([, id]) => have.has(id)),
       ),
       coverId: pictures.coverId && have.has(pictures.coverId) ? pictures.coverId : undefined,
       backCoverId:

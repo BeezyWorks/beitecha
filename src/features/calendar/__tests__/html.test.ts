@@ -35,4 +35,24 @@ describe('renderCalendarHtml', () => {
     expect(render({})).toContain('Rosh Chodesh')
     expect(render({ footer: '<b>&' })).toContain('&lt;b&gt;&amp;')
   })
+  it('colors the dates, not the writing: red for rest, blue for holidays', () => {
+    const html = render({})
+    expect(html).toContain('class="cell jr shabbos"')
+    expect(html).toContain('class="cell jb"')
+    expect(html).toContain('.jr .hd{color:#c4161c;}')
+    expect(render({ ink: 'mono' })).toContain('.jr .hd{background:black')
+  })
+  it('puts icons: candles over the times, a menorah for Chanukah, a clock by the clock change', () => {
+    expect(render({}, '2026-12-01')).toContain('class="ticons"')
+    expect(render({}, '2026-12-01').match(/<svg/g)!.length).toBeGreaterThan(8)
+    expect(render({ iconCandles: false, iconChanukah: false }, '2026-12-01')).not.toContain(
+      'class="ticons"',
+    )
+    expect(render({})).toContain('<circle cx="12" cy="12" r="10"/>')
+    expect(render({ iconClock: false })).not.toContain('<circle cx="12" cy="12" r="10"/>')
+  })
+  it('writes Chanukah by its days', () => {
+    expect(render({}, '2026-12-01')).toContain('Chanukah 1')
+    expect(render({ chanukah: 'nights' }, '2026-12-01')).not.toContain('Chanukah 1<')
+  })
 })

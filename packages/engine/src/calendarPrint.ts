@@ -59,10 +59,15 @@ export interface CalendarHoliday {
   id: string
   name: string
   group: CalendarGroup
-  /** Whether it turns the day's number red. */
+  /** Whether it marks the day's Hebrew date as a holiday. */
   marks: boolean
   rank: number
+  /** An icon written before its name. */
+  icon?: CalendarIcon
 }
+
+/** The small pictures on a day; the app draws them. A menorah's number is the candles lit. */
+export type CalendarIcon = 'candles' | 'clock' | `menorah${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`
 
 export interface CalendarLine {
   label?: string
@@ -99,6 +104,10 @@ export interface CalendarCell {
   /** The small one, in the other; with its month on a month's first day. */
   secondary: string
   shabbos: boolean
+  /** A day without melacha: Shabbos or Yom Tov. */
+  rest: boolean
+  /** Candles lit, a night or day of Chanukah: the day's icons. */
+  icons: CalendarIcon[]
   parsha?: string
   omer?: string
   /** Every holiday of the day; the page drops the ones turned off. */
@@ -129,7 +138,12 @@ export function calendarOptions(c: CalendarPrintSettings | undefined) {
     ink: c?.ink ?? 'color',
     parsha: c?.parsha !== false,
     omer: c?.omer !== false,
-    clockChange: c?.clockChange === true,
+    clockChange: c?.clockChange !== false,
+    iconCandles: c?.iconCandles !== false,
+    iconChanukah: c?.iconChanukah !== false,
+    iconClock: c?.iconClock !== false,
+    chanukah: c?.chanukah ?? ('days' as 'days' | 'nights'),
+    english: c?.english === true,
     restTimes: c?.restTimes !== false,
     fastTimes: c?.fastTimes !== false,
     dayZmanim: c?.dayZmanim ?? [],
@@ -208,14 +222,22 @@ const hebrewMonthName = (date: DateString, lang: 'en' | 'he') => {
   const hd = new HDate(hostDate(date))
   return lang === 'he' ? Locale.gettext(hd.getMonthName(), 'he-x-NoNikud') : hd.getMonthName()
 }
-const hebrewYear = (date: DateString, lang: 'en' | 'he') => {
+/** The Hebrew year; `numerals` writes it in gematria in English too. */
+const hebrewYearOf = (date: DateString, lang: 'en' | 'he', numerals = false) => {
   const year = new HDate(hostDate(date)).getFullYear()
-  return lang === 'he' ? gematriya(year) : String(year)
+  return lang === 'he' || numerals ? gematriya(year) : String(year)
 }
 const civilMonthName = (date: DateString, lang: 'en' | 'he') => CIVIL_MONTHS[lang][parseDate(date).month - 1]
 
 /** The title of a month (or run of months) in the main calendar and the subtitle in the other. */
-export function monthTitles(basis: CalendarBasis, start: DateString, end: DateString, lang: 'en' | 'he') {
+export function monthTitles(
+  basis: CalendarBasis,
+  start: DateString,
+  end: DateString,
+  lang: 'en' | 'he',
+  numerals = false,
+) {
+  const hebrewYear = (date: DateString, l: 'en' | 'he') => hebrewYearOf(date, l, numerals)
   const civilTitle =
     civilMonthName(start, lang) === civilMonthName(end, lang)
       ? `${civilMonthName(start, lang)} ${parseDate(end).year}`
@@ -230,9 +252,9 @@ export function monthTitles(basis: CalendarBasis, start: DateString, end: DateSt
 }
 
 /** A month's name for choosing it. */
-export const monthLabel = (basis: CalendarBasis, date: DateString, lang: 'en' | 'he' = 'en') => {
+export const monthLabel = (basis: CalendarBasis, date: DateString, lang: 'en' | 'he' = 'en', numerals = false) => {
   const { start, end } = monthBounds(basis, date)
-  return monthTitles(basis, start, end, lang).title
+  return monthTitles(basis, start, end, lang, numerals).title
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +310,9 @@ export function classifyHoliday(event: HolidayEvent, name: string): CalendarHoli
   if (has(flags.ROSH_CHODESH)) return made('minor', 'roshChodesh', true)
   if (has(flags.SPECIAL_SHABBAT)) return made('minor', desc, false, 0)
   if (/LaBehemot|Selichot/.test(desc)) return made('other', desc, false)
-  if (has(flags.CHANUKAH_CANDLES) || /Chanukah|Chag HaBanot/.test(desc)) return made('minor', 'chanukah', true)
+  // Rosh Chodesh Tevet's own day, which falls in Chanukah but isn't one of its days.
+  if (/Chag HaBanot/.test(desc)) return made('minor', 'chagHabanot', false)
+  if (has(flags.CHANUKAH_CANDLES) || /Chanukah/.test(desc)) return made('minor', 'chanukah', true)
   if (/Purim/.test(desc)) return made('minor', 'purim', true)
   if (has(flags.MINOR_HOLIDAY)) return made('minor', desc, true)
   return made('other', desc, false)
@@ -328,6 +352,8 @@ const omerDay = (hd: HDate) => {
   return day >= 1 && day <= 49 ? day : undefined
 }
 
+const menorahFor = (night: number) => `menorah${night as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}` as const
+
 const isRest = (tags: string[]) => tags.includes('shabbos') || tags.includes('yomTov')
 
 /**
@@ -345,6 +371,7 @@ export function buildMonth(
   const sh = cal.schedule
   const lang = t.lang
   const words = WORDS[lang]
+  const english = o.english
   const { start, end } = monthBounds(o.basis, startDate)
   const customNames: Record<string, Localized> = Object.fromEntries(
     (sh.settings.zmanim?.custom ?? []).map((c) => [c.id, customZmanName(c)]),
@@ -398,6 +425,32 @@ export function buildMonth(
       .map((e) =>
         classifyHoliday(e, t.text({ en: e.render('en'), he: e.render('he-x-NoNikud') })),
       )
+    // Candles are lit before a day of rest, and on a Yom Tov before another.
+    const icons: CalendarIcon[] = []
+    if (isRest(tomorrowTags) && o.iconCandles) icons.push('candles')
+    // The day of Chanukah the date is: hebcal's "N Candles" is the evening before day N, so the day after the eight
+    // candles is the eighth day.
+    let chanukahDay = 0
+    let chanukahErev = false
+    for (const e of info.holidays) {
+      const desc = e.getDesc()
+      const candles = /^Chanukah: (\d) Candles?/.exec(desc)?.[1]
+      const day = candles ? +candles - 1 : /^Chanukah: 8th Day/.test(desc) ? 8 : 0
+      if (o.chanukah === 'days') {
+        if (day) {
+          chanukahDay = day
+          if (o.iconChanukah) icons.push(menorahFor(day))
+        } else if (candles) chanukahErev = true
+      } else if (candles && o.iconChanukah) icons.push(menorahFor(+candles))
+    }
+    // By its days, Chanukah is "Chanukah 3", and the eve is "Erev Chanukah".
+    const chanukahName = chanukahErev
+      ? t.text({ en: 'Erev Chanukah', he: 'ערב חנוכה' })
+      : chanukahDay
+        ? t.text({ en: `Chanukah ${chanukahDay}`, he: `חנוכה ${gematriya(chanukahDay)}` })
+        : undefined
+    if (chanukahName)
+      for (const h of holidays) if (h.id === 'minor:chanukah') h.name = chanukahName
     if (o.clockChange) {
       const { timeZone } = sh.settings.location
       const shift = utcOffset(date, timeZone) - utcOffset(addDays(date, -1), timeZone)
@@ -412,6 +465,7 @@ export function buildMonth(
           group: 'civil',
           marks: false,
           rank: RANK.civil,
+          icon: o.iconClock ? 'clock' : undefined,
         })
     }
     for (const local of info.localHolidays) {
@@ -467,7 +521,8 @@ export function buildMonth(
 
     const hd = info.hdate
     const civilDay = parseDate(date)
-    const hebrewDay = lang === 'he' ? gematriya(hd.getDate()) : String(hd.getDate())
+    // The Hebrew date's numbers are in gematria in English too, when asked.
+    const hebrewDay = lang === 'he' || english ? gematriya(hd.getDate()) : String(hd.getDate())
     const hebrewSecondary = hd.getDate() === 1 ? `${hebrewDay} ${hebrewMonthName(date, lang)}` : hebrewDay
     const civilSecondary =
       civilDay.day === 1 ? `${civilDay.day} ${civilMonthName(date, lang).slice(0, lang === 'he' ? 4 : 3)}` : String(civilDay.day)
@@ -480,6 +535,8 @@ export function buildMonth(
       primary: hebrew ? hebrewDay : String(civilDay.day),
       secondary: hebrew ? civilSecondary : hebrewSecondary,
       shabbos: info.weekday === 6,
+      rest: isRest(tags),
+      icons,
       parsha: o.parsha && info.weekday === 6 && cal.day(date).parsha ? t.text(cal.day(date).parsha!) : undefined,
       omer: omer ? `${words.omer} ${lang === 'he' ? gematriya(omer) : omer}` : undefined,
       holidays: holidays.sort((a, b) => a.rank - b.rank),
@@ -499,7 +556,7 @@ export function buildMonth(
     }
   }
   if (week.length) weeks.push([...week, ...Array.from<undefined>({ length: 7 - week.length })])
-  return { start, end, ...monthTitles(o.basis, start, end, lang), weeks }
+  return { start, end, ...monthTitles(o.basis, start, end, lang, english), weeks }
 }
 
 /** The footer under a month: its own if it has one, else the one for every month. */

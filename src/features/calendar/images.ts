@@ -50,9 +50,27 @@ export const previewFor = async (url: string): Promise<string> => {
 /** Lets the page paint (a progress count) between pictures. */
 const breathe = () => new Promise<void>((resolve) => setTimeout(resolve))
 
-/** Asks for pictures and keeps them in memory, shrunk to what a sheet needs,
- * one at a time so the page can show how far along it is. Ones the browser
- * can't read are skipped. */
+/** Reads picture files (chosen, or dropped onto the preview) into memory, shrunk to what a sheet needs, one at a time
+ * so the page can show how far along it is. Ones the browser can't read are skipped. */
+export const readBackImages = async (
+  files: File[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<BackImage[]> => {
+  const loaded: BackImage[] = []
+  onProgress?.(0, files.length)
+  for (const [i, file] of files.entries()) {
+    await breathe()
+    try {
+      loaded.push(await shrink(file))
+    } catch {
+      // Skipped: the browser couldn't read it.
+    }
+    onProgress?.(i + 1, files.length)
+  }
+  return loaded
+}
+
+/** Asks for pictures and reads them. */
 export const pickBackImages = (
   onProgress?: (done: number, total: number) => void,
 ): Promise<BackImage[]> =>
@@ -61,21 +79,7 @@ export const pickBackImages = (
     input.type = 'file'
     input.accept = 'image/*'
     input.multiple = true
-    input.onchange = async () => {
-      const files = Array.from(input.files ?? [])
-      const loaded: BackImage[] = []
-      onProgress?.(0, files.length)
-      for (const [i, file] of files.entries()) {
-        await breathe()
-        try {
-          loaded.push(await shrink(file))
-        } catch {
-          // Skipped: the browser couldn't read it.
-        }
-        onProgress?.(i + 1, files.length)
-      }
-      resolve(loaded)
-    }
+    input.onchange = () => resolve(readBackImages(Array.from(input.files ?? []), onProgress))
     // Closing the chooser without a choice fires `cancel`.
     input.oncancel = () => resolve([])
     input.click()

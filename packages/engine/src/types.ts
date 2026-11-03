@@ -323,8 +323,18 @@ export interface CalendarPrintSettings {
   hiddenHolidays?: string[]
   /** The parsha on Shabbos. Default true. */
   parsha?: boolean
-  /** The days the clocks change ("Clocks forward", "Clocks back"), by the shul's time zone. Default false. */
+  /** The days the clocks change ("Clocks forward", "Clocks back"), by the shul's time zone. Default true. */
   clockChange?: boolean
+  /** Icons on the days: candles where they are lit, a menorah for Chanukah, a clock beside a clock change. Default true each. */
+  iconCandles?: boolean
+  iconChanukah?: boolean
+  iconClock?: boolean
+  /** Chanukah by its days ("Erev Chanukah", "Chanukah 1" to "8", the menorah with that many candles) or by its nights, as
+   * hebcal has it ("1 Candle" on the eve). Default `days`. */
+  chanukah?: 'days' | 'nights'
+  /** Everything written in English whatever the shul's language: months, holidays, parsha, times; the Hebrew dates'
+   * numbers stay in gematria. Default false. */
+  english?: boolean
   /** The day of the omer. Default true. */
   omer?: boolean
   /** Candle lighting and havdalah on the days they fall. Default true. */

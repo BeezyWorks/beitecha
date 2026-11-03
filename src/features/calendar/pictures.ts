@@ -28,12 +28,12 @@ export interface Crop {
 export interface PictureSettings {
   /** Picture ids, in the order they were put. */
   imageIds: string[]
-  /** Month key (the month's first day) to a picture's id, or `none` for a blank space. A month not here takes the
-   * pictures in order. */
+  /** Month key (the month's first day) to the id of the picture on its page; a month not here has none. */
   matches: Record<string, string>
   /** How each picture is cropped, by its id; one not here fills its frame. */
   frames: Record<string, Crop>
   fit: 'cover' | 'contain'
+  /** Where the months' pictures go; `none` leaves them off. */
   placement: PicturePlacement
   /** The picture reaches the page's top and the month's name is written over it. */
   titleOver: boolean
@@ -58,29 +58,12 @@ export const defaultPictureSettings: PictureSettings = {
   coverSubtitle: '',
 }
 
-export const NONE = 'none'
-
-/** The pictures dealt out to the months in order, going round when there are fewer than months. */
-export const fillInOrder = (
-  months: Pick<CalendarMonth, 'start'>[],
-  images: Pick<BackImage, 'id'>[],
-) =>
-  images.length
-    ? Object.fromEntries(months.map((m, i) => [m.start, images[i % images.length].id]))
-    : ({} as Record<string, string>)
-
-/** The picture each month has: the user's choice, else the next in order; `none` (or a picture that's gone) is none. */
+/** The picture each month has: the one put on its page (a picture that's gone is none). */
 export const picturesForMonths = (
   months: Pick<CalendarMonth, 'start'>[],
   images: BackImage[],
   matches: Record<string, string>,
-): (BackImage | undefined)[] => {
-  const dealt = fillInOrder(months, images)
-  return months.map((m) => {
-    const id = matches[m.start] ?? dealt[m.start]
-    return id === NONE ? undefined : images.find((i) => i.id === id)
-  })
-}
+): (BackImage | undefined)[] => months.map((m) => images.find((i) => i.id === matches[m.start]))
 
 /** An image's frame on the page: its crop, or filling the frame untouched. */
 export const frameFor = (image: BackImage, crops: Record<string, Crop>): PictureFrame => ({
@@ -112,7 +95,7 @@ export const parsePictureSettings = (raw: unknown): PictureSettings => {
     ) as Record<string, string>,
     frames,
     fit: r.fit === 'contain' ? 'contain' : 'cover',
-    placement: r.placement === 'opposite' ? 'opposite' : 'above',
+    placement: r.placement === 'opposite' || r.placement === 'none' ? r.placement : 'above',
     titleOver: r.titleOver === true,
     front: r.front === true,
     back: r.back === true,

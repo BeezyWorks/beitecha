@@ -94,8 +94,18 @@ describe('clock changes', () => {
     buildMonth(new Calendar(sampleSchedule), month, calendar, t)
       .weeks.flat()
       .flatMap((c) => (c ? c.holidays.filter((h) => h.id === 'civil:clockChange').map((h) => [c.date, h.name]) : []))
-  it('is off unless asked for', () => {
-    expect(names('2026-11-01')).toEqual([])
+  it('is on unless turned off', () => {
+    expect(names('2026-11-01')).toEqual([['2026-11-01', 'Clocks back']])
+    expect(names('2026-11-01', { clockChange: false })).toEqual([])
+  })
+  it('puts a clock beside it, unless that is off', () => {
+    const icon = (calendar?: object) =>
+      buildMonth(new Calendar(sampleSchedule), '2026-11-01', calendar, t)
+        .weeks.flat()
+        .flatMap((c) => c?.holidays ?? [])
+        .find((h) => h.id === 'civil:clockChange')?.icon
+    expect(icon()).toBe('clock')
+    expect(icon({ iconClock: false })).toBeUndefined()
   })
   it('marks the Sunday the clocks go back and forward', () => {
     expect(names('2026-11-01', { clockChange: true })).toEqual([['2026-11-01', 'Clocks back']])
@@ -126,5 +136,50 @@ describe('footers', () => {
     expect(footerFor(s, { start: '2026-11-01' })).toBe('Just November')
     expect(footerFor(s, { start: '2026-12-01' })).toBe('All')
     expect(footerFor(undefined, { start: '2026-12-01' })).toBe('')
+  })
+})
+
+describe('icons, Chanukah and English', () => {
+  const dec = (calendar?: object, lang: 'en' | 'he' = 'en') =>
+    buildMonth(new Calendar(sampleSchedule), '2026-12-01', calendar, makeT(lang))
+      .weeks.flat()
+      .filter((c): c is NonNullable<typeof c> => !!c)
+  const on = (cells: ReturnType<typeof dec>, date: string) => cells.find((c) => c.date === date)!
+  it('lights candles over the eve of a day of rest, and marks rest days', () => {
+    const cells = dec()
+    expect(on(cells, '2026-12-04').icons).toContain('candles')
+    expect(on(cells, '2026-12-05').icons).not.toContain('candles')
+    expect(on(cells, '2026-12-05').rest).toBe(true)
+    expect(on(cells, '2026-12-02').rest).toBe(false)
+    expect(on(dec({ iconCandles: false }), '2026-12-04').icons).not.toContain('candles')
+  })
+  it('counts Chanukah by its days: the eve, then each day with its candles', () => {
+    const cells = dec()
+    const chanukah = (date: string) => on(cells, date).holidays.find((h) => h.id === 'minor:chanukah')
+    expect(chanukah('2026-12-04')?.name).toBe('Erev Chanukah')
+    expect(chanukah('2026-12-05')?.name).toBe('Chanukah 1')
+    expect(on(cells, '2026-12-05').icons).toContain('menorah1')
+    expect(chanukah('2026-12-12')?.name).toBe('Chanukah 8')
+    expect(on(cells, '2026-12-12').icons).toContain('menorah8')
+    expect(on(cells, '2026-12-04').icons.some((i) => i.startsWith('menorah'))).toBe(false)
+  })
+  it('counts Chanukah by its nights, as hebcal does', () => {
+    const cells = dec({ chanukah: 'nights' })
+    expect(on(cells, '2026-12-04').icons).toContain('menorah1')
+    expect(on(cells, '2026-12-04').holidays.find((h) => h.id === 'minor:chanukah')?.name).toMatch(/1 Candle/)
+    expect(on(cells, '2026-12-11').icons).toContain('menorah8')
+  })
+  it('leaves the menorah off, and keeps Chag HaBanot apart from Chanukah', () => {
+    expect(dec({ iconChanukah: false }).flatMap((c) => c.icons).some((i) => i.startsWith('menorah'))).toBe(false)
+    const ids = dec().flatMap((c) => c.holidays.map((h) => h.id))
+    expect(ids).toContain('minor:chagHabanot')
+  })
+  it('writes everything in English, the Hebrew dates in gematria', () => {
+    const he = buildMonth(new Calendar(sampleSchedule), '2026-11-03', { basis: 'hebrew', english: true }, makeT('en'))
+    expect(he.title).toBe('Cheshvan תשפ״ז')
+    expect(he.weeks.flat().find((c) => c)!.primary).toBe('א׳')
+    const civil = buildMonth(new Calendar(sampleSchedule), '2026-11-03', { english: true }, makeT('en'))
+    expect(civil.subtitle).toMatch(/^Cheshvan – Kislev תשפ״ז$/)
+    expect(civil.weeks.flat().find((c) => c)!.secondary).toMatch(/^[א-ת׳״]+$/)
   })
 })

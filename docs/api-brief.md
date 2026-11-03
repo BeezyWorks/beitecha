@@ -94,7 +94,8 @@ Keys carry a set of scopes. Read scopes are above. Write scopes are in §7. Rule
 
 - Scopes are checked per endpoint; an endpoint with no matching scope is 403.
 - A public key may hold only read scopes.
-- Sensitive lists are separate scopes, off by default, and **absent from public keys unless explicitly added**: `cholim:read`, `yahrzeits:read`, `birthdays:read`, `anniversaries:read`.
+- **Yahrzeits, birthdays and anniversaries are never readable through `/v1`**, by any key. No use case needs them: they are write-only here. (The Siddur gets them through the existing feed, §13.)
+- The refuah list is the one sensitive list a key can read: `cholim:read`, off by default, secret keys only (a tool needs it to find the name to remove).
 - `times`, `zmanim`, `info`, `notices` are the default for a new public key.
 
 ## 7. Write API (secret keys)
@@ -112,7 +113,7 @@ Principle: **writes are operations, not documents.** A write key can never repla
 | `yahrzeits:write` | add, edit, delete a yahrzeit |
 | `occasions:write` | add, edit, delete a birthday / anniversary |
 | `cholim:write` | add a name; **remove a name**; confirm (renew `added`) |
-| `cholim:read`, `yahrzeits:read`, `occasions:read` | list them (secret keys only), so a tool can find the entry to change or remove |
+| `cholim:read` | list refuah names (secret keys only), so a tool can find the name to remove |
 
 Not offered, deliberately: creating or editing recurring events and rules, events not created by the key, settings, profile, custom zmanim, local holidays, display setups, print settings, team and keys.
 
@@ -245,8 +246,9 @@ Recommendation: ship (a) as `bulletinUrl` in `/info` and an iframe embed view; d
 - **Can the feed be limited to the Siddur alone? Not hard, with what we have.** `Origin` is browser-only and forgeable, native apps send none, and a key or shared secret inside the Siddur's apps or web build can be extracted. Also `siddur.one/shul/<slug>` is itself public and shows these lists, so the Siddur is a public window onto the data. What is achievable:
   1. **Per-list visibility on the shul** (`settings.public` or similar): cholim, yahrzeits, birthdays, anniversaries each "show in the Siddur / display / bulletin" or hidden, applied by the server when it builds the feed. The `/v1` API honors the same flags and is stricter by default.
   2. **Window the sensitive lists in the feed**: the server includes yahrzeits and occasions only for the next N days (the shul's `days` setting) instead of the whole list, since the Siddur only ever shows the coming week. Cuts what a scraper can harvest to a week at a time. Cost: the feed starts computing a little, and the client engine must tolerate a windowed list (and the Siddur needs no change if it only lists upcoming entries; verify its "all yahrzeits" views, if any).
-  3. **Hard limit later, if wanted**: a Worker-to-Worker **service binding** (as `AUTH` already is) so only the Siddur's Worker can fetch the full feed, with the Siddur's clients reading from the Siddur's own endpoint. That is a real boundary for the Beitecha origin, but it is a Siddur-side change, and the Siddur's endpoint becomes the public one.
-  Recommendation: do 1 now, 2 with the same change, treat 3 as a separate decision.
+  A Worker-to-Worker service binding (only the Siddur's Worker fetches the feed) was considered and **rejected**: the Siddur's own endpoint would serve the same data publicly, so it only moves the exposure. What the shul shares is a policy (flags), not something to wall off.
+  Recommendation: do 1 and 2 together.
+  Yahrzeit/occasion lookups for the write API: `edit`/`delete` by the id returned on creation, or by a `match` that must identify exactly one entry; on ambiguity the 400 lists candidates (name and date only) to that secret key, the only place those names come back through a key. There is no list endpoint.
 - Birthdays/anniversaries of private families: per-list public toggle, default off for the API.
 - Scraping: keys + rate limits + short caching; the data is meant to be shown.
 - DoS: unauthenticated paths stay behind `PUBLIC_LIMIT`; invalid keys also count against the IP limit (so key guessing is throttled); key lookup is by hash index.
@@ -269,7 +271,7 @@ Recommendation: ship (a) as `bulletinUrl` in `/info` and an iframe embed view; d
 4. Concurrency: bounded retries on revision conflicts versus admin edits of the whole document. Does the admin's whole-document save clobber an API write that landed between its load and save? (It uses `baseRevision`, so it should 409; confirm the admin handles that without dropping the API change.)
 5. Review-mode defaults and the "people's names always reviewed" rule: right call?
 6. Revert correctness when later changes depend on the earlier one.
-7. Privacy inconsistency with the existing public feed (§13): are per-list visibility flags plus windowing the sensitive lists enough, or is the service-binding proxy needed? Does windowing break any Siddur or engine behavior (e.g. a yahrzeit view that lists beyond the coming week)?
+7. Privacy inconsistency with the existing public feed (§13): are per-list visibility flags plus windowing the sensitive lists enough (a service-binding proxy was rejected as only moving the exposure)? Is returning candidate names on an ambiguous `match` an acceptable leak to a secret key? Does windowing break any Siddur or engine behavior (e.g. a yahrzeit view that lists beyond the coming week)?
 8. Caching correctness: day output depends on shul date, revision, language and hidden zmanim. Any missed cache-key dimension? Any case where a revoked key keeps being served from the edge?
 9. Engine changes ship through the submodule to the Siddur: forward/backward compatibility of the `origin` fields and the shared day-shaping function.
 10. Abuse we haven't thought of: key enumeration, cross-shul access (every query must be scoped by the key's `shul_id`), oversized bodies, timing, replay, log leakage.

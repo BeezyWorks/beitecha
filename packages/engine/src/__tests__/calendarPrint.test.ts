@@ -104,6 +104,22 @@ describe('clock changes', () => {
   })
 })
 
+describe('clock changes in Israel', () => {
+  const israel: Schedule = {
+    ...sampleSchedule,
+    settings: { ...sampleSchedule.settings, location: { latitude: 31.78, longitude: 35.22, timeZone: 'Asia/Jerusalem', israel: true } },
+  }
+  const marks = (month: string) =>
+    buildMonth(new Calendar(israel), month, { clockChange: true }, t)
+      .weeks.flat()
+      .flatMap((c) => (c ? c.holidays.filter((h) => h.id === 'civil:clockChange').map((h) => [c.date, h.name]) : []))
+  it('goes forward on the Friday before the last Sunday of March, back on the last Sunday of October', () => {
+    expect(marks('2027-03-01')).toEqual([['2027-03-26', 'Clocks forward']])
+    expect(marks('2027-10-01')).toEqual([['2027-10-31', 'Clocks back']])
+    expect(marks('2027-07-01')).toEqual([])
+  })
+})
+
 describe('footers', () => {
   it('uses a month’s own, else the general one', () => {
     const s = { footer: 'All', monthFooters: { '2026-11-01': 'Just November', '2026-12-01': ' ' } }

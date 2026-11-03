@@ -35,6 +35,13 @@ import {
   renderCalendarHtml,
 } from '@/features/calendar/html'
 import { type BackImage, frameFor, picturesForMonths } from '@/features/calendar/pictures'
+import {
+  buildDraftFile,
+  downloadText,
+  parseDraftFile,
+  pickTextFile,
+} from '@/features/calendar/draftFile'
+import { previewFor } from '@/features/calendar/images'
 import { usePictures } from '@/features/calendar/usePictures'
 import {
   CalendarEventsCard,
@@ -220,6 +227,33 @@ export function CalendarSection({ slug }: { slug: string }) {
     document.body.appendChild(hidden)
   }
 
+  const saveDraft = () =>
+    downloadText(
+      `${slug}-calendar.json`,
+      JSON.stringify(buildDraftFile(settings, pics.settings, images, { from, to })),
+    )
+
+  const openDraft = async () => {
+    const text = await pickTextFile()
+    if (text === undefined) return
+    const draft = parseDraftFile(text)
+    if (!draft) {
+      window.alert('That isn’t a calendar saved from Beitecha.')
+      return
+    }
+    if (!window.confirm('Replace this calendar’s choices and pictures with the ones in the file?'))
+      return
+    const loaded = await Promise.all(
+      draft.images.map(async (i) => ({
+        ...i,
+        preview: await previewFor(i.url).catch(() => i.url),
+      })),
+    )
+    pics.replace(draft.pictures, loaded)
+    setSchedule({ ...schedule, settings: { ...schedule.settings, calendar: draft.calendar } })
+    setRange(draft.range ?? null)
+  }
+
   const controls = (
     <ScrollStack padding="xl" gap="lg">
       <Stack maxWidth={880} gap="lg">
@@ -228,9 +262,12 @@ export function CalendarSection({ slug }: { slug: string }) {
             <Text variant="largeTitle">Wall calendar</Text>
             <Text variant="body" color={SemanticColor.TextSecondary}>
               A month to a sheet, with holidays, zmanim, your events and your people, to print for
-              the year.
+              the year. Choices save as you go; “Save draft” also makes a file with the pictures, to
+              keep or open in another browser.
             </Text>
           </Stack>
+          <Button variant="ghost" title="Open draft" onPress={() => void openDraft()} />
+          <Button variant="ghost" title="Save draft" onPress={saveDraft} />
           <Button variant="primary" title="Print" icon="print" onPress={print} />
         </Stack>
         <Card gap="md">

@@ -81,11 +81,17 @@ export function usePictures(slug: string) {
     })
   }, [])
 
+  /** Puts these pictures and choices in place of the current ones (a draft opened from a file). */
+  const replace = useCallback((next: PictureSettings, all: BackImage[]) => {
+    setImages(all)
+    setSettings(next)
+  }, [])
+
   const setCrop = useCallback(
     (id: string, crop: PictureSettings['frames'][string]) =>
       setSettings((s) => ({ ...s, frames: { ...s.frames, [id]: crop } })),
     [],
   )
 
-  return { settings, images, loaded, progress, set, add, remove, move, setCrop }
+  return { settings, images, loaded, progress, set, add, remove, move, setCrop, replace }
 }

@@ -10,6 +10,8 @@ export interface Env {
   PUBLIC_URL: string
   /** Per-IP limit on the public reads (feed, directory, ICS). Absent in plain local dev. */
   PUBLIC_LIMIT?: RateLimit
+  /** "off" stops every write through `/v1` on every shul (the kill switch). */
+  V1_WRITES?: string
   /** Local dev only (`.dev.vars`): "1" accepts `Bearer dev-<name>` as user `dev-<name>`
    * and allows the Expo dev server's origin. Never set in production. */
   DEV_AUTH?: string

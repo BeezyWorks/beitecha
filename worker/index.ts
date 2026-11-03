@@ -9,6 +9,14 @@ import {
   revokeConnection,
 } from './connections'
 import {
+  approveChange,
+  listChanges,
+  rejectChange,
+  undoOne,
+  undoSince,
+} from './changes'
+import { PUBLIC_V1, handleV1, publicCors } from './v1'
+import {
   acceptInvite,
   createInvite,
   createShul,
@@ -43,6 +51,11 @@ const routes: [method: string, pattern: RegExp, handler: Handler][] = [
   ['PATCH', /^\/api\/shuls\/([^/]+)\/connections\/([^/]+)$/, (r, env, [slug, id]) => patchConnection(r, env, slug, id)],
   ['DELETE', /^\/api\/shuls\/([^/]+)\/connections\/([^/]+)$/, (r, env, [slug, id]) => revokeConnection(r, env, slug, id)],
   ['PUT', /^\/api\/shuls\/([^/]+)\/api$/, (r, env, [slug]) => putApiSettings(r, env, slug)],
+  ['GET', /^\/api\/shuls\/([^/]+)\/changes$/, (r, env, [slug], url) => listChanges(r, env, slug, url)],
+  ['POST', /^\/api\/shuls\/([^/]+)\/changes\/undo-since$/, (r, env, [slug]) => undoSince(r, env, slug)],
+  ['POST', /^\/api\/shuls\/([^/]+)\/changes\/([^/]+)\/approve$/, (r, env, [slug, id]) => approveChange(r, env, slug, id)],
+  ['POST', /^\/api\/shuls\/([^/]+)\/changes\/([^/]+)\/reject$/, (r, env, [slug, id]) => rejectChange(r, env, slug, id)],
+  ['POST', /^\/api\/shuls\/([^/]+)\/changes\/([^/]+)\/undo$/, (r, env, [slug, id]) => undoOne(r, env, slug, id)],
   ['POST', /^\/api\/invites\/([^/]+)$/, (r, env, [token]) => acceptInvite(r, env, token)],
 ]
 
@@ -88,10 +101,13 @@ function siddurCors(request: Request, url: URL, response: Response): Response {
  * whole minyan scanning the QR code over the shul's wifi, not for a flood). */
 async function rateLimited(request: Request, env: Env, url: URL): Promise<Response | null> {
   const ip = request.headers.get('cf-connecting-ip')
-  if (!env.PUBLIC_LIMIT || !ip || request.method !== 'GET' || !PUBLIC_READ.test(url.pathname)) return null
+  if (!env.PUBLIC_LIMIT || !ip || request.method !== 'GET' || !(PUBLIC_READ.test(url.pathname) || PUBLIC_V1.test(url.pathname)))
+    return null
   const { success } = await env.PUBLIC_LIMIT.limit({ key: ip })
   if (success) return null
-  const res = fail(429, 'too many requests')
+  const res = PUBLIC_V1.test(url.pathname)
+    ? apiFail(429, 'rate_limited', 'Too many requests; try again in a minute')
+    : fail(429, 'too many requests')
   res.headers.set('retry-after', '60')
   return res
 }
@@ -125,6 +141,12 @@ async function route(request: Request, env: Env): Promise<Response> {
         ? new Response(null, { status: 204 })
         : ((await rateLimited(request, env, url)) ?? (await handleApi(request, env, url)))
     return devCors(request, env, siddurCors(request, url, response))
+  }
+  if (url.pathname.startsWith('/v1/')) {
+    // The public reads are open to any origin; the keyed routes (and writes) carry no CORS headers at all.
+    if (!PUBLIC_V1.test(url.pathname)) return handleV1(request, env, url)
+    if (request.method === 'OPTIONS') return publicCors(new Response(null, { status: 204 }))
+    return publicCors((await rateLimited(request, env, url)) ?? (await handleV1(request, env, url)))
   }
   // `/<slug>.ics` is the short subscribe link printed under the QR code.
   const ics = /^\/([a-z0-9-]+)\.ics$/.exec(url.pathname)

@@ -13,7 +13,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply beitecha --remote",
     "test": "pnpm -r --filter ./packages/engine --filter ./worker test && jest",
     "typecheck": "tsc --noEmit && pnpm -r --filter ./packages/engine --filter ./worker typecheck",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "skill:gen": "node skill/gen.mjs"
   },
   "dependencies": {
     "@beezyworks/design": "workspace:*",

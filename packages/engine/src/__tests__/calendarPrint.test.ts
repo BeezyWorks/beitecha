@@ -89,6 +89,21 @@ describe('buildMonth', () => {
   })
 })
 
+describe('clock changes', () => {
+  const names = (month: string, calendar?: object) =>
+    buildMonth(new Calendar(sampleSchedule), month, calendar, t)
+      .weeks.flat()
+      .flatMap((c) => (c ? c.holidays.filter((h) => h.id === 'civil:clockChange').map((h) => [c.date, h.name]) : []))
+  it('is off unless asked for', () => {
+    expect(names('2026-11-01')).toEqual([])
+  })
+  it('marks the Sunday the clocks go back and forward', () => {
+    expect(names('2026-11-01', { clockChange: true })).toEqual([['2026-11-01', 'Clocks back']])
+    expect(names('2027-03-01', { clockChange: true })).toEqual([['2027-03-14', 'Clocks forward']])
+    expect(names('2027-06-01', { clockChange: true })).toEqual([])
+  })
+})
+
 describe('footers', () => {
   it('uses a month’s own, else the general one', () => {
     const s = { footer: 'All', monthFooters: { '2026-11-01': 'Just November', '2026-12-01': ' ' } }

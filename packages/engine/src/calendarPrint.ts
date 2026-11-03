@@ -1,6 +1,6 @@
 import { HDate, Locale, flags, gematriya, months, type HolidayEvent } from '@hebcal/core'
 
-import { addDays, formatDate, hostDate, parseDate, weekdayOf } from './dates'
+import { addDays, formatDate, hostDate, parseDate, utcOffset, weekdayOf } from './dates'
 import { customZmanName } from './custom'
 import type { Calendar } from './schedule'
 import { occasionsBetween } from './occasions'
@@ -129,6 +129,7 @@ export function calendarOptions(c: CalendarPrintSettings | undefined) {
     ink: c?.ink ?? 'color',
     parsha: c?.parsha !== false,
     omer: c?.omer !== false,
+    clockChange: c?.clockChange === true,
     restTimes: c?.restTimes !== false,
     fastTimes: c?.fastTimes !== false,
     dayZmanim: c?.dayZmanim ?? [],
@@ -218,11 +219,11 @@ export function monthTitles(basis: CalendarBasis, start: DateString, end: DateSt
   const civilTitle =
     civilMonthName(start, lang) === civilMonthName(end, lang)
       ? `${civilMonthName(start, lang)} ${parseDate(end).year}`
-      : `${civilMonthName(start, lang)} – ${civilMonthName(end, lang)} ${parseDate(end).year}`
+      : `${civilMonthName(start, lang)}${parseDate(start).year === parseDate(end).year ? '' : ` ${parseDate(start).year}`} – ${civilMonthName(end, lang)} ${parseDate(end).year}`
   const hebrewTitle =
     hebrewMonthName(start, lang) === hebrewMonthName(end, lang)
       ? `${hebrewMonthName(start, lang)} ${hebrewYear(end, lang)}`
-      : `${hebrewMonthName(start, lang)} – ${hebrewMonthName(end, lang)} ${hebrewYear(end, lang)}`
+      : `${hebrewMonthName(start, lang)}${hebrewYear(start, lang) === hebrewYear(end, lang) ? '' : ` ${hebrewYear(start, lang)}`} – ${hebrewMonthName(end, lang)} ${hebrewYear(end, lang)}`
   return basis === 'hebrew'
     ? { title: hebrewTitle, subtitle: civilTitle }
     : { title: civilTitle, subtitle: hebrewTitle }
@@ -397,6 +398,22 @@ export function buildMonth(
       .map((e) =>
         classifyHoliday(e, t.text({ en: e.render('en'), he: e.render('he-x-NoNikud') })),
       )
+    if (o.clockChange) {
+      const { timeZone } = sh.settings.location
+      const shift = utcOffset(date, timeZone) - utcOffset(addDays(date, -1), timeZone)
+      if (shift)
+        holidays.push({
+          id: 'civil:clockChange',
+          name: t.text(
+            shift > 0
+              ? { en: 'Clocks forward', he: 'מעבר לשעון קיץ' }
+              : { en: 'Clocks back', he: 'מעבר לשעון חורף' },
+          ),
+          group: 'civil',
+          marks: false,
+          rank: RANK.civil,
+        })
+    }
     for (const local of info.localHolidays) {
       holidays.push({
         id: `civil:${local.id ?? local.name.en}`,

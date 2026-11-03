@@ -76,7 +76,12 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
   turns it into a printable HTML document (an iframe preview, printed through a hidden one). Holidays are left off by
   kind (`hiddenGroups`) or one by one (`hiddenHolidays`, a family like every Rosh Chodesh shares an id); people by id
   (`hiddenPeople`), independent of `hideFromBulletin`. A footer goes under every month (`footer`) or under one month
-  instead (`monthFooters`, by the month's first day). No pictures or covers yet (the Siddur's has them).
+  instead (`monthFooters`, by the month's first day). Clock changes (`clockChange`, default off) mark the Sundays the clocks
+  move, by the shul's time zone (a civil-group holiday, `civil:clockChange`; the Siddur's calendar has the same option).
+  Pictures (`features/calendar/pictures.ts`, `usePictures`): above each month or on the back of the page before it, a
+  front and a back cover, fill or whole, cropped by drag, zoom and turn in the preview (`frameScript.ts`, ported from the
+  Siddur's). They stay in the browser (IndexedDB for the pixels, localStorage for the choices, per slug), never in the
+  schedule or the server.
 - **The Siddur link.** The display's and the bulletin's QR codes open `siddur.one/shul/<slug>` (`siddurShulUrl`):
   the Siddur app where it's installed, its web build elsewhere. The Siddur reads `GET /api/shuls/:slug` (CORS for its
   three web hosts only; the public reads are rate-limited per IP by `PUBLIC_LIMIT`, since CORS doesn't stop non-browsers) and computes with the same engine, so labels, dates and "next up" live in the engine

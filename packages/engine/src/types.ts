@@ -319,6 +319,8 @@ export interface CalendarPrintSettings {
   hiddenHolidays?: string[]
   /** The parsha on Shabbos. Default true. */
   parsha?: boolean
+  /** The days the clocks change ("Clocks forward", "Clocks back"), by the shul's time zone. Default false. */
+  clockChange?: boolean
   /** The day of the omer. Default true. */
   omer?: boolean
   /** Candle lighting and havdalah on the days they fall. Default true. */

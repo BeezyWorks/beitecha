@@ -30,9 +30,12 @@ import {
   type CalendarPaper,
   PAPER_SIZES,
   type Orientation,
+  type CalendarPage,
   pagePixels,
   renderCalendarHtml,
 } from '@/features/calendar/html'
+import { type BackImage, frameFor, picturesForMonths } from '@/features/calendar/pictures'
+import { usePictures } from '@/features/calendar/usePictures'
 import {
   CalendarEventsCard,
   CalendarFooterCard,
@@ -40,20 +43,49 @@ import {
   CalendarPeopleCard,
   CalendarTimesCard,
 } from './CalendarContentCards'
+import { CalendarPicturesCard } from './CalendarPicturesCard'
 import { useAdmin } from './store'
 
 /** How many months ahead can be chosen. */
 const REACH = 30
 
 /** The wall calendar, under "See it": what's on it and how it's laid out, with the sheets beside it. */
-export function CalendarSection() {
+export function CalendarSection({ slug }: { slug: string }) {
   const { schedule, setSchedule } = useAdmin()
+  const pics = usePictures(slug)
+  // The preview moves a picture itself as it's dragged, so a new crop must not rebuild it (that would flash the page):
+  // the crops are read when the page is built for another reason.
+  const cropsRef = React.useRef(pics.settings.frames)
+  cropsRef.current = pics.settings.frames
   const wide = useIsWideLayout()
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
   // The chosen months, as first days; absent = the next twelve.
   const [range, setRange] = React.useState<{ from: string; to: string } | null>(null)
   const [paneWidth, setPaneWidth] = React.useState(0)
   const pane = React.useRef<HTMLDivElement>(null)
+  const frame = React.useRef<HTMLIFrameElement>(null)
+  // Each change loads the page afresh, so where it was scrolled to is kept (as a fraction of the way down).
+  const scrolled = React.useRef(0)
+  const setCrop = pics.setCrop
+  // The preview page reports a picture's new framing once a gesture ends.
+  React.useEffect(() => {
+    const listen = (e: MessageEvent) => {
+      const d = e.data
+      if (e.source !== frame.current?.contentWindow || d?.type !== 'calendar-frame') return
+      setCrop(d.id, { zoom: d.zoom, cx: d.cx, cy: d.cy, rot: d.rot })
+    }
+    window.addEventListener('message', listen)
+    return () => window.removeEventListener('message', listen)
+  }, [setCrop])
+  const restoreScroll = () => {
+    const win = frame.current?.contentWindow
+    if (!win) return
+    const root = win.document.documentElement
+    win.scrollTo(0, scrolled.current * root.scrollHeight)
+    win.addEventListener('scroll', () => {
+      scrolled.current = win.scrollY / Math.max(1, root.scrollHeight)
+    })
+  }
   React.useEffect(() => {
     const el = pane.current
     if (!el) return
@@ -92,27 +124,73 @@ export function CalendarSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schedule, from, to, choices])
 
-  const html = React.useMemo(() => {
-    if (!schedule || !months.length) return ''
+  const { settings: ps, images } = pics
+  /** The calendar as a page: for the screen (small pictures, shrunk) or for the printer (full size). */
+  const makePage = (scale?: number): CalendarPage | null => {
+    if (!schedule || !months.length) return null
     const t = makeT(
       schedule.settings.language,
       schedule.settings.timeFormat,
       schedule.settings.names,
     )
-    const pixels = pagePixels(options.paper, options.orientation)
-    const available = Math.max(200, paneWidth - 24)
-    return renderCalendarHtml({
+    const src = (image: BackImage) => (scale === undefined ? image.url : image.preview)
+    const frame = (image: BackImage) => frameFor(image, cropsRef.current)
+    const matched = picturesForMonths(months, images, ps.matches)
+    const byId = (id?: string) => images.find((i) => i.id === id)
+    const cover = (image?: BackImage) =>
+      image ? { src: src(image), frame: frame(image) } : undefined
+    return {
       title: months[0].title,
       months,
       weekdays: ([0, 1, 2, 3, 4, 5, 6] as const).map((d) => t.weekday(d)),
       options,
       settings: schedule.settings.calendar,
       rtl: t.rtl,
-      previewScale: Math.min(1, available / pixels.width),
-    })
-    // `options` is derived from the schedule's calendar settings.
+      pictures: images.length
+        ? {
+            images: matched.map((i) => i && src(i)),
+            frames: matched.map((i) => i && frame(i)),
+            fit: ps.fit,
+            placement: ps.placement,
+            titleOver: ps.titleOver && ps.placement === 'above',
+          }
+        : undefined,
+      covers: {
+        front: ps.front,
+        back: ps.back,
+        title: ps.coverTitle.trim() || undefined,
+        subtitle: ps.coverSubtitle.trim() || undefined,
+        image: cover(byId(ps.coverId)),
+        backImage: cover(byId(ps.backCoverId)),
+      },
+      previewScale:
+        scale === undefined
+          ? undefined
+          : Math.min(1, scale / pagePixels(options.paper, options.orientation).width),
+    }
+  }
+
+  const html = React.useMemo(() => {
+    const page = makePage(Math.max(200, paneWidth - 24))
+    return page ? renderCalendarHtml(page) : ''
+    // `makePage` reads the schedule, the months, the pictures and the crops; the crops are left out on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schedule, months, paneWidth])
+  }, [
+    schedule,
+    months,
+    paneWidth,
+    images,
+    ps.matches,
+    ps.fit,
+    ps.placement,
+    ps.titleOver,
+    ps.front,
+    ps.back,
+    ps.coverId,
+    ps.backCoverId,
+    ps.coverTitle,
+    ps.coverSubtitle,
+  ])
 
   if (!schedule) return null
   const set = (patch: Partial<CalendarPrintSettings>) =>
@@ -128,16 +206,9 @@ export function CalendarSection() {
 
   const print = () => {
     // The preview is shrunk and gapped for the screen; the print is the plain page.
-    const printable = renderCalendarHtml({
-      title: months[0]?.title ?? 'Calendar',
-      months,
-      weekdays: ([0, 1, 2, 3, 4, 5, 6] as const).map((d) =>
-        makeT(schedule.settings.language).weekday(d),
-      ),
-      options,
-      settings: schedule.settings.calendar,
-      rtl: lang === 'he',
-    })
+    const page = makePage()
+    if (!page) return
+    const printable = renderCalendarHtml(page)
     const hidden = document.createElement('iframe')
     hidden.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden'
     hidden.srcdoc = printable
@@ -241,6 +312,7 @@ export function CalendarSection() {
             />
           </Stack>
         </Card>
+        <CalendarPicturesCard pictures={pics} months={months} basis={basis} lang={lang} />
         <CalendarTimesCard settings={settings} schedule={schedule} set={set} />
         <CalendarHolidaysCard settings={settings} months={months} set={set} />
         <CalendarEventsCard settings={settings} schedule={schedule} set={set} />
@@ -260,8 +332,10 @@ export function CalendarSection() {
   const preview = (
     <div ref={pane} style={{ width: '100%', height: '100%' }}>
       <iframe
+        ref={frame}
         title="Calendar preview"
         srcDoc={html}
+        onLoad={restoreScroll}
         style={{ width: '100%', height: '100%', border: 0 }}
       />
     </div>

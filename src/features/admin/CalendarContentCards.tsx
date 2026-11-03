@@ -197,6 +197,12 @@ export function CalendarHolidaysCard({
           }
         />
       ))}
+      <Row
+        label="Clock changes"
+        help="The Sundays the clocks go forward and back, by the shul's time zone."
+        value={settings.clockChange === true}
+        onChange={(on) => set({ clockChange: on ? true : undefined })}
+      />
       <Stack direction="row">
         <Button
           variant="secondary"

@@ -120,7 +120,7 @@ export function AdminScreen({ slug }: { slug: string }) {
       {section === 'anniversaries' && <OccasionsTab kind="anniversary" today={today} />}
       {section === 'display' && <DisplaySection slug={slug} />}
       {section === 'bulletin' && <BulletinSection slug={slug} />}
-      {section === 'calendar' && <CalendarSection />}
+      {section === 'calendar' && <CalendarSection slug={slug} />}
       {section === 'shul' && <ShulTab />}
       {section === 'team' && <TeamTab />}
     </>

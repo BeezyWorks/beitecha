@@ -641,12 +641,19 @@ export interface EventDef {
    * has passed); `false` = never.
    */
   announce?: boolean
+  /** The connection that created it (a one-time event made through the write API). */
+  origin?: Origin
   /** First matching rule wins. No match = no occurrence. */
   rules: Rule[]
 }
 
+/** What a write-API connection created or last changed, so "edit only what you created", the admin's "via" chip and undo can find it. */
+export interface Origin {
+  connectionId: string
+}
+
 export type Exception =
-  | { id: string; date: DateString; type: 'cancel'; eventId: string; note?: Localized }
+  | { id: string; date: DateString; type: 'cancel'; eventId: string; note?: Localized; origin?: Origin }
   | {
       id: string
       date: DateString
@@ -654,8 +661,9 @@ export type Exception =
       eventId: string
       time: TimeExpr
       note?: Localized
+      origin?: Origin
     }
-  | { id: string; date: DateString; type: 'note'; eventId: string; note: Localized }
+  | { id: string; date: DateString; type: 'note'; eventId: string; note: Localized; origin?: Origin }
   | {
       id: string
       date: DateString
@@ -664,6 +672,7 @@ export type Exception =
       time: TimeExpr
       end?: TimeExpr
       note?: Localized
+      origin?: Origin
     }
 
 /**
@@ -702,6 +711,8 @@ export interface Notice {
   link?: string
   /** Links with what scanning them does ("To sponsor", "Download the shiur"); the printed week prints each as a QR code. */
   links?: NoticeLink[]
+  /** The connection that created or last changed it. */
+  origin?: Origin
 }
 
 export interface NoticeLink {
@@ -740,6 +751,8 @@ export interface Yahrzeit {
   gregorian?: DateString
   /** Keep this one off the printed bulletin (it still shows on the display and in the Siddur). */
   hideFromBulletin?: boolean
+  /** The connection that created or last changed it. */
+  origin?: Origin
 }
 
 /** A Hebrew date; the year is optional for birthdays and anniversaries, which come back every year. */
@@ -768,6 +781,8 @@ export interface Occasion {
   by?: 'hebrew' | 'gregorian'
   /** Keep this one off the printed bulletin (it still shows on the display and in the Siddur). */
   hideFromBulletin?: boolean
+  /** The connection that created or last changed it. */
+  origin?: Origin
 }
 
 export interface Schedule {

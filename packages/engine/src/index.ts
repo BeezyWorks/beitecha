@@ -37,6 +37,7 @@ export {
   parseDate,
   startOfWeek,
   todayIn,
+  utcOffsetAt,
   weekdayOf,
 } from './dates'
 export {
@@ -99,3 +100,35 @@ export {
   type CalendarPerson,
   type CalendarTimeLine,
 } from './calendarPrint'
+export { LIMITS, foldName, sanitizeLink, sanitizeText, type TextResult } from './text'
+export {
+  applyOperation,
+  isRemoval,
+  operationScope,
+  revertOperation,
+  type ApplyResult,
+  type Change,
+  type Entry,
+  type ErrorCode,
+  type EventTarget,
+  type ListKey,
+  type OneTimeEventFields,
+  type Operation,
+  type OperationContext,
+  type OperationError,
+  type OperationName,
+  type PersonFields,
+  type PersonRef,
+  type RevertResult,
+  type Scope,
+  type TextInput,
+} from './operations'
+export {
+  MAX_PUBLIC_DAYS,
+  computeDays,
+  type ComputeDaysOptions,
+  type PublicDay,
+  type PublicDays,
+  type PublicEvent,
+  type PublicTime,
+} from './publicDays'

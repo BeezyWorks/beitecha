@@ -100,6 +100,18 @@ export function utcOffset(date: DateString, timeZone: string): number {
   return (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - noonUtc.getTime()) / 60_000
 }
 
+/** The zone's UTC offset in minutes at `minutes` past local midnight of `date` (noon's offset is wrong on the day the clocks change). */
+export function utcOffsetAt(date: DateString, minutes: number, timeZone: string): number {
+  const wall = Date.parse(`${date}T00:00:00Z`) + minutes * 60_000
+  let offset = utcOffset(date, timeZone)
+  for (let i = 0; i < 2; i++) {
+    const instant = wall - offset * 60_000
+    const p = zonedParts(new Date(instant), timeZone)
+    offset = (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - instant) / 60_000
+  }
+  return offset
+}
+
 export function isDst(date: DateString, timeZone: string): boolean {
   const { year } = parseDate(date)
   const standard = Math.min(

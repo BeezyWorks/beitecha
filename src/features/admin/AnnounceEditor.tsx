@@ -1,5 +1,6 @@
 import { Card, SemanticColor, Stack, Text } from '@beezyworks/design'
 import {
+  addDays,
   Calendar,
   civilDateShort,
   DEFAULT_ANNOUNCE_WEEKS,
@@ -79,10 +80,14 @@ export function AnnouncedCard({ today }: { today: DateString }) {
   const schedule = useAdmin((s) => s.schedule)
   const commitSchedule = useAdmin((s) => s.commitSchedule)
   const week = weekContaining(today, schedule?.settings.print)
-  const span = spanOf(week)
-  const thisWeek = useMemo(
-    () => (schedule ? new Calendar(schedule).announced(week.from, span) : []),
-    [schedule, week.from, span],
+  const nextWeek = weekContaining(addDays(week.to, 1), schedule?.settings.print)
+  const weeks = useMemo(
+    () =>
+      [week, nextWeek].map((w) => ({
+        ...w,
+        events: schedule ? new Calendar(schedule).announced(w.from, spanOf(w)) : [],
+      })),
+    [schedule, week, nextWeek],
   )
   if (!schedule) return null
   return (
@@ -107,17 +112,21 @@ export function AnnouncedCard({ today }: { today: DateString }) {
           }
         />
       </Stack>
-      {thisWeek.length > 0 && (
-        <Stack gap="xs">
-          <Text variant="bodyStrong">
-            On the sheet for {civilDateShort(week.from)} – {civilDateShort(week.to)}
-          </Text>
-          {thisWeek.map(({ date, event }) => (
-            <Text key={`${date}|${event.eventId}`} variant="body">
-              {WEEKDAYS[weekdayOf(date)].en}, {civilDateShort(date)} · {event.name.en}
-            </Text>
-          ))}
-        </Stack>
+      {weeks.map(
+        (w, i) =>
+          w.events.length > 0 && (
+            <Stack key={w.from} gap="xs">
+              <Text variant="bodyStrong">
+                On the sheet for {i === 0 ? '' : 'next week, '}
+                {civilDateShort(w.from)} – {civilDateShort(w.to)}
+              </Text>
+              {w.events.map(({ date, event }) => (
+                <Text key={`${date}|${event.eventId}`} variant="body">
+                  {WEEKDAYS[weekdayOf(date)].en}, {civilDateShort(date)} · {event.name.en}
+                </Text>
+              ))}
+            </Stack>
+          ),
       )}
     </Card>
   )

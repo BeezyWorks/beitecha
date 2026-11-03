@@ -1,7 +1,17 @@
-import { Badge, Icon, ScrollStack, SemanticColor, Stack, Text, Touchable } from '@beezyworks/design'
+import {
+  Badge,
+  Button,
+  Icon,
+  ScrollStack,
+  SemanticColor,
+  Stack,
+  Text,
+  Touchable,
+} from '@beezyworks/design'
 import React from 'react'
 
 import { Segments } from '@/components/Segments'
+import { useCollapsed } from '@/lib/useCollapsed'
 import { useAppearance, type Appearance } from '@/lib/appearance'
 import { useConnect, pendingCountOf } from './connectStore'
 import {
@@ -75,6 +85,19 @@ export function Sidebar({
 }) {
   const { appearance, setAppearance } = useAppearance()
   const pending = useConnect((s) => pendingCountOf(s.changes))
+  const [folded, toggle] = useCollapsed('admin-sidebar')
+  if (folded)
+    return (
+      <Stack
+        width={48}
+        align="center"
+        padding="xs"
+        background={SemanticColor.SurfaceSelected}
+        borderColor={SemanticColor.BorderDefault}
+      >
+        <Button variant="ghost" size="sm" title="Show menu" icon="chevron-right" onPress={toggle} />
+      </Stack>
+    )
   return (
     <Stack
       width={240}
@@ -82,13 +105,22 @@ export function Sidebar({
       borderColor={SemanticColor.BorderDefault}
     >
       <ScrollStack padding="md" gap="xs">
-        <Stack gap="none" paddingHorizontal="md" paddingVertical="sm">
-          <Text variant="title" numberOfLines={2}>
-            {shulName}
-          </Text>
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            {status}
-          </Text>
+        <Stack direction="row" align="center" gap="xs">
+          <Stack grow gap="none" paddingHorizontal="md" paddingVertical="sm">
+            <Text variant="title" numberOfLines={2}>
+              {shulName}
+            </Text>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              {status}
+            </Text>
+          </Stack>
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Hide menu"
+            icon="chevron-left"
+            onPress={toggle}
+          />
         </Stack>
         {SECTION_GROUPS.map((g, i) => (
           <Stack key={i} gap="none" paddingTop={g.title ? 'md' : 'xs'}>

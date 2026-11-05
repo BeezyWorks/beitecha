@@ -93,6 +93,7 @@ export interface Connection {
 export interface ConnectionsState {
   enabled: boolean
   defaultMode: ConnectionMode
+  minyanMode: ConnectionMode
   connections: Connection[]
 }
 
@@ -171,12 +172,17 @@ export const api = {
     void (await request(`/api/shuls/${slug}/displays/${displayId}`, { body: { label } })),
   connections: async (slug: string) =>
     (await request<ConnectionsState>(`/api/shuls/${slug}/connections`)).data,
-  setApi: async (slug: string, body: { enabled?: boolean; defaultMode?: ConnectionMode }) =>
+  setApi: async (
+    slug: string,
+    body: { enabled?: boolean; defaultMode?: ConnectionMode; minyanMode?: ConnectionMode },
+  ) =>
     (
-      await request<{ enabled: boolean; defaultMode: ConnectionMode; revoked: number }>(
-        `/api/shuls/${slug}/api`,
-        { method: 'PUT', body },
-      )
+      await request<{
+        enabled: boolean
+        defaultMode: ConnectionMode
+        minyanMode: ConnectionMode
+        revoked: number
+      }>(`/api/shuls/${slug}/api`, { method: 'PUT', body })
     ).data,
   /** The key is in the answer once; it can't be fetched again. */
   createConnection: async (slug: string, body: NewConnection) =>

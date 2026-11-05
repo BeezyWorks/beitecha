@@ -23,6 +23,7 @@ import {
   notFound,
   type AuthedConnection,
   type Connection,
+  type Mode,
 } from './connections'
 import type { Env } from './env'
 import { ApiError, HttpError } from './http'
@@ -73,16 +74,19 @@ const touchesOthers = (op: Pick<Operation, 'op'>, before: Entry[], connectionId:
  * Why a change waits for a gabbai instead of going live, or null when it goes live.
  *
  * - the connection asks first (`review` mode);
+ * - a minyan's time or existence changes (`needsReview`) while the shul's `minyanMode` is `review`;
  * - a removal, or an edit of an item the connection didn't create, once it already has `DAILY_GUARDED` of those
  *   applied today.
  */
 export function pendingReason(
   connection: Pick<Connection, 'id' | 'mode'>,
   op: Operation,
-  result: Pick<Applied, 'before'>,
+  result: Pick<Applied, 'before' | 'needsReview'>,
   guardedToday: number,
+  minyanMode: Mode,
 ): string | null {
   if (connection.mode === 'review') return 'This connection asks a gabbai to approve changes first'
+  if (result.needsReview && minyanMode === 'review') return result.needsReview
   if (touchesOthers(op, result.before, connection.id) && guardedToday >= DAILY_GUARDED)
     return `A connection can change or remove at most ${DAILY_GUARDED} existing items a day on its own; this one waits for a gabbai`
   return null
@@ -299,7 +303,7 @@ export async function writeOperation(
     )
   }
 
-  const reason = pendingReason(connection, op, dry, guardedToday)
+  const reason = pendingReason(connection, op, dry, guardedToday, shul.minyanMode)
   if (reason) return wait(dry, reason)
 
   const outcome = await saveSchedule<
@@ -312,7 +316,7 @@ export async function writeOperation(
       const r = applyOperation(schedule, op, ctx(schedule))
       if ('error' in r) return { rejected: { error: r.error } }
       // The schedule may have moved since the dry run (an admin saved); decide again on what is there now.
-      const why = pendingReason(connection, op, r, guardedToday)
+      const why = pendingReason(connection, op, r, guardedToday, shul.minyanMode)
       if (why) return { rejected: { pending: why, preview: r } }
       return { schedule: r.schedule, result: r }
     },

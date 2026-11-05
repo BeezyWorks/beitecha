@@ -27,6 +27,8 @@ interface ConnectState {
   /** The assistants-and-API switch and the mode new connections start in. */
   enabled: boolean
   defaultMode: ConnectionMode
+  /** Whether a one-off change to a minyan's time or existence waits for a gabbai. */
+  minyanMode: ConnectionMode
   connections: Connection[]
   changes: ChangeView[]
   error: string | null
@@ -38,6 +40,7 @@ interface ConnectState {
   refreshChanges: () => Promise<void>
   setEnabled: (enabled: boolean) => Promise<void>
   setDefaultMode: (mode: ConnectionMode) => Promise<void>
+  setMinyanMode: (mode: ConnectionMode) => Promise<void>
   create: (body: NewConnection) => Promise<{ connection: Connection; key: string } | null>
   patch: (
     id: string,
@@ -60,7 +63,12 @@ export const useConnect = create<ConnectState>((set, get) => {
     const s = slug()
     if (!s) return
     const state = await api.connections(s)
-    set({ enabled: state.enabled, defaultMode: state.defaultMode, connections: state.connections })
+    set({
+      enabled: state.enabled,
+      defaultMode: state.defaultMode,
+      minyanMode: state.minyanMode,
+      connections: state.connections,
+    })
   }
   /** The schedule changed on the server: the admin's draft must not clobber it. */
   const scheduleChanged = () => useAdmin.getState().reloadFromServer()
@@ -70,6 +78,7 @@ export const useConnect = create<ConnectState>((set, get) => {
     ready: false,
     enabled: false,
     defaultMode: 'review',
+    minyanMode: 'review',
     connections: [],
     changes: [],
     error: null,
@@ -125,6 +134,18 @@ export const useConnect = create<ConnectState>((set, get) => {
       try {
         const res = await api.setApi(s, { defaultMode })
         set({ defaultMode: res.defaultMode })
+      } catch (e) {
+        fail(e)
+      }
+    },
+
+    setMinyanMode: async (minyanMode) => {
+      const s = slug()
+      if (!s) return
+      set({ error: null })
+      try {
+        const res = await api.setApi(s, { minyanMode })
+        set({ minyanMode: res.minyanMode })
       } catch (e) {
         fail(e)
       }

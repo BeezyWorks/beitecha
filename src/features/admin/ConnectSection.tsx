@@ -67,7 +67,8 @@ function ScopePicker({ value, onChange }: { value: Scope[]; onChange: (s: Scope[
 }
 
 function ApiCard({ owner }: { owner: boolean }) {
-  const { enabled, defaultMode, setEnabled, setDefaultMode } = useConnect()
+  const { enabled, defaultMode, minyanMode, setEnabled, setDefaultMode, setMinyanMode } =
+    useConnect()
   const turn = (on: boolean) => {
     if (!on && !confirmAction('This disconnects every assistant and key. Turn it off?')) return
     void setEnabled(on)
@@ -122,6 +123,24 @@ function ApiCard({ owner }: { owner: boolean }) {
               <Text variant="body">{PUBLISH_WARNING}</Text>
             </Stack>
           )}
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            One-off changes to a minyan’s time, or cancelling one
+          </Text>
+          {owner ? (
+            <Segments<ConnectionMode>
+              options={MODES}
+              value={minyanMode}
+              onChange={(m) => void setMinyanMode(m)}
+              accessibilityLabel="Minyan changes"
+            />
+          ) : (
+            <Text variant="bodyStrong">{MODE_LABELS[minyanMode]}</Text>
+          )}
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            {minyanMode === 'review'
+              ? 'Moving or cancelling a minyan for one day waits for a gabbai, whatever a connection’s own mode.'
+              : 'Moving or cancelling a minyan for one day goes live at once, unless the connection asks a gabbai first.'}
+          </Text>
         </Stack>
       )}
     </Card>

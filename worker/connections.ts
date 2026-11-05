@@ -139,10 +139,16 @@ async function shulAndRole(request: Request, env: Env, slug: string, needed: Rol
 }
 
 const apiSettings = async (env: Env, shulId: string) => {
-  const row = await env.DB.prepare('SELECT api_enabled, api_default_mode FROM shuls WHERE id = ?')
+  const row = await env.DB.prepare(
+    'SELECT api_enabled, api_default_mode, api_minyan_mode FROM shuls WHERE id = ?',
+  )
     .bind(shulId)
-    .first<{ api_enabled: number; api_default_mode: Mode }>()
-  return { enabled: row?.api_enabled === 1, defaultMode: row?.api_default_mode ?? 'review' }
+    .first<{ api_enabled: number; api_default_mode: Mode; api_minyan_mode: Mode }>()
+  return {
+    enabled: row?.api_enabled === 1,
+    defaultMode: row?.api_default_mode ?? 'review',
+    minyanMode: row?.api_minyan_mode ?? 'review',
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -167,22 +173,28 @@ export async function listConnections(request: Request, env: Env, slug: string):
 /** Owner: turn the API on or off and pick the mode new connections start in. Off revokes every connection. */
 export async function putApiSettings(request: Request, env: Env, slug: string): Promise<Response> {
   const { shul } = await shulAndRole(request, env, slug, 'owner')
-  const body = await readJson<{ enabled?: unknown; defaultMode?: unknown }>(request, 1024)
+  const body = await readJson<{ enabled?: unknown; defaultMode?: unknown; minyanMode?: unknown }>(
+    request,
+    1024,
+  )
   if (!isObject(body)) throw new HttpError(400, 'invalid body')
   if (body.enabled !== undefined && typeof body.enabled !== 'boolean')
     throw new HttpError(400, 'enabled must be true or false')
   if (body.defaultMode !== undefined && !isMode(body.defaultMode))
     throw new HttpError(400, 'defaultMode must be publish or review')
-  if (body.enabled === undefined && body.defaultMode === undefined)
-    throw new HttpError(400, 'enabled or defaultMode is required')
+  if (body.minyanMode !== undefined && !isMode(body.minyanMode))
+    throw new HttpError(400, 'minyanMode must be publish or review')
+  if (body.enabled === undefined && body.defaultMode === undefined && body.minyanMode === undefined)
+    throw new HttpError(400, 'enabled, defaultMode or minyanMode is required')
   const now = Date.now()
   const statements = [
     env.DB.prepare(
-      `UPDATE shuls SET api_enabled = COALESCE(?2, api_enabled), api_default_mode = COALESCE(?3, api_default_mode) WHERE id = ?1`,
+      `UPDATE shuls SET api_enabled = COALESCE(?2, api_enabled), api_default_mode = COALESCE(?3, api_default_mode), api_minyan_mode = COALESCE(?4, api_minyan_mode) WHERE id = ?1`,
     ).bind(
       shul.id,
       body.enabled === undefined ? null : body.enabled ? 1 : 0,
       body.defaultMode ?? null,
+      body.minyanMode ?? null,
     ),
   ]
   if (body.enabled === false) {
@@ -396,7 +408,7 @@ export interface Connection {
 export interface AuthedConnection {
   connection: Connection
   /** The shul the connection belongs to: every write's shul id comes from here, never from the URL. */
-  shul: { id: string; slug: string; defaultMode: Mode }
+  shul: { id: string; slug: string; defaultMode: Mode; minyanMode: Mode }
   /** The member's current role, read in the same statement. */
   role: Role
 }
@@ -409,7 +421,7 @@ const unauthorized = (message = 'A valid API key is required') =>
  * The shul's switch and slug are returned, not filtered on, so "no such connection" (401) and "not for this shul"
  * (the shared 404) stay apart. `where` picks the row by how the credential identifies it. */
 const ACTIVE_CONNECTION = `
-  SELECT c.*, m.role, s.slug, s.api_enabled, s.api_default_mode
+  SELECT c.*, m.role, s.slug, s.api_enabled, s.api_default_mode, s.api_minyan_mode
   FROM connections c
   JOIN members m ON m.shul_id = c.shul_id AND m.user_id = c.user_id
   JOIN shuls s ON s.id = c.shul_id
@@ -420,6 +432,7 @@ type ActiveRow = ConnectionRow & {
   slug: string
   api_enabled: number
   api_default_mode: Mode
+  api_minyan_mode: Mode
 }
 
 /** A `bk_sec_` key is looked up by its hash. (A chat app's sign-in is not a secret of ours: `requireOAuthConnection`
@@ -504,7 +517,12 @@ async function authedOf(
       mode: row.mode,
       expiresAt: row.expires_at,
     },
-    shul: { id: row.shul_id, slug: row.slug, defaultMode: row.api_default_mode },
+    shul: {
+      id: row.shul_id,
+      slug: row.slug,
+      defaultMode: row.api_default_mode,
+      minyanMode: row.api_minyan_mode,
+    },
     role: row.role,
   }
 }
@@ -528,6 +546,7 @@ export interface MemberShul {
   role: Role
   apiEnabled: boolean
   defaultMode: Mode
+  minyanMode: Mode
   memberName: string | null
 }
 
@@ -536,7 +555,7 @@ export const ASSISTANTS_OFF =
 
 export async function userShuls(env: Env, userId: string): Promise<MemberShul[]> {
   const { results } = await env.DB.prepare(
-    `SELECT s.id, s.slug, s.api_enabled, s.api_default_mode, m.role, m.name AS member_name,
+    `SELECT s.id, s.slug, s.api_enabled, s.api_default_mode, s.api_minyan_mode, m.role, m.name AS member_name,
             COALESCE(NULLIF(json_extract(s.profile, '$.name.en'), ''), json_extract(s.profile, '$.name.he'), s.slug) AS shul_name
      FROM members m JOIN shuls s ON s.id = m.shul_id WHERE m.user_id = ? ORDER BY s.slug LIMIT 50`,
   )
@@ -546,6 +565,7 @@ export async function userShuls(env: Env, userId: string): Promise<MemberShul[]>
       slug: string
       api_enabled: number
       api_default_mode: Mode
+      api_minyan_mode: Mode
       role: Role
       member_name: string | null
       shul_name: string
@@ -557,6 +577,7 @@ export async function userShuls(env: Env, userId: string): Promise<MemberShul[]>
     role: r.role,
     apiEnabled: r.api_enabled === 1,
     defaultMode: r.api_default_mode,
+    minyanMode: r.api_minyan_mode,
     memberName: r.member_name,
   }))
 }
@@ -683,6 +704,7 @@ const shulFields = (shul: MemberShul) => ({
   slug: shul.slug,
   api_enabled: 1,
   api_default_mode: shul.defaultMode,
+  api_minyan_mode: shul.minyanMode,
 })
 
 /** A label from text we don't control (the client's own name): cleaned and cut to 60, never an error. */

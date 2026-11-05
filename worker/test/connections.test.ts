@@ -107,7 +107,7 @@ describe('turning the API on', () => {
     const slug = await newShul(owner, {})
     await addMember(slug, owner, editor)
     const list = await call('GET', `/api/shuls/${slug}/connections`, undefined, owner)
-    expect(list.data).toEqual({ enabled: false, defaultMode: 'review', connections: [] })
+    expect(list.data).toEqual({ enabled: false, defaultMode: 'review', minyanMode: 'review', connections: [] })
     expect((await makeKey(slug, owner)).status).toBe(403)
     expect((await call('PUT', `/api/shuls/${slug}/api`, { enabled: true }, editor)).status).toBe(
       403,
@@ -122,7 +122,7 @@ describe('turning the API on', () => {
       { enabled: true, defaultMode: 'publish' },
       owner,
     )
-    expect(on.data).toEqual({ enabled: true, defaultMode: 'publish', revoked: 0 })
+    expect(on.data).toEqual({ enabled: true, defaultMode: 'publish', minyanMode: 'review', revoked: 0 })
     expect((await makeKey(slug, editor)).status).toBe(201)
     expect(
       (await call('PUT', `/api/shuls/${slug}/api`, { enabled: true }, 'stranger')).status,
@@ -135,7 +135,7 @@ describe('turning the API on', () => {
     const a = await makeKey(slug, owner)
     const b = await makeKey(slug, owner)
     const off = await call('PUT', `/api/shuls/${slug}/api`, { enabled: false }, owner)
-    expect(off.data).toEqual({ enabled: false, defaultMode: 'review', revoked: 2 })
+    expect(off.data).toEqual({ enabled: false, defaultMode: 'review', minyanMode: 'review', revoked: 2 })
     expect((await auth(slug, a.data.key)).status).toBe(401)
     expect((await makeKey(slug, owner)).status).toBe(403)
     // Turned back on, the old keys stay dead.

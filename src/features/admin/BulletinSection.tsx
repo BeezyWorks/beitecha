@@ -28,7 +28,7 @@ import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { BulletinSheets, bulletinLayout } from '@/features/bulletin/BulletinSheets'
 import { BulletinToolbar } from '@/features/bulletin/BulletinToolbar'
-import { weekContaining, type DateRange } from '@/features/bulletin/range'
+import { shiftRange, weekContaining, type DateRange } from '@/features/bulletin/range'
 import { useWeek } from '@/features/bulletin/useWeek'
 import { BulletinBandCard } from './BulletinBandCard'
 import { BulletinCard } from './BulletinCard'
@@ -53,7 +53,8 @@ export function BulletinSection({ slug }: { slug: string }) {
   const [folded, toggleFolded] = useCollapsed('bulletin-preview')
   if (!profile || !schedule) return null
 
-  const range = weekContaining(today, schedule.settings.print)
+  // The bulletin being prepared is next week's.
+  const range = shiftRange(weekContaining(today, schedule.settings.print), 1)
   const chosen = paper ?? paperFor(schedule.settings.location.timeZone)
   const print = schedule.settings.print ?? {}
   const layout = bulletinLayout(print)

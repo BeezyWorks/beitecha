@@ -336,6 +336,49 @@ export function holidayChoices(months: CalendarMonth[]): (CalendarHoliday & { co
   )
 }
 
+/** Days a printed week's headings leave out until the shul asks for them: the ones few calendars carry (the Siddur's). */
+export const DEFAULT_HIDDEN_HOLIDAYS: string[] = [
+  'other:yomKippurKatan',
+  "other:Ta'anit BeHaB",
+  'other:Rosh Hashana LaBehemot',
+  'israeli:Ben-Gurion Day',
+  'israeli:Swords of Iron War Memorial Day',
+  'israeli:Herzl Day',
+  'israeli:Yom HaAliyah',
+  'israeli:Yom HaAliyah School Observance',
+  'israeli:Family Day',
+  'israeli:Jabotinsky Day',
+  'israeli:Hebrew Language Day',
+]
+
+/** Whether a printed week's headings name the holiday `id`, given the shul's print settings. */
+export function isHeadingHolidayShown(
+  id: string,
+  print: { hideGroups?: CalendarGroup[]; hideHolidays?: string[] },
+): boolean {
+  const group = id.slice(0, id.indexOf(':')) as CalendarGroup
+  return !print.hideGroups?.includes(group) && !(print.hideHolidays ?? DEFAULT_HIDDEN_HOLIDAYS).includes(id)
+}
+
+/** Every holiday in the year from `from`, once each, as the headings' chips list them. */
+export function yearHolidayChoices(cal: Calendar, from: DateString): (CalendarHoliday & { count: number })[] {
+  const found = new Map<string, CalendarHoliday & { count: number }>()
+  const info = (date: DateString) => cal.info(date)
+  for (let i = 0; i < 385; i++) {
+    const date = addDays(from, i)
+    for (const e of info(date).holidays) {
+      if ((e.getFlags() & SKIPPED) !== 0) continue
+      const h = classifyHoliday(e, e.render('en'))
+      const known = found.get(h.id)
+      if (known) known.count += 1
+      else found.set(h.id, { ...h, count: 1 })
+    }
+  }
+  return [...found.values()].sort(
+    (a, b) => CALENDAR_GROUPS.indexOf(a.group) - CALENDAR_GROUPS.indexOf(b.group) || a.name.localeCompare(b.name),
+  )
+}
+
 /** A name for keying a month's own footer. */
 export const monthKey = (month: Pick<CalendarMonth, 'start'>) => month.start
 

@@ -402,8 +402,12 @@ export interface PrintSettings {
    * listed ones, on the last page; empty sections and pages are dropped.
    */
   layout?: { section: BulletinSection; page: number }[]
-  /** Day names (`BULLETIN_DAY_NAMES` keys) left out of the weekday grid's column headings. Default none. */
+  /** Legacy: day-name prefixes left out of the column headings. Ignored; see `hideHolidays`. */
   hideDays?: string[]
+  /** Kinds of holiday (`CalendarGroup`) not named in the weekday grid's column headings. Default none. */
+  hideGroups?: CalendarGroup[]
+  /** Holidays (`CalendarHoliday.id`) not named in the column headings. Absent = `DEFAULT_HIDDEN_HOLIDAYS`. */
+  hideHolidays?: string[]
   /** Text size on the sheet as a multiple of normal (1), shrunk anyway where it wouldn't fit the pages. Default 1. */
   textSize?: number
   /** Whether the public bulletin page (`/<slug>/bulletin`) lets anyone page back to earlier weeks. Default false: this week only. */
@@ -418,21 +422,6 @@ export interface PrintSettings {
    */
   shabbosZmanim?: { friday: ZmanKey[]; shabbos: ZmanKey[] }
 }
-
-/** Minor days a shul may not want named in the printed week's headings: each matches the English name's start. */
-export const BULLETIN_DAY_NAMES: { key: string; label: string }[] = [
-  { key: 'Rosh Chodesh', label: 'Rosh Chodesh' },
-  { key: 'Yom Kippur Katan', label: 'Yom Kippur Katan' },
-  { key: 'Chanukah', label: 'Chanukah (each day)' },
-  { key: 'Erev', label: 'Erev Pesach, Sukkos, etc.' },
-  { key: 'Shushan Purim', label: 'Shushan Purim' },
-  { key: 'Purim Katan', label: 'Purim Katan' },
-  { key: 'Tu BiShvat', label: 'Tu BiShvat' },
-  { key: 'Lag BaOmer', label: 'Lag BaOmer' },
-  { key: 'Tu B\'Av', label: 'Tu B’Av' },
-  { key: 'Pesach Sheni', label: 'Pesach Sheni' },
-  { key: 'Leil Selichot', label: 'Leil Selichot' },
-]
 
 /** The zmanim the printed week lists among Friday night's and Shabbos day's minyanim. */
 export const DEFAULT_SHABBOS_ZMANIM: NonNullable<PrintSettings['shabbosZmanim']> = {
@@ -872,6 +861,8 @@ export interface DaySchedule {
   hebrew: { day: number; month: string; year: number; en: string; he: string }
   /** Jewish holidays, then the shul's local ones. */
   holidays: Localized[]
+  /** `CalendarHoliday.id` of each of `holidays`, in step with it. */
+  holidayIds?: string[]
   /** The coming (or current) Shabbos's parsha. */
   parsha?: Localized
   tags: DayTag[]

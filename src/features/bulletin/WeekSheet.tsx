@@ -28,6 +28,7 @@ import {
   type ZmanId,
   zmanimList,
   type ZmanKey,
+  isHeadingHolidayShown,
 } from '@beitecha/engine'
 import React from 'react'
 
@@ -116,8 +117,9 @@ export interface WeekProps {
   specialZmanim: SpecialZmanimGroup[]
   /** Which page each section goes on (`settings.print.layout`); absent = the automatic layout. */
   layout?: PrintSettings['layout']
-  /** Day names left out of the column headings (`settings.print.hideDays`). */
-  hideDays?: string[]
+  /** Holidays left out of the column headings (`settings.print.hideGroups`, `hideHolidays`). */
+  hideGroups?: PrintSettings['hideGroups']
+  hideHolidays?: string[]
   /** The header and footer (`settings.print.header` / `footer`). */
   header?: BulletinBand
   footer?: BulletinBand
@@ -191,7 +193,7 @@ export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: b
       <SpecialZmanimBlock groups={week.specialZmanim} />
       {withNotices && <Announcements {...week} />}
       <WeekdayGrid {...week} />
-      {week.zmanimTable && <ZmanimGrid days={days} hide={week.hideDays} />}
+      {week.zmanimTable && <ZmanimGrid days={days} hide={week} />}
       <Stack grow />
       {withNotices && <Footer {...week} page={1} pages={1} />}
     </Stack>
@@ -199,7 +201,7 @@ export function TimesSide({ withNotices, ...week }: WeekProps & { withNotices: b
 }
 
 /** The weekday minyanim, Sunday to Friday; Erev Shabbos's and the shiurim are elsewhere. */
-function WeekdayGrid({ days, shabbos, notices, hideDays }: WeekProps) {
+function WeekdayGrid({ days, shabbos, notices, hideGroups, hideHolidays }: WeekProps) {
   const t = useT()
   const weekdays = withoutShabbos(days, shabbos).map((d) => ({
     ...d,
@@ -210,7 +212,7 @@ function WeekdayGrid({ days, shabbos, notices, hideDays }: WeekProps) {
     <EventGrid
       days={weekdays}
       notices={notices}
-      hide={hideDays}
+      hide={{ hideGroups, hideHolidays }}
       en={t.s.weekdays}
       he={HE.s.weekdays}
     />
@@ -238,7 +240,7 @@ export function sectionBlocks(
       : []),
     { key: 'weekdays', node: <WeekdayGrid {...week} /> },
     ...(week.zmanimTable
-      ? [{ key: 'zmanimTable' as const, node: <ZmanimGrid days={days} hide={week.hideDays} /> }]
+      ? [{ key: 'zmanimTable' as const, node: <ZmanimGrid days={days} hide={week} /> }]
       : []),
   ]
   return [...own, ...announcementBlocks(week, t)]
@@ -799,7 +801,7 @@ function EventGrid({
 }: {
   days: DaySchedule[]
   notices: Notice[]
-  hide?: string[]
+  hide?: HeadingHide
   en: string
   he: string
 }) {
@@ -989,7 +991,7 @@ function dayRange(t: T, days: DaySchedule['weekday'][]) {
     .join(', ')
 }
 
-function ZmanimGrid({ days, hide }: { days: DaySchedule[]; hide?: string[] }) {
+function ZmanimGrid({ days, hide }: { days: DaySchedule[]; hide?: HeadingHide }) {
   const t = useT()
   const shown = days.map((d) => zmanimList(d))
   const ids = weekOrder(shown)
@@ -1066,12 +1068,17 @@ const zmanOrder = (id: ZmanId) =>
 const special = (d: DaySchedule) => d.weekday === 6 || d.tags.includes('yomTov')
 
 /** The column headings: weekday, date, and any holiday. */
-function DayColumns({ days, hide = [] }: { days: DaySchedule[]; hide?: string[] }) {
+type HeadingHide = Pick<WeekProps, 'hideGroups' | 'hideHolidays'>
+
+function DayColumns({ days, hide = {} }: { days: DaySchedule[]; hide?: HeadingHide }) {
   const t = useT()
   return (
     <TableRow label={null} header>
       {days.map((d) => {
-        const holiday = d.holidays.find((h) => !hide.some((k) => h.en.startsWith(k)))
+        const holiday = d.holidays.find((_, i) => {
+          const id = d.holidayIds?.[i]
+          return !id || isHeadingHolidayShown(id, hide)
+        })
         return (
           <Cell key={d.date} header>
             {/* Above the day, so a long name never pushes the date out of line. */}

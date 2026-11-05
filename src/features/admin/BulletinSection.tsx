@@ -32,6 +32,7 @@ import { shiftRange, weekContaining, type DateRange } from '@/features/bulletin/
 import { useWeek } from '@/features/bulletin/useWeek'
 import { BulletinBandCard } from './BulletinBandCard'
 import { BulletinCard } from './BulletinCard'
+import { BulletinDaysCard } from './BulletinDaysCard'
 import { useAdmin } from './store'
 
 const RAIL = 360
@@ -219,6 +220,11 @@ export function BulletinSection({ slug }: { slug: string }) {
             onChange={(settings) => setSchedule({ ...schedule, settings })}
           />
         ))}
+        <BulletinDaysCard
+          schedule={schedule}
+          today={today}
+          onChange={(settings) => setSchedule({ ...schedule, settings })}
+        />
         <BulletinCard
           settings={schedule.settings}
           events={schedule.events}

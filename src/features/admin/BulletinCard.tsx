@@ -2,7 +2,6 @@ import { Button, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezywo
 import {
   BULLETIN_SECTIONS,
   type BulletinSection,
-  BULLETIN_DAY_NAMES,
   DEFAULT_SHABBOS_ZMANIM,
   guessCategory,
   type EventDef,
@@ -294,28 +293,6 @@ export function BulletinCard({
           />
         </Stack>
       ))}
-      <Text variant="sectionHeader">Bulletin: days named in the headings</Text>
-      <Text variant="caption" color={SemanticColor.TextSecondary}>
-        Turn off the days you don’t want named above the weekday columns. The days still print.
-      </Text>
-      {BULLETIN_DAY_NAMES.map(({ key, label }) => {
-        const hidden = print.hideDays ?? []
-        return (
-          <Stack key={key} direction="row" align="center" gap="md">
-            <Stack grow>
-              <Text variant="body">{label}</Text>
-            </Stack>
-            <ToggleSwitch
-              value={!hidden.includes(key)}
-              onValueChange={(on) => {
-                const next = on ? hidden.filter((k) => k !== key) : [...hidden, key]
-                set({ hideDays: next.length ? next : undefined })
-              }}
-              accessibilityLabel={label}
-            />
-          </Stack>
-        )
-      })}
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         Zmanim listed among the Shabbos minyanim, each at its time. A hidden zman still shows here,
         so you can hide the built-in havdalah and list a zman of your own instead.

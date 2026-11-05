@@ -1,5 +1,5 @@
 import { customZmanName } from './custom'
-import { dayInfo, displayHolidays, hebrewDateOf, holidayMatches, parshaFor, zmanimFor, type DayInfo } from './day'
+import { dayInfo, displayHolidays, displayHolidayIds, hebrewDateOf, holidayMatches, parshaFor, zmanimFor, type DayInfo } from './day'
 import { addDays, parseClock, startOfWeek, utcOffset } from './dates'
 import { LocalHolidays } from './local'
 import { effectiveHolidays } from './localPresets'
@@ -426,6 +426,7 @@ export class Calendar {
       weekday: info.weekday,
       hebrew: hebrewDateOf(info),
       holidays: displayHolidays(info),
+      holidayIds: displayHolidayIds(info),
       parsha: parshaFor(date, this.schedule.settings),
       tags: [...info.tags],
       zmanim,

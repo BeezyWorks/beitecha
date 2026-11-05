@@ -100,6 +100,9 @@ export {
   type CalendarOptions,
   type CalendarPerson,
   type CalendarTimeLine,
+  DEFAULT_HIDDEN_HOLIDAYS,
+  isHeadingHolidayShown,
+  yearHolidayChoices,
 } from './calendarPrint'
 export { LIMITS, foldName, sanitizeLink, sanitizeText, type TextResult } from './text'
 export {

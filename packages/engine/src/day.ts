@@ -10,6 +10,7 @@ import {
   type HolidayEvent,
 } from '@hebcal/core'
 
+import { classifyHoliday } from './calendarPrint'
 import { customInstants } from './custom'
 import { addDays, hostDate, isDst, minutesInZone, startOfWeek, weekdayOf } from './dates'
 import {
@@ -253,4 +254,15 @@ export function chametzZmanim(date: DateString, settings: ShulSettings) {
     burnMga: down(alos + ((eatMga - alos) * 5) / 4),
     burnGra: down(sunrise + ((eatGra - sunrise) * 5) / 4),
   }
+}
+
+/** The `CalendarHoliday.id` of each of `displayHolidays`, in step with it. */
+export function displayHolidayIds(info: DayInfo): string[] {
+  const hidden = flags.SHABBAT_MEVARCHIM | flags.MOLAD | flags.USER_EVENT | flags.HEBREW_DATE
+  return [
+    ...info.holidays
+      .filter((e) => (e.getFlags() & hidden) === 0)
+      .map((e) => classifyHoliday(e, e.render('en')).id),
+    ...info.localHolidays.map((h) => `civil:${h.id ?? h.name.en}`),
+  ]
 }

@@ -6,8 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   // Served at beitecha.baderech.app (the zone baderech.app is on Cloudflare).
   "routes": [{ "pattern": "beitecha.baderech.app", "custom_domain": true }],
-  // Metro opens every lucide icon file at once; the builder's default open-file limit is too low for that (EMFILE).
-  "build": { "command": "ulimit -n 65536 || ulimit -n $(ulimit -Hn); pnpm build:web" },
+  "build": { "command": "pnpm build:web" },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

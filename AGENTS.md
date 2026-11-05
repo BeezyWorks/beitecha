@@ -47,6 +47,12 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     sheets portalled out of the app's clipping root, `@page` CSS, scaled to fill one sheet),
     `features/calendar/html.ts` (the wall calendar's paper ink) and
     `components/Blackout.tsx` (the display's true-black sleep screen).
+  - **Lucide icons come from `lucide-subset.js`, not the package.** Metro is pointed at it for `lucide-react-native`
+    (`metro.config.js`), because the package's barrel makes Metro open ~1,700 icon files at once and Cloudflare's builder
+    dies with `EMFILE` (its open-file limit can't be raised; `ulimit` there is denied). To use a new icon, in the design
+    system or here, import it by name as usual **and add it to `lucide-subset.js`** (`Name: require('lucide-react-native/icons/<kebab-file>').default`;
+    an alias like `Home` points at its real file, `house`: look for `as <Name>` in `node_modules/lucide-react-native/dist/esm/lucide-react-native.mjs`).
+    `src/lib/__tests__/lucideSubset.test.ts` fails if one is missing. Never import the barrel's icons any other way.
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
   - Headers are in Cardo, whose bold Hebrew is mostly regular weight; `lib/hebrewHeaders.ts` gives Cardo Bold's Hebrew
     range to Frank Ruhl Libre Bold (a `unicode-range` `@font-face`), so set Hebrew headings in the header variants as usual.

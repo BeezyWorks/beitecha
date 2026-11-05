@@ -34,6 +34,9 @@ import { useWeek } from '@/features/bulletin/useWeek'
 import { BulletinBandCard } from './BulletinBandCard'
 import { BulletinCard } from './BulletinCard'
 import { BulletinDaysCard } from './BulletinDaysCard'
+import { BulletinZmanimCard } from './BulletinZmanimCard'
+import { CopyLinkButton } from './CopyLinkButton'
+import { CollapsibleCard } from './CollapsibleCard'
 import { useAdmin } from './store'
 
 const RAIL = 360
@@ -80,8 +83,7 @@ export function BulletinSection({ slug }: { slug: string }) {
             onPress={() => setFull(true)}
           />
         </Stack>
-        <Card gap="md">
-          <Text variant="sectionHeader">Layout</Text>
+        <CollapsibleCard id="bulletin-card-layout" title="Layout">
           <Stack gap="xs">
             <Text variant="label" color={SemanticColor.TextSecondary}>
               Paper
@@ -128,9 +130,16 @@ export function BulletinSection({ slug }: { slug: string }) {
             <Text variant="label" color={SemanticColor.TextSecondary}>
               Public link
             </Text>
-            <Text variant="body" selectable>
-              {SITE_URL}/{slug}/bulletin
-            </Text>
+            <Card>
+              <Stack direction="row" align="center" gap="sm">
+                <Stack grow>
+                  <Text variant="body" selectable>
+                    {SITE_URL}/{slug}/bulletin
+                  </Text>
+                </Stack>
+                <CopyLinkButton text={`${SITE_URL}/${slug}/bulletin`} label="Copy public link" />
+              </Stack>
+            </Card>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               Anyone can open this without an account. It shows this week’s bulletin.
             </Text>
@@ -212,11 +221,12 @@ export function BulletinSection({ slug }: { slug: string }) {
               ink, for the copier.
             </Text>
           </Stack>
-        </Card>
+        </CollapsibleCard>
         {(['header', 'footer'] as const).map((kind) => (
           <BulletinBandCard
             key={kind}
             kind={kind}
+            profile={profile}
             settings={schedule.settings}
             onChange={(settings) => setSchedule({ ...schedule, settings })}
           />
@@ -224,6 +234,10 @@ export function BulletinSection({ slug }: { slug: string }) {
         <BulletinDaysCard
           schedule={schedule}
           today={today}
+          onChange={(settings) => setSchedule({ ...schedule, settings })}
+        />
+        <BulletinZmanimCard
+          settings={schedule.settings}
           onChange={(settings) => setSchedule({ ...schedule, settings })}
         />
         <BulletinCard
@@ -244,6 +258,7 @@ export function BulletinSection({ slug }: { slug: string }) {
             This week’s sheet
           </Text>
         </Stack>
+        <CopyLinkButton text={`${SITE_URL}/${slug}/bulletin`} label="Copy public link" />
         <IconButton
           name="external-link"
           size={18}

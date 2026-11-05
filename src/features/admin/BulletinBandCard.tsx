@@ -1,8 +1,9 @@
-import { Button, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
+import { Button, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
   type BandPages,
   type BulletinBand,
   type PrintSettings,
+  type ShulProfile,
   type ShulSettings,
 } from '@beitecha/engine'
 import React from 'react'
@@ -10,6 +11,7 @@ import React from 'react'
 import { Logo } from '@/components/Bulletin'
 import { Field } from '@/components/Field'
 import { Select } from '@/components/Select'
+import { CollapsibleCard } from './CollapsibleCard'
 
 const WHERE: { value: BandPages; label: string }[] = [
   { value: 'all', label: 'Every page' },
@@ -20,12 +22,12 @@ const WHERE: { value: BandPages; label: string }[] = [
 
 const KINDS = {
   header: {
-    title: 'Bulletin: header',
+    title: 'Header',
     help: 'The top of the sheet, beside the week’s dates. Starts from your shul’s name and address; fill in a field to change it.',
     pages: 'first' as BandPages,
   },
   footer: {
-    title: 'Bulletin: footer',
+    title: 'Footer',
     help: 'The bottom of the sheet. Shows only what you fill in, with a QR code beside it.',
     pages: 'last' as BandPages,
   },
@@ -35,9 +37,11 @@ const KINDS = {
 export function BulletinBandCard({
   kind,
   settings,
+  profile,
   onChange,
 }: {
   kind: 'header' | 'footer'
+  profile: ShulProfile
   settings: ShulSettings
   onChange: (settings: ShulSettings) => void
 }) {
@@ -63,8 +67,7 @@ export function BulletinBandCard({
   const qrFields = qr || {}
 
   return (
-    <Card gap="md">
-      <Text variant="sectionHeader">{title}</Text>
+    <CollapsibleCard id={`bulletin-card-${kind}`} title={title}>
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         {help}
       </Text>
@@ -111,7 +114,7 @@ export function BulletinBandCard({
           </Stack>
           <Field
             label={kind === 'header' ? 'Shul name' : 'Shul name (optional)'}
-            help={kind === 'header' ? 'Leave blank to use the shul’s name.' : undefined}
+            placeholder={kind === 'header' ? profile.name.en : undefined}
             value={band.name?.en ?? ''}
             onChangeText={(en) =>
               set({ name: en || band.name?.he ? { ...band.name, en } : undefined })
@@ -119,6 +122,7 @@ export function BulletinBandCard({
           />
           <Field
             label="Hebrew name"
+            placeholder={kind === 'header' ? profile.name.he : undefined}
             value={band.name?.he ?? ''}
             onChangeText={(he) =>
               set({
@@ -132,46 +136,56 @@ export function BulletinBandCard({
           <Field label="Rabbi" {...text('rabbi')} />
           <Field
             label="Address"
-            help={kind === 'header' ? 'Leave blank to use the shul’s address.' : undefined}
+            placeholder={kind === 'header' ? profile.address : undefined}
             {...text('address')}
           />
           <Field label="Office phone" {...text('officePhone')} />
           <Field label="Rabbi’s phone" {...text('rabbiPhone')} />
           <Field label="Email" {...text('email')} />
-          <Stack direction="row" align="center" gap="md">
-            <Stack grow>
-              <Text variant="body">QR code</Text>
-              <Text variant="caption" color={SemanticColor.TextSecondary}>
-                {kind === 'footer'
-                  ? 'Off hides it. Without a link of your own it opens the shul’s page in the Siddur.'
-                  : 'Opens the link below, or the shul’s page in the Siddur when that is blank.'}
-              </Text>
-            </Stack>
-            <ToggleSwitch
-              value={qrOn}
-              onValueChange={(on) => set({ qr: on ? (kind === 'footer' ? undefined : {}) : false })}
-              accessibilityLabel={`${title}: QR code`}
-            />
-          </Stack>
-          {qrOn && (
+          {kind === 'footer' && (
             <>
-              <Field
-                label="QR link"
-                help="Where scanning goes, e.g. a donation or newsletter page. Blank: the Siddur page."
-                value={qrFields.url ?? ''}
-                autoCapitalize="none"
-                onChangeText={(url) => set({ qr: { ...qrFields, url: url.trim() || undefined } })}
-              />
-              <Field
-                label="What it does"
-                help="Printed beside the code, e.g. “Scan to donate”."
-                value={qrFields.label ?? ''}
-                onChangeText={(label) => set({ qr: { ...qrFields, label: label || undefined } })}
-              />
+              <Stack direction="row" align="center" gap="md">
+                <Stack grow>
+                  <Text variant="body">QR code</Text>
+                  <Text variant="caption" color={SemanticColor.TextSecondary}>
+                    {kind === 'footer'
+                      ? 'Off hides it. Without a link of your own it opens the shul’s page in the Siddur.'
+                      : 'Opens the link below, or the shul’s page in the Siddur when that is blank.'}
+                  </Text>
+                </Stack>
+                <ToggleSwitch
+                  value={qrOn}
+                  onValueChange={(on) =>
+                    set({ qr: on ? (kind === 'footer' ? undefined : {}) : false })
+                  }
+                  accessibilityLabel={`${title}: QR code`}
+                />
+              </Stack>
+              {qrOn && (
+                <>
+                  <Field
+                    label="QR link"
+                    help="Where scanning goes, e.g. a donation or newsletter page. Blank: the Siddur page."
+                    value={qrFields.url ?? ''}
+                    autoCapitalize="none"
+                    onChangeText={(url) =>
+                      set({ qr: { ...qrFields, url: url.trim() || undefined } })
+                    }
+                  />
+                  <Field
+                    label="What it does"
+                    help="Printed beside the code, e.g. “Scan to donate”."
+                    value={qrFields.label ?? ''}
+                    onChangeText={(label) =>
+                      set({ qr: { ...qrFields, label: label || undefined } })
+                    }
+                  />
+                </>
+              )}
             </>
           )}
         </>
       )}
-    </Card>
+    </CollapsibleCard>
   )
 }

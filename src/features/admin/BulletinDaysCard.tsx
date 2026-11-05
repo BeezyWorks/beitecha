@@ -1,4 +1,4 @@
-import { Card, Chip, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
+import { Chip, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
   CALENDAR_GROUPS,
   CALENDAR_GROUP_LABELS,
@@ -10,6 +10,8 @@ import {
   yearHolidayChoices,
 } from '@beitecha/engine'
 import React from 'react'
+
+import { CollapsibleCard } from './CollapsibleCard'
 
 /** Which holidays the bulletin names above its weekday columns, by kind and one by one, like the wall calendar. */
 export function BulletinDaysCard({
@@ -37,8 +39,7 @@ export function BulletinDaysCard({
     list.includes(item) ? list.filter((x) => x !== item) : [...list, item]
 
   return (
-    <Card gap="md">
-      <Text variant="sectionHeader">Days Marked in Bulletin</Text>
+    <CollapsibleCard id="bulletin-card-days" title="Days Marked in Bulletin">
       <Text variant="caption" color={SemanticColor.TextSecondary}>
         The holidays named above the weekday columns. The days still print.
       </Text>
@@ -76,6 +77,6 @@ export function BulletinDaysCard({
           </Stack>
         )
       })}
-    </Card>
+    </CollapsibleCard>
   )
 }

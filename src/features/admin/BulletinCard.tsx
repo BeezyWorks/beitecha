@@ -1,25 +1,20 @@
-import { Button, Card, SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
+import { SemanticColor, Stack, Text, ToggleSwitch } from '@beezyworks/design'
 import {
   BULLETIN_SECTIONS,
   type BulletinSection,
-  DEFAULT_SHABBOS_ZMANIM,
   guessCategory,
   type EventDef,
   type Notice,
   type NoticeCategory,
   type PrintSettings,
   type ShulSettings,
-  ZMAN_IDS,
-  type ZmanKey,
 } from '@beitecha/engine'
 import React from 'react'
 
 import { DragList } from '@/components/DragList'
 import { Select } from '@/components/Select'
 import { expandLayout } from '@/features/bulletin/pages'
-import { zmanLabel } from './forms'
-
-const ADD = ''
+import { CollapsibleCard } from './CollapsibleCard'
 
 const SECTION_NAMES: Record<(typeof BULLETIN_SECTIONS)[number], string> = {
   shabbos: 'Shabbos',
@@ -169,54 +164,8 @@ export function BulletinCard({
   onChange: (settings: ShulSettings) => void
 }) {
   const print = settings.print ?? {}
-  const custom = settings.zmanim?.custom ?? []
-  const picked = print.shabbosZmanim ?? DEFAULT_SHABBOS_ZMANIM
-  const known = [...ZMAN_IDS, ...custom.map((c) => c.id)]
   const set = (patch: Partial<PrintSettings>) =>
     onChange({ ...settings, print: { ...print, ...patch } })
-  const setDay = (day: 'friday' | 'shabbos', ids: ZmanKey[]) =>
-    set({ shabbosZmanim: { ...picked, [day]: ids } })
-
-  const column = (day: 'friday' | 'shabbos', label: string) => {
-    // A custom zman that was since removed just drops out.
-    const ids = picked[day].filter((id) => known.includes(id))
-    return (
-      <Stack gap="sm">
-        <Text variant="label" color={SemanticColor.TextSecondary}>
-          {label}
-        </Text>
-        {ids.map((id) => (
-          <Stack key={id} direction="row" align="center" gap="md">
-            <Stack grow>
-              <Text variant="body">{zmanLabel(id, custom)}</Text>
-            </Stack>
-            <Button
-              variant="ghost"
-              size="sm"
-              title="Remove"
-              onPress={() =>
-                setDay(
-                  day,
-                  ids.filter((x) => x !== id),
-                )
-              }
-            />
-          </Stack>
-        ))}
-        <Select
-          accessibilityLabel={`Add a zman to ${label}`}
-          value={ADD}
-          options={[
-            { value: ADD, label: 'Add a zman…' },
-            ...known
-              .filter((id) => !ids.includes(id))
-              .map((id) => ({ value: id, label: zmanLabel(id, custom) })),
-          ]}
-          onChange={(id) => id !== ADD && setDay(day, [...ids, id])}
-        />
-      </Stack>
-    )
-  }
 
   const names: Names = {
     categories: settings.noticeCategories ?? [],
@@ -235,70 +184,66 @@ export function BulletinCard({
     set({ layout: layout?.map((row, j) => (j === i ? { ...row, page } : row)) })
 
   return (
-    <Card gap="md">
-      <Text variant="sectionHeader">Bulletin: page layout</Text>
-      <Stack direction="row" align="center" gap="md">
-        <Stack grow>
-          <Text variant="body">Choose what goes on each page</Text>
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            Off: the times go on the front and the announcements behind.
-          </Text>
-        </Stack>
-        <ToggleSwitch
-          value={!!layout}
-          onValueChange={(on) => set({ layout: on ? autoLayout(names) : undefined })}
-          accessibilityLabel="Choose what goes on each page"
-        />
-      </Stack>
-      {layout && (
-        <>
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            Each section goes on its page, top to bottom in this order. Drag to reorder. A section
-            with nothing to show that week, or a page left empty, is skipped. Content shrinks to fit
-            its page.
-          </Text>
-          <DragList onMove={move}>
-            {layout.map((row, i) => (
-              <Stack key={row.section} direction="row" align="center" gap="md">
-                <Stack grow>
-                  <Text variant="body">{sectionName(row.section, names)}</Text>
-                </Stack>
-                <Select
-                  accessibilityLabel={`Page for ${sectionName(row.section, names)}`}
-                  value={String(row.page)}
-                  options={PAGE_CHOICES}
-                  onChange={(v) => setPage(i, Number(v))}
-                />
-              </Stack>
-            ))}
-          </DragList>
-        </>
-      )}
-      <Text variant="sectionHeader">Bulletin: what to show</Text>
-      <Text variant="caption" color={SemanticColor.TextSecondary}>
-        What goes on the sheet. Anything with nothing to show that week is left out anyway.
-      </Text>
-      {SHOWN.map(({ key, label, help }) => (
-        <Stack key={key} direction="row" align="center" gap="md">
+    <>
+      <CollapsibleCard id="bulletin-card-pages" title="Page Layout">
+        <Stack direction="row" align="center" gap="md">
           <Stack grow>
-            <Text variant="body">{label}</Text>
+            <Text variant="body">Choose what goes on each page</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
-              {help}
+              Off: the times go on the front and the announcements behind.
             </Text>
           </Stack>
           <ToggleSwitch
-            value={print[key] !== false}
-            onValueChange={(on) => set({ [key]: on ? undefined : false })}
-            accessibilityLabel={label}
+            value={!!layout}
+            onValueChange={(on) => set({ layout: on ? autoLayout(names) : undefined })}
+            accessibilityLabel="Choose what goes on each page"
           />
         </Stack>
-      ))}
-      <Text variant="caption" color={SemanticColor.TextSecondary}>
-        Zmanim listed among the Shabbos minyanim, each at its time. A hidden zman still shows here,
-        so you can hide the built-in havdalah and list a zman of your own instead.
-      </Text>
-      {column('friday', 'Friday night')}
-      {column('shabbos', 'Shabbos day')}
-    </Card>
+        {layout && (
+          <>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              Each section goes on its page, top to bottom in this order. Drag to reorder. A section
+              with nothing to show that week, or a page left empty, is skipped. Content shrinks to
+              fit its page.
+            </Text>
+            <DragList onMove={move}>
+              {layout.map((row, i) => (
+                <Stack key={row.section} direction="row" align="center" gap="md">
+                  <Stack grow>
+                    <Text variant="body">{sectionName(row.section, names)}</Text>
+                  </Stack>
+                  <Select
+                    accessibilityLabel={`Page for ${sectionName(row.section, names)}`}
+                    value={String(row.page)}
+                    options={PAGE_CHOICES}
+                    onChange={(v) => setPage(i, Number(v))}
+                  />
+                </Stack>
+              ))}
+            </DragList>
+          </>
+        )}
+      </CollapsibleCard>
+      <CollapsibleCard id="bulletin-card-shown" title="What to Show">
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          What goes on the sheet. Anything with nothing to show that week is left out anyway.
+        </Text>
+        {SHOWN.map(({ key, label, help }) => (
+          <Stack key={key} direction="row" align="center" gap="md">
+            <Stack grow>
+              <Text variant="body">{label}</Text>
+              <Text variant="caption" color={SemanticColor.TextSecondary}>
+                {help}
+              </Text>
+            </Stack>
+            <ToggleSwitch
+              value={print[key] !== false}
+              onValueChange={(on) => set({ [key]: on ? undefined : false })}
+              accessibilityLabel={label}
+            />
+          </Stack>
+        ))}
+      </CollapsibleCard>
+    </>
   )
 }

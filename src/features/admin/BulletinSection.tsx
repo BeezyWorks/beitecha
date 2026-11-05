@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  IconButton,
   ScrollStack,
   ToggleSwitch,
   SemanticColor,
@@ -243,19 +244,17 @@ export function BulletinSection({ slug }: { slug: string }) {
             This week’s sheet
           </Text>
         </Stack>
-        <Button
-          variant="ghost"
-          size="sm"
-          title="Expand"
-          icon="external-link"
+        <IconButton
+          name="external-link"
+          size={18}
           onPress={() => setFull(true)}
+          accessibilityLabel="Expand preview"
         />
-        <Button
-          variant="ghost"
-          size="sm"
-          title="Hide preview"
-          icon="chevron-right"
+        <IconButton
+          name="chevrons-right"
+          size={18}
           onPress={toggleFolded}
+          accessibilityLabel="Hide preview"
         />
       </Stack>
       <SheetPreview slug={slug} range={range} paper={chosen} width={RAIL - 32} />
@@ -277,12 +276,11 @@ export function BulletinSection({ slug }: { slug: string }) {
               padding="xs"
               background={SemanticColor.SurfaceSelected}
             >
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Show preview"
-                icon="chevron-left"
+              <IconButton
+                name="chevrons-left"
+                size={18}
                 onPress={toggleFolded}
+                accessibilityLabel="Show preview"
               />
             </Stack>
           ) : (

@@ -1,7 +1,7 @@
 import {
   Badge,
-  Button,
   Icon,
+  IconButton,
   ScrollStack,
   SemanticColor,
   Stack,
@@ -95,7 +95,7 @@ export function Sidebar({
         background={SemanticColor.SurfaceSelected}
         borderColor={SemanticColor.BorderDefault}
       >
-        <Button variant="ghost" size="sm" title="Show menu" icon="chevron-right" onPress={toggle} />
+        <IconButton name="chevrons-right" size={18} onPress={toggle} accessibilityLabel="Show menu" />
       </Stack>
     )
   return (
@@ -114,13 +114,7 @@ export function Sidebar({
               {status}
             </Text>
           </Stack>
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Hide menu"
-            icon="chevron-left"
-            onPress={toggle}
-          />
+          <IconButton name="chevrons-left" size={18} onPress={toggle} accessibilityLabel="Hide menu" />
         </Stack>
         {SECTION_GROUPS.map((g, i) => (
           <Stack key={i} gap="none" paddingTop={g.title ? 'md' : 'xs'}>

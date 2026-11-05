@@ -1,10 +1,12 @@
-import { SemanticColor, Stack, Text } from '@beezyworks/design'
+import { Button, SemanticColor, Stack, Text } from '@beezyworks/design'
 import { router, useLocalSearchParams } from 'expo-router'
 import React from 'react'
 
 import { Centered } from '@/components/Centered'
 import { usePageTitle } from '@/components/PageTitle'
 import { paperFor, BulletinRoot, bulletinBrand, type Paper } from '@/components/Bulletin'
+import { useAccount } from '@/features/account/store'
+import { api } from '@/lib/api'
 import { ThemeRoot } from '@/components/ThemeRoot'
 import { LanguageProvider, makeT } from '@/features/luach/language'
 import { useShulClock } from '@/features/luach/useShulClock'
@@ -28,6 +30,16 @@ export function BulletinScreen({ slug }: { slug: string }) {
     paper?: string
   }>()
   const { feed, notFound, error } = useShulFeed(slug)
+  // Members of the shul get a way back to the admin; everyone else just sees the bulletin.
+  const signedIn = useAccount((a) => a.status === 'signedIn')
+  const [member, setMember] = React.useState(false)
+  React.useEffect(() => {
+    if (!signedIn) return setMember(false)
+    api.mine().then(
+      (shuls) => setMember(shuls.some((s) => s.slug === slug)),
+      () => setMember(false),
+    )
+  }, [signedIn, slug])
   const tz = feed?.schedule.settings.location.timeZone
   const { today } = useShulClock(tz, 60_000)
   const print = feed?.schedule.settings.print
@@ -46,6 +58,13 @@ export function BulletinScreen({ slug }: { slug: string }) {
     feed?.schedule.settings.language,
     feed?.schedule.settings.timeFormat,
     feed?.schedule.settings.names,
+  )
+  const tentativeNote = (
+    <Stack padding="sm" radius="sm" background={SemanticColor.AccentAlertFaded}>
+      <Text variant="bodyStrong" color={SemanticColor.TextDanger}>
+        Tentative — this week’s plans may still change
+      </Text>
+    </Stack>
   )
   const shown = React.useMemo(() => week && { ...week, tentative }, [week, tentative])
   usePageTitle(feed ? `${feed.profile.name.en} · Bulletin · Beitecha` : undefined)
@@ -79,12 +98,19 @@ export function BulletinScreen({ slug }: { slug: string }) {
               paper={paper}
               onPaper={(p) => router.setParams({ paper: p })}
               leading={
-                tentative ? (
-                  <Stack padding="sm" radius="sm" background={SemanticColor.AccentAlertFaded}>
-                    <Text variant="bodyStrong" color={SemanticColor.TextDanger}>
-                      Tentative — this week’s plans may still change
-                    </Text>
+                member ? (
+                  <Stack direction="row" align="center" gap="md">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Admin"
+                      icon="chevron-left"
+                      onPress={() => router.replace(`/${slug}/admin?s=bulletin`)}
+                    />
+                    {tentative && tentativeNote}
                   </Stack>
+                ) : tentative ? (
+                  tentativeNote
                 ) : null
               }
               note={

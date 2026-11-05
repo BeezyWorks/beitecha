@@ -593,7 +593,7 @@ describe('tools', () => {
     expect((await schedule(slug)).birthdays).toEqual([])
   })
 
-  it('posts in publish mode, holds in review mode, and always holds a minyan time change', async () => {
+  it('posts in publish mode, holds in review mode, and lets one-off minyan changes through', async () => {
     const owner = user('owner')
     const slug = await newShul(owner, { enabled: true, defaultMode: 'publish' })
     const live = await tool(owner, 'add_notice', {
@@ -604,13 +604,12 @@ describe('tools', () => {
     expect(live.text).toMatch(/Live now\./)
     const held = await tool(owner, 'retime_event', { ref: `shacharis@${later(2)}`, time: '07:00' })
     expect(held.isError).toBe(false)
-    expect(held.data.status).toBe('pending')
-    expect(held.text).toContain('Waiting for a gabbai to approve.')
-    expect(held.text).toContain('moved to 07:00')
-    expect((await schedule(slug)).exceptions).toEqual([])
+    expect(held.data.status).toBe('applied')
+    expect(held.text).toContain('moved to 07:00. Live now.')
+    expect((await schedule(slug)).exceptions).toHaveLength(1)
     const cancel = await tool(owner, 'cancel_event', { ref: `shacharis@${later(2)}` })
-    expect(cancel.data.status).toBe('pending')
-    // Something that isn't a minyan goes straight through.
+    expect(cancel.data.status).toBe('applied')
+    // Something that isn't a minyan goes straight through too.
     const e = await tool(owner, 'create_event', { name: 'Siyum', date: later(2), time: '20:00' })
     const retimed = await tool(owner, 'retime_event', {
       ref: `${e.data.target}@${later(2)}`,
@@ -619,8 +618,7 @@ describe('tools', () => {
     expect(retimed.text).toContain('moved to 21:00. Live now.')
 
     const pending = await tool(owner, 'list_pending')
-    expect(pending.data.changes).toHaveLength(2)
-    expect(pending.text).toContain('change.retime')
+    expect(pending.data.changes).toHaveLength(0)
 
     // Review mode: even a notice waits.
     const owner2 = user('owner')

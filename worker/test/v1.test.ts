@@ -653,18 +653,14 @@ describe('applied or pending', () => {
     expect((await send(review, { op: 'notice.update', id: 'nope', text: 'x' })).status).toBe(404)
   })
 
-  it('always holds a minyan retime or cancel, in publish mode too, but not other events', async () => {
+  it('applies a minyan retime or cancel in publish mode', async () => {
     const f = await fixture()
     const ref = `shacharis@${later(2)}`
     const retime = await send(f, { op: 'change.retime', ref, time: '07:00' })
-    expect(retime.data).toMatchObject({
-      status: 'pending',
-      target: ref,
-      reason: expect.stringMatching(/gabbai/),
-    })
+    expect(retime.data).toMatchObject({ status: 'applied', target: ref })
     const cancel = await send(f, { op: 'change.cancel', ref })
-    expect(cancel.data.status).toBe('pending')
-    expect((await schedule(f.slug)).exceptions).toEqual([])
+    expect(cancel.data.status).toBe('applied')
+    expect((await schedule(f.slug)).exceptions).toHaveLength(1)
     // A note on a minyan is not a time change.
     expect((await send(f, { op: 'change.note', ref, note: 'Guest speaker' })).data.status).toBe(
       'applied',
@@ -868,8 +864,8 @@ describe('review: approve, reject, expire', () => {
     expect((await admin(f, `/${id}/undo`, 'POST')).data.change.status).toBe('reverted')
   })
 
-  it('applies an approved minyan retime that publish mode held', async () => {
-    const f = await fixture()
+  it('applies an approved minyan retime that review mode held', async () => {
+    const f = await fixture({ mode: 'review' })
     const ref = `shacharis@${later(2)}`
     const id = await held(f, { op: 'change.retime', ref, time: '07:15' })
     expect((await admin(f, `/${id}/approve`, 'POST')).status).toBe(200)

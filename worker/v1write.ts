@@ -73,18 +73,16 @@ const touchesOthers = (op: Pick<Operation, 'op'>, before: Entry[], connectionId:
  * Why a change waits for a gabbai instead of going live, or null when it goes live.
  *
  * - the connection asks first (`review` mode);
- * - a minyan's time or existence changes (`needsReview`), in any mode;
  * - a removal, or an edit of an item the connection didn't create, once it already has `DAILY_GUARDED` of those
  *   applied today.
  */
 export function pendingReason(
   connection: Pick<Connection, 'id' | 'mode'>,
   op: Operation,
-  result: Pick<Applied, 'before' | 'needsReview'>,
+  result: Pick<Applied, 'before'>,
   guardedToday: number,
 ): string | null {
   if (connection.mode === 'review') return 'This connection asks a gabbai to approve changes first'
-  if (result.needsReview) return result.needsReview
   if (touchesOthers(op, result.before, connection.id) && guardedToday >= DAILY_GUARDED)
     return `A connection can change or remove at most ${DAILY_GUARDED} existing items a day on its own; this one waits for a gabbai`
   return null

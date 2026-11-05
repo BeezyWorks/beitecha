@@ -121,6 +121,8 @@ export interface WeekProps {
   /** The header and footer (`settings.print.header` / `footer`). */
   header?: BulletinBand
   footer?: BulletinBand
+  /** A week not yet in this week's hands (a public visitor paged ahead): the masthead says it may still change. */
+  tentative?: boolean
 }
 
 /** Weekday shiurim and programs (mahjong) have their own timetables with the announcements; the front's weekday grid keeps to the minyanim. */
@@ -428,6 +430,7 @@ export function Masthead({
   shabbos: pairs,
   header,
   pages,
+  tentative,
 }: WeekProps & { pages?: number }) {
   const t = useT()
   // Titled by the first Shabbos in it, else by the last day.
@@ -454,6 +457,11 @@ export function Masthead({
           </Text>
         </Stack>
       </Stack>
+      {tentative && (
+        <Text variant="bodyStrong" color={SemanticColor.TextDanger}>
+          {t.lang === 'he' ? 'טנטטיבי — עשוי להשתנות' : 'TENTATIVE — times may still change'}
+        </Text>
+      )}
       <Stack height={3} radius="sm" background={SemanticColor.AccentPrimary} />
     </Stack>
   )

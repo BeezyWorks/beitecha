@@ -2,6 +2,7 @@ import {
   Button,
   Card,
   ScrollStack,
+  ToggleSwitch,
   SemanticColor,
   Stack,
   Text,
@@ -18,6 +19,7 @@ import {
   SheetStyle,
   type Paper,
 } from '@/components/Bulletin'
+import { SITE_URL } from '@/lib/config'
 import { useCollapsed } from '@/lib/useCollapsed'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
@@ -118,6 +120,34 @@ export function BulletinSection({ slug }: { slug: string }) {
               The days a bulletin covers, e.g. Friday to Thursday. For one bulletin on other days,
               open it in full screen and use Dates.
             </Text>
+          </Stack>
+          <Stack gap="sm">
+            <Text variant="label" color={SemanticColor.TextSecondary}>
+              Public link
+            </Text>
+            <Text variant="body" selectable>
+              {SITE_URL}/{slug}/bulletin
+            </Text>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              Anyone can open this without an account. It shows this week’s bulletin.
+            </Text>
+            {(
+              [
+                ['publicPast', 'Let visitors look at past weeks'],
+                ['publicFuture', 'Let visitors look ahead (marked tentative)'],
+              ] as const
+            ).map(([key, label]) => (
+              <Stack key={key} direction="row" align="center" gap="md">
+                <Stack grow>
+                  <Text variant="body">{label}</Text>
+                </Stack>
+                <ToggleSwitch
+                  value={!!print[key]}
+                  onValueChange={(on) => set({ [key]: on ? true : undefined })}
+                  accessibilityLabel={label}
+                />
+              </Stack>
+            ))}
           </Stack>
           <Stack gap="xs">
             <Text variant="label" color={SemanticColor.TextSecondary}>

@@ -52,7 +52,8 @@ interface AdminState {
   cancelEditing: () => void
   // The rest each save at once.
   removeEvent: (id: string) => void
-  moveEvent: (id: string, by: -1 | 1) => void
+  /** Put an event where `beforeId` is (or last, with none); only within its own kind. */
+  moveEvent: (id: string, beforeId: string | null) => void
   upsertException: (x: Exception) => void
   removeException: (id: string) => void
   upsertNotice: (n: Notice) => void
@@ -179,15 +180,18 @@ export const useAdmin = create<AdminState>((set, get) => {
       if (get().editing?.event.id === id) set({ editing: null })
       commit((s) => ({ ...s, events: s.events.filter((x) => x.id !== id) }))
     },
-    moveEvent: (id, by) =>
+    moveEvent: (id, beforeId) =>
       commit((s) => {
-        // Minyanim, shiurim and events are listed apart, so step over the other kinds.
-        const i = s.events.findIndex((e) => e.id === id)
-        let j = i + by
-        while (j >= 0 && j < s.events.length && s.events[j].kind !== s.events[i]?.kind) j += by
-        if (i < 0 || j < 0 || j >= s.events.length) return s
-        const events = [...s.events]
-        ;[events[i], events[j]] = [events[j], events[i]]
+        const item = s.events.find((e) => e.id === id)
+        if (!item || id === beforeId) return s
+        const events = s.events.filter((e) => e.id !== id)
+        const at = beforeId === null ? -1 : events.findIndex((e) => e.id === beforeId)
+        if (at < 0) {
+          // After the last of its kind.
+          let last = -1
+          events.forEach((e, i) => e.kind === item.kind && (last = i))
+          events.splice(last + 1, 0, item)
+        } else events.splice(at, 0, item)
         return { ...s, events }
       }),
     upsertException: (x) => commit((s) => ({ ...s, exceptions: replaceIn(s.exceptions, x) })),

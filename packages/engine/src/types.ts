@@ -406,6 +406,10 @@ export interface PrintSettings {
   hideDays?: string[]
   /** Text size on the sheet as a multiple of normal (1), shrunk anyway where it wouldn't fit the pages. Default 1. */
   textSize?: number
+  /** Whether the public bulletin page (`/<slug>/bulletin`) lets anyone page back to earlier weeks. Default false: this week only. */
+  publicPast?: boolean
+  /** Whether it lets anyone page ahead to coming weeks, each marked tentative. Default false. */
+  publicFuture?: boolean
   /** `color` (default) tints headings and rules with the shul's brand color; `mono` is black ink only, for copiers. */
   ink?: 'color' | 'mono'
   /**

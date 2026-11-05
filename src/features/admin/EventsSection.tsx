@@ -27,6 +27,7 @@ import {
 import React, { useEffect, useMemo, useState } from 'react'
 import { Platform } from 'react-native'
 
+import { DragList } from '@/components/DragList'
 import { Field } from '@/components/Field'
 import { AiAssist } from './AiAssist'
 import { eventPrompt, parseEvents, parseRule, rulePrompt } from './aiItems'
@@ -155,6 +156,7 @@ function ListPane({
   onAdd: (e: EventDef) => void
   onAi: () => void
 }) {
+  const moveEvent = useAdmin((s) => s.moveEvent)
   const [adding, setAdding] = useState(false)
   const rows = newOne ? [...events, newOne] : events
   return (
@@ -180,32 +182,40 @@ function ListPane({
         />
       )}
       <Stack gap="xs">
-        {rows.map((e) => {
-          const selected = e.id === openId
-          return (
-            <Touchable
-              key={e.id}
-              onPress={() => onOpen(e)}
-              accessibilityLabel={`Edit ${adminLabel(e)}`}
-            >
-              <Stack
-                gap="none"
-                padding="sm"
-                radius="md"
-                background={selected ? SemanticColor.SurfaceSelected : undefined}
-                borderWidth={selected ? 1 : undefined}
-                borderColor={selected ? SemanticColor.BorderDefault : undefined}
+        <DragList
+          locked={(i) => rows[i] === newOne}
+          onMove={(from, to) => {
+            const before = events.filter((_, j) => j !== from)[to]
+            moveEvent(events[from].id, before?.id ?? null)
+          }}
+        >
+          {rows.map((e) => {
+            const selected = e.id === openId
+            return (
+              <Touchable
+                key={e.id}
+                onPress={() => onOpen(e)}
+                accessibilityLabel={`Edit ${adminLabel(e)}`}
               >
-                <Text variant="bodyStrong" numberOfLines={1}>
-                  {adminLabel(e) || 'Untitled'}
-                </Text>
-                <Text variant="caption" color={SemanticColor.TextSecondary} numberOfLines={1}>
-                  {rowCaption(e, e === newOne)}
-                </Text>
-              </Stack>
-            </Touchable>
-          )
-        })}
+                <Stack
+                  gap="none"
+                  padding="sm"
+                  radius="md"
+                  background={selected ? SemanticColor.SurfaceSelected : undefined}
+                  borderWidth={selected ? 1 : undefined}
+                  borderColor={selected ? SemanticColor.BorderDefault : undefined}
+                >
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {adminLabel(e) || 'Untitled'}
+                  </Text>
+                  <Text variant="caption" color={SemanticColor.TextSecondary} numberOfLines={1}>
+                    {rowCaption(e, e === newOne)}
+                  </Text>
+                </Stack>
+              </Touchable>
+            )
+          })}
+        </DragList>
         {!rows.length && (
           <Text variant="caption" color={SemanticColor.TextSecondary}>
             {TITLES[kind].empty}
@@ -266,7 +276,6 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
   const changeEditing = useAdmin((s) => s.changeEditing)
   const cancelEditing = useAdmin((s) => s.cancelEditing)
   const removeEvent = useAdmin((s) => s.removeEvent)
-  const moveEvent = useAdmin((s) => s.moveEvent)
   const schedule = useAdmin((s) => s.schedule)!
   const profile = useAdmin((s) => s.profile)!
   const isNew = useAdmin((s) => !!s.editing?.isNew)
@@ -280,8 +289,6 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
   const set = (patch: Partial<EventDef>) => changeEditing({ ...event, ...patch })
   const setRules = (rules: Rule[]) => set({ rules })
   const others = schedule.events.filter((e) => e.id !== event.id)
-  const siblings = schedule.events.filter((e) => e.kind === event.kind)
-  const at = siblings.findIndex((e) => e.id === event.id)
   const firstCatchAll = event.rules.findIndex(coversAll)
   const name = adminLabel(event) || 'this'
 
@@ -291,11 +298,17 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
     setRules([...event.rules.slice(0, i), rule, ...event.rules.slice(i)])
     setOpenRule(i)
   }
-  const move = (i: number, by: -1 | 1) => {
+  const move = (from: number, to: number) => {
     const rules = [...event.rules]
-    ;[rules[i], rules[i + by]] = [rules[i + by], rules[i]]
+    const [item] = rules.splice(from, 1)
+    rules.splice(to, 0, item)
     setRules(rules)
-    setOpenRule(openRule === i ? i + by : openRule)
+    if (openRule !== null) {
+      const order = event.rules.map((_, j) => j)
+      order.splice(from, 1)
+      order.splice(to, 0, from)
+      setOpenRule(order.indexOf(openRule))
+    }
   }
   const remove = (i: number) => {
     setRules(event.rules.filter((_, j) => j !== i))
@@ -342,24 +355,6 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
             </Text>
           )}
         </Stack>
-        {!isNew && siblings.length > 1 && (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              title="Move up"
-              disabled={at === 0}
-              onPress={() => moveEvent(event.id, -1)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              title="Move down"
-              disabled={at === siblings.length - 1}
-              onPress={() => moveEvent(event.id, 1)}
-            />
-          </>
-        )}
         <Button
           variant="secondary"
           size="sm"
@@ -454,7 +449,7 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
             {adminLabel(event) || 'event'}.
           </Text>
         </Stack>
-        <Stack gap="xs">
+        <DragList onMove={move} locked={(i) => openRule === i}>
           {event.rules.map((rule, i) => {
             const open = openRule === i
             const unused = firstCatchAll >= 0 && i > firstCatchAll
@@ -508,24 +503,6 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
                     </Touchable>
                   </Stack>
                   <Stack direction="row" align="center" gap="xs" justify={wide ? undefined : 'end'}>
-                    {event.rules.length > 1 && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="↑"
-                          disabled={i === 0}
-                          onPress={() => move(i, -1)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="↓"
-                          disabled={i === event.rules.length - 1}
-                          onPress={() => move(i, 1)}
-                        />
-                      </>
-                    )}
                     <IconButton
                       name={open ? 'chevron-down' : 'edit'}
                       size={18}
@@ -571,7 +548,7 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
               </Stack>
             )
           })}
-        </Stack>
+        </DragList>
         {ai === 'newRule' && (
           <AiAssist<Rule>
             title="Add a line with AI"

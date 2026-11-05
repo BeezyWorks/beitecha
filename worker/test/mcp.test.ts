@@ -317,6 +317,7 @@ describe('protocol', () => {
         'list_shuls',
         'get_upcoming',
         'list_notices',
+        'get_bulletin_link',
         'set_sponsor',
         'remove_sponsor',
         'add_notice',
@@ -347,6 +348,14 @@ describe('protocol', () => {
 })
 
 describe('which shul, and the connection', () => {
+  it('gives the public bulletin link', async () => {
+    const owner = user('owner')
+    const slug = await newShul(owner, { enabled: true, defaultMode: 'publish' })
+    const r = await tool(owner, 'get_bulletin_link')
+    expect(r.isError).toBe(false)
+    expect(JSON.stringify(r)).toContain(`/${slug}/bulletin`)
+  })
+
   it('makes the connection on first use, in the shul’s default mode with the default scopes and no expiry', async () => {
     for (const mode of ['publish', 'review'] as const) {
       const owner = user('owner')

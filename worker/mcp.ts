@@ -226,6 +226,19 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    name: 'get_bulletin_link',
+    title: 'Link to the bulletin',
+    description:
+      "Get the public web link to the shul's bulletin for this week, live as the shul has set it up. Anyone can open it without an account. Give her the link when she asks to see, share or print the bulletin. If the shul has allowed it, the same link can show other weeks (a coming week is marked tentative); you cannot change that setting.",
+    properties: {},
+    readOnly: true,
+    async run(ctx, a) {
+      const auth = await ctx.connect(a.shul)
+      const url = `${ctx.env.PUBLIC_URL.replace(/\/$/, '')}/${encodeURIComponent(auth.shul.slug)}/bulletin`
+      return { text: `This week's bulletin, live: ${url}`, data: { url } }
+    },
+  },
+  {
     name: 'list_notices',
     title: 'List notices and sponsorships',
     description:

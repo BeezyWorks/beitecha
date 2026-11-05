@@ -15,6 +15,7 @@ import {
 } from '@beitecha/engine'
 import React from 'react'
 
+import { DragList } from '@/components/DragList'
 import { Select } from '@/components/Select'
 import { expandLayout } from '@/features/bulletin/pages'
 import { zmanLabel } from './forms'
@@ -224,11 +225,11 @@ export function BulletinCard({
   }
   // A layout saved before the sections were split, and any section it doesn't list yet, shown as the rows they are.
   const layout = print.layout && completeLayout(print.layout, names)
-  const move = (i: number, by: number) => {
+  const move = (from: number, to: number) => {
     if (!layout) return
     const next = [...layout]
-    const [item] = next.splice(i, 1)
-    next.splice(i + by, 0, item)
+    const [item] = next.splice(from, 1)
+    next.splice(to, 0, item)
     set({ layout: next })
   }
   const setPage = (i: number, page: number) =>
@@ -253,36 +254,25 @@ export function BulletinCard({
       {layout && (
         <>
           <Text variant="caption" color={SemanticColor.TextSecondary}>
-            Each section goes on its page, top to bottom in this order. A section with nothing to
-            show that week, or a page left empty, is skipped. Content shrinks to fit its page.
+            Each section goes on its page, top to bottom in this order. Drag to reorder. A section
+            with nothing to show that week, or a page left empty, is skipped. Content shrinks to fit
+            its page.
           </Text>
-          {layout.map((row, i) => (
-            <Stack key={row.section} direction="row" align="center" gap="md">
-              <Stack grow>
-                <Text variant="body">{sectionName(row.section, names)}</Text>
+          <DragList onMove={move}>
+            {layout.map((row, i) => (
+              <Stack key={row.section} direction="row" align="center" gap="md">
+                <Stack grow>
+                  <Text variant="body">{sectionName(row.section, names)}</Text>
+                </Stack>
+                <Select
+                  accessibilityLabel={`Page for ${sectionName(row.section, names)}`}
+                  value={String(row.page)}
+                  options={PAGE_CHOICES}
+                  onChange={(v) => setPage(i, Number(v))}
+                />
               </Stack>
-              <Select
-                accessibilityLabel={`Page for ${sectionName(row.section, names)}`}
-                value={String(row.page)}
-                options={PAGE_CHOICES}
-                onChange={(v) => setPage(i, Number(v))}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Up"
-                disabled={i === 0}
-                onPress={() => move(i, -1)}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Down"
-                disabled={i === layout.length - 1}
-                onPress={() => move(i, 1)}
-              />
-            </Stack>
-          ))}
+            ))}
+          </DragList>
         </>
       )}
       <Text variant="sectionHeader">Bulletin: what to show</Text>

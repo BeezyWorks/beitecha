@@ -19,6 +19,9 @@ export function BulletinToolbar({
   onPaper,
   leading,
   note,
+  canPrev = true,
+  canNext = true,
+  canEditDates = true,
 }: {
   range: DateRange
   onRange: (range: DateRange) => void
@@ -27,6 +30,10 @@ export function BulletinToolbar({
   onPaper: (paper: Paper) => void
   leading: React.ReactNode
   note?: string
+  /** The public page may hide the arrows that lead somewhere the shul hasn't opened, and the free-form dates. */
+  canPrev?: boolean
+  canNext?: boolean
+  canEditDates?: boolean
 }) {
   const [editing, setEditing] = React.useState(false)
   const isUsual = range.from === usual.from && range.to === usual.to
@@ -49,6 +56,7 @@ export function BulletinToolbar({
           size="sm"
           title=""
           icon="chevron-left"
+          disabled={!canPrev}
           onPress={() => onRange(shiftRange(range, -1))}
         />
         <Text variant="bodyStrong">
@@ -59,16 +67,19 @@ export function BulletinToolbar({
           size="sm"
           title=""
           icon="chevron-right"
+          disabled={!canNext}
           onPress={() => onRange(shiftRange(range, 1))}
         />
       </Stack>
-      <Button
-        variant={editing || !isUsual ? 'secondary' : 'ghost'}
-        size="sm"
-        title="Dates"
-        icon="calendar-today"
-        onPress={() => setEditing((e) => !e)}
-      />
+      {canEditDates && (
+        <Button
+          variant={editing || !isUsual ? 'secondary' : 'ghost'}
+          size="sm"
+          title="Dates"
+          icon="calendar-today"
+          onPress={() => setEditing((e) => !e)}
+        />
+      )}
       {!isUsual && (
         <Button variant="ghost" size="sm" title="Usual week" onPress={() => onRange(usual)} />
       )}
@@ -88,7 +99,7 @@ export function BulletinToolbar({
         </Text>
       )}
       <Button size="sm" title="Print" icon="print" onPress={() => window.print()} />
-      {editing && (
+      {canEditDates && editing && (
         <Stack direction="row" gap="md" wrap width="100%">
           <Stack grow>
             <DateField

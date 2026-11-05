@@ -258,7 +258,6 @@ export function BulletinSection({ slug }: { slug: string }) {
             This week’s sheet
           </Text>
         </Stack>
-        <CopyLinkButton text={`${SITE_URL}/${slug}/bulletin`} label="Copy public link" />
         <IconButton
           name="external-link"
           size={18}
@@ -423,7 +422,10 @@ function FullScreen({
               paper={paper}
               onPaper={onPaper}
               leading={
-                <Button variant="ghost" size="sm" title="Close" icon="close" onPress={onClose} />
+                <Stack direction="row" align="center" gap="xs">
+                  <Button variant="ghost" size="sm" title="Close" icon="close" onPress={onClose} />
+                  <CopyLinkButton text={`${SITE_URL}/${slug}/bulletin`} label="Copy public link" />
+                </Stack>
               }
             />
           }

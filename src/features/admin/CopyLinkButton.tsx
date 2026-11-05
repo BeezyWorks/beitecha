@@ -13,7 +13,7 @@ export function CopyLinkButton({ text, label }: { text: string; label: string })
   }, [done])
   return (
     <IconButton
-      name={done ? 'check' : 'share'}
+      name={done ? 'check' : 'copy'}
       size={18}
       onPress={() => copy(text).then(setDone)}
       accessibilityLabel={done ? 'Copied' : label}

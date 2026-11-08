@@ -42,6 +42,15 @@ function eventRefs(expr: TimeExpr, out: string[] = [], key: 'event' | 'zman' = '
   return out
 }
 
+/** The time expressions a condition tests. */
+function conditionTimes(c: Condition, out: TimeExpr[] = []): TimeExpr[] {
+  if ('time' in c) out.push(c.time.left, c.time.right)
+  else if ('all' in c) c.all.forEach((x) => conditionTimes(x, out))
+  else if ('any' in c) c.any.forEach((x) => conditionTimes(x, out))
+  else if ('not' in c) conditionTimes(c.not, out)
+  return out
+}
+
 function localHolidayRefs(c: Condition, out: string[] = []): string[] {
   if ('localHoliday' in c) out.push(c.localHoliday)
   else if ('all' in c) c.all.forEach((x) => localHolidayRefs(x, out))
@@ -135,10 +144,11 @@ export function validate(schedule: Schedule, from: DateString, days = 400): Issu
       for (const ref of rule.when ? localHolidayRefs(rule.when) : []) {
         if (!localIds.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown local holiday "${ref}"` })
       }
-      for (const ref of [...(rule.time ? eventRefs(rule.time) : []), ...(rule.end ? eventRefs(rule.end) : [])]) {
+      const tested = rule.when ? conditionTimes(rule.when) : []
+      for (const ref of [...(rule.time ? eventRefs(rule.time) : []), ...(rule.end ? eventRefs(rule.end) : []), ...tested.flatMap((t) => eventRefs(t))]) {
         if (!known.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown event "${ref}"` })
       }
-      for (const ref of [...(rule.time ? eventRefs(rule.time, [], 'zman') : []), ...(rule.end ? eventRefs(rule.end, [], 'zman') : [])]) {
+      for (const ref of [...(rule.time ? eventRefs(rule.time, [], 'zman') : []), ...(rule.end ? eventRefs(rule.end, [], 'zman') : []), ...tested.flatMap((t) => eventRefs(t, [], 'zman'))]) {
         if (!zmanim.has(ref)) issues.push({ level: 'error', eventId: e.id, message: `Rule ${i + 1} uses unknown zman "${ref}"` })
       }
       if (rule.untimed && (!rule.relative || 'between' in rule.relative)) {

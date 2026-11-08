@@ -241,6 +241,40 @@ describe('rules', () => {
     expect(at('2026-10-18', 'withTrend', { clock: '18:03' })).toBe('18:05')
   })
 
+  it('steps a rule aside on a time test, falling through to the next', () => {
+    const sunset15 = { offset: -15, of: { zman: 'sunset' } } as const
+    const s = withEvents([
+      {
+        id: 'mincha',
+        name: { en: 'Mincha' },
+        kind: 'tefila',
+        tefila: 'mincha',
+        rules: [
+          { when: { not: { time: { left: sunset15, is: 'after', right: { clock: '19:00' } } } }, time: sunset15 },
+          { time: { offset: -15, of: { zman: 'plag' } } },
+        ],
+      },
+    ])
+    const cal = new Calendar(s)
+    expect(timeOf(s, 'mincha', '2026-12-20')).toBe('16:19') // sunset 16:34
+    expect(cal.matchingRule(s.events[0], '2026-12-20')).toBe(0)
+    expect(cal.matchingRule(s.events[0], '2027-06-25')).toBe(1) // sunset 20:29 − 15 is after 19:00
+    expect(timeOf(s, 'mincha', '2027-06-25')).not.toBe('20:14')
+    expect(validate(s, '2026-10-18', 400).filter((i) => i.level === 'error')).toEqual([])
+  })
+
+  it('reports a cycle through a time test', () => {
+    const s = withEvents([
+      {
+        id: 'a',
+        name: { en: 'A' },
+        kind: 'other',
+        rules: [{ when: { time: { left: { event: 'a' }, is: 'after', right: { clock: '01:00' } } }, time: { clock: '10:00' } }],
+      },
+    ])
+    expect(computeDay(s, '2026-10-20').events.find((e) => e.eventId === 'a')?.error).toMatch(/depends on itself/)
+  })
+
   it('anchors events on other events', () => {
     expect(timeOf(sampleSchedule, 'shiur', '2026-10-24')).toBe('16:50') // mincha 17:20 − 30
   })

@@ -507,6 +507,11 @@ export type Condition =
   | { civil: { from: string; to: string } }
   /** A one-time civil range, `YYYY-MM-DD` inclusive. */
   | { dates: { from: DateString; to: DateString } }
+  /**
+   * A time test: holds when `left` is `is` `right` that day ("Mincha's sunset time is after 19:00"). A side with
+   * no value that day makes it false, so `not` of it holds. Use it with `not` and rule order to step aside.
+   */
+  | { time: { left: TimeExpr; is: TimeTest; right: TimeExpr } }
   | { all: Condition[] }
   | { any: Condition[] }
   | { not: Condition }

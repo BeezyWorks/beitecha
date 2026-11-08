@@ -19,6 +19,7 @@ import type {
   RelativeTo,
   Schedule,
   TimeExpr,
+  TimeTest,
   ZmanTimes,
 } from './types'
 
@@ -118,10 +119,20 @@ export class Calendar {
       return from <= to ? md >= from && md <= to : md >= from || md <= to
     }
     if ('dates' in cond) return date >= cond.dates.from && date <= cond.dates.to
+    if ('time' in cond) return this.timeHolds(cond.time, date)
     if ('all' in cond) return cond.all.every((c) => this.matches(c, date))
     if ('any' in cond) return cond.any.some((c) => this.matches(c, date))
     if ('not' in cond) return !this.matches(cond.not, date)
     throw new EvalError(`Unknown condition ${JSON.stringify(cond)}`)
+  }
+
+  /** Whether `left` is `is` `right` on `date`; false when either has no value that day. */
+  private timeHolds({ left, is, right }: { left: TimeExpr; is: TimeTest; right: TimeExpr }, date: DateString): boolean {
+    const l = this.evaluate(left, date)
+    const r = this.evaluate(right, date)
+    return (
+      l !== null && r !== null && (is === 'before' ? l < r : is === 'atOrBefore' ? l <= r : is === 'after' ? l > r : l >= r)
+    )
   }
 
   /** Evaluates `expr` on `date`; `null` when it has no value that day (e.g. a cancelled anchor). */
@@ -179,14 +190,7 @@ export class Calendar {
       return expr.pick === 'earliest' ? Math.min(...values) : Math.max(...values)
     }
     if ('if' in expr) {
-      const { left, is, right } = expr.if
-      const l = this.evaluate(left, date)
-      const r = this.evaluate(right, date)
-      const holds =
-        l !== null &&
-        r !== null &&
-        (is === 'before' ? l < r : is === 'atOrBefore' ? l <= r : is === 'after' ? l > r : l >= r)
-      const branch = holds ? expr.then : expr.otherwise
+      const branch = this.timeHolds(expr.if, date) ? expr.then : expr.otherwise
       return branch ? this.evaluate(branch, date) : null
     }
     throw new EvalError(`Unknown time expression ${JSON.stringify(expr)}`)

@@ -105,16 +105,16 @@ export function Sidebar({
       borderColor={SemanticColor.BorderDefault}
     >
       <ScrollStack padding="md" gap="xs">
-        <Stack direction="row" align="center" gap="xs">
-          <Stack grow gap="none" paddingHorizontal="md" paddingVertical="sm">
-            <Text variant="title" numberOfLines={2}>
-              {shulName}
-            </Text>
-            <Text variant="caption" color={SemanticColor.TextSecondary}>
-              {status}
-            </Text>
-          </Stack>
+        <Stack direction="row" justify="end">
           <IconButton name="chevrons-left" size={18} onPress={toggle} accessibilityLabel="Hide menu" />
+        </Stack>
+        <Stack gap="none" paddingHorizontal="md" paddingBottom="sm">
+          <Text variant="title" numberOfLines={2}>
+            {shulName}
+          </Text>
+          <Text variant="caption" color={SemanticColor.TextSecondary}>
+            {status}
+          </Text>
         </Stack>
         {SECTION_GROUPS.map((g, i) => (
           <Stack key={i} gap="none" paddingTop={g.title ? 'md' : 'xs'}>

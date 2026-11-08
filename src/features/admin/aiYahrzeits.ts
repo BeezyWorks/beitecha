@@ -241,7 +241,9 @@ function parseCsvRows(text: string): Parsed<Yahrzeit[]> {
     if (get(r, 'hebrewDate')) {
       hebrew = parseHebrewDate(get(r, 'hebrewDate'))
       if (!hebrew)
-        return void errors.push(`${label}: hebrew_date must look like "18 Cheshvan" or "18 Cheshvan 5781"`)
+        return void errors.push(
+          `${label}: hebrew_date must look like "18 Cheshvan" or "18 Cheshvan 5781"`,
+        )
     } else if (get(r, 'day') || get(r, 'month') || get(r, 'year')) {
       const year = get(r, 'year') ? +get(r, 'year') : undefined
       const month = monthFromText(get(r, 'month'), year)
@@ -281,8 +283,7 @@ function build(
   if (p.gregorian && !DATE.test(p.gregorian))
     errors.push(`${label}: the Gregorian date must be YYYY-MM-DD`)
   if (!p.hebrew && !p.gregorian) errors.push(`${label}: needs a date, Hebrew or Gregorian`)
-  if (p.hebrew && !isRealMonthDay(p.hebrew))
-    errors.push(`${label}: that Hebrew date doesn’t exist`)
+  if (p.hebrew && !isRealMonthDay(p.hebrew)) errors.push(`${label}: that Hebrew date doesn’t exist`)
   if (errors.length > before) return []
   const hebrew = p.hebrew ?? gregorianToHebrew(p.gregorian as DateString)
   const gregorian: DateString | undefined = DATE.test(p.gregorian)
@@ -335,7 +336,10 @@ function parseJsonList(data: unknown): Parsed<Yahrzeit[]> {
       hebrew = { day: Number(y.hebrew.day), month, ...(year && { year }) }
     } else if (typeof y.hebrew === 'string') {
       hebrew = parseHebrewDate(y.hebrew)
-      if (!hebrew) return void errors.push(`${label}: "hebrew" must look like "18 Cheshvan" or "18 Cheshvan 5781"`)
+      if (!hebrew)
+        return void errors.push(
+          `${label}: "hebrew" must look like "18 Cheshvan" or "18 Cheshvan 5781"`,
+        )
     }
     out.push(
       ...build({ hebrewName, en, he, hebrew, gregorian: String(y.gregorian ?? '') }, label, errors),

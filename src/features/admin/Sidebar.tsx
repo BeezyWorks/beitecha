@@ -95,7 +95,12 @@ export function Sidebar({
         background={SemanticColor.SurfaceSelected}
         borderColor={SemanticColor.BorderDefault}
       >
-        <IconButton name="chevrons-right" size={18} onPress={toggle} accessibilityLabel="Show menu" />
+        <IconButton
+          name="chevrons-right"
+          size={18}
+          onPress={toggle}
+          accessibilityLabel="Show menu"
+        />
       </Stack>
     )
   return (
@@ -106,7 +111,12 @@ export function Sidebar({
     >
       <ScrollStack padding="md" gap="xs">
         <Stack direction="row" justify="end">
-          <IconButton name="chevrons-left" size={18} onPress={toggle} accessibilityLabel="Hide menu" />
+          <IconButton
+            name="chevrons-left"
+            size={18}
+            onPress={toggle}
+            accessibilityLabel="Hide menu"
+          />
         </Stack>
         <Stack gap="none" paddingHorizontal="md" paddingBottom="sm">
           <Text variant="title" numberOfLines={2}>

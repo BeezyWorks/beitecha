@@ -8,7 +8,7 @@
     "start": "expo start --web",
     "build:web": "expo export --platform web",
     "dev:api": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "pnpm db:migrate:remote && wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply beitecha --local",
     "db:migrate:remote": "wrangler d1 migrations apply beitecha --remote",
     "test": "pnpm -r --filter ./packages/engine --filter ./worker test && jest",

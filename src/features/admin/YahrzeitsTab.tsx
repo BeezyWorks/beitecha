@@ -28,6 +28,7 @@ import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { DateField } from './DateField'
 import { BulletinToggle, FormButtons, isNamed, NameFields, RememberedTab } from './RememberedTab'
+import { ElMalehCard } from './ElMalehCard'
 import { newId, useAdmin } from './store'
 
 const DATES: { key: YahrzeitDates; label: string }[] = [
@@ -180,6 +181,7 @@ export function YahrzeitsTab({ today }: { today: DateString }) {
       detail={(_, coming) =>
         coming ? `Next: ${t.yahrzeitDate(coming)}` : 'Date doesn’t recur yet'
       }
+      top={<ElMalehCard today={today} />}
       settingsExtra={
         <Stack gap="xs">
           <Text variant="label" color={SemanticColor.TextSecondary}>

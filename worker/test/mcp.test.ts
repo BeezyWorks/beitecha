@@ -316,6 +316,7 @@ describe('protocol', () => {
       expect.arrayContaining([
         'list_shuls',
         'get_upcoming',
+        'get_el_maleh',
         'list_notices',
         'get_bulletin_link',
         'set_sponsor',
@@ -667,6 +668,23 @@ describe('tools', () => {
     const id = r.data.error.details.candidates[0].id
     expect((await tool(owner, 'remove_person', { kind: 'yahrzeit', id })).isError).toBe(false)
     expect((await schedule(slug)).yahrzeits).toHaveLength(1)
+  })
+
+  it('lists the El Maleh Rachamim names for a Shabbos', async () => {
+    const owner = user('owner')
+    await newShul(owner)
+    await tool(owner, 'add_yahrzeit', {
+      name: 'Avraham ben Yitzchak',
+      hebrewDate: { day: 5, month: 7 },
+    })
+    const r = await tool(owner, 'get_el_maleh')
+    expect(r.isError).toBe(false)
+    expect(r.data.shabbosim).toHaveLength(2)
+    expect(r.text).toContain('Shabbos')
+    const eikev = await tool(owner, 'get_el_maleh', { parsha: 'eikev' })
+    expect(eikev.data.shabbosim[0].parsha).toBe('Eikev')
+    const none = await tool(owner, 'get_el_maleh', { parsha: 'nosuchparsha' })
+    expect(none.isError).toBe(true)
   })
 
   it('does not apply a retried JSON-RPC request twice', async () => {

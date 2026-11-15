@@ -182,6 +182,8 @@ export interface RememberedConfig<T extends Remembered, S extends RememberedSett
   detail: (p: T, next: DateString | undefined) => string
   /** More ways this kind of list is shown (yahrzeits choose which dates). */
   settingsExtra?: React.ReactNode
+  /** Something above the list (yahrzeits print their El Maleh Rachamim sheet here). */
+  top?: React.ReactNode
   daysHelp: string
   importHelp: string
   io: {
@@ -261,6 +263,7 @@ export function RememberedTab<T extends Remembered, S extends RememberedSettings
         editing === null && <Button icon="add" title={c.add} onPress={() => setEditing('new')} />
       }
     >
+      {c.top}
       {editing === 'new' && (
         <c.form
           initial={c.blank()}

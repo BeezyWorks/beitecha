@@ -3,6 +3,11 @@ import {
   MAX_PUBLIC_DAYS,
   addDays,
   computeDays,
+  elMalehFor,
+  shabbosimNamed,
+  shabbosOnOrAfter,
+  yahrzeitNameParts,
+  hebrewDateText,
   makeT,
   nextUp,
   noticeLastDay,
@@ -301,6 +306,58 @@ const cholim: Handler = async (request, env, [slug]) => {
   })
 }
 
+/**
+ * The names for El Maleh Rachamim at Shabbos Mincha. `parsha` (a name or part of one) picks that Shabbos, `date` the
+ * Shabbos on or after it, else the next two. Names are people, so this is keyed, not public (the MCP server calls it too).
+ */
+export function elMalehAnswer(schedule: Schedule, params: URLSearchParams) {
+  const { settings } = schedule
+  const today = todayIn(settings.location.timeZone)
+  const view = viewOf(schedule, new URL(`https://x/?${params}`))
+  const parsha = params.get('parsha')
+  const date = params.get('date')
+  let shabbosim: DateString[]
+  if (parsha) {
+    shabbosim = shabbosimNamed(parsha, today, settings).slice(0, 2)
+    if (!shabbosim.length) throw bad(`No Shabbos in the next year is named like "${parsha}"`)
+  } else if (date) {
+    shabbosim = [shabbosOnOrAfter(dateParam('date', date))]
+  } else {
+    const first = shabbosOnOrAfter(today)
+    shabbosim = [first, addDays(first, 7)]
+  }
+  const hebrew = view.t.lang === 'he'
+  return {
+    timeZone: settings.location.timeZone,
+    language: view.t.lang,
+    today,
+    shabbosim: elMalehFor(schedule.yahrzeits, today, shabbosim, settings).map((s) => ({
+      date: s.date,
+      parsha: s.title && (hebrew ? (s.title.he ?? s.title.en) : s.title.en),
+      says: s.says,
+      names: s.names.map(({ yahrzeit, date }) => ({
+        id: yahrzeit.id,
+        name: yahrzeitNameParts(
+          yahrzeit,
+          'both',
+          yahrzeit.displayName ? view.t.text(yahrzeit.displayName) : '',
+        ),
+        yahrzeit: date,
+        hebrewDate: hebrewDateText(date, hebrew ? 'he' : 'en'),
+      })),
+    })),
+  }
+}
+
+const elMaleh: Handler = async (request, env, [slug], url) => {
+  const { shul } = await requireConnection(request, env, slug)
+  const row = await env.DB.prepare('SELECT * FROM shuls WHERE id = ?')
+    .bind(shul.id)
+    .first<ShulRow>()
+  if (!row) throw notFound()
+  return Response.json(elMalehAnswer(shulRecord(row).schedule, url.searchParams))
+}
+
 // ---------------------------------------------------------------------------
 // Router
 
@@ -316,6 +373,7 @@ const routes: [method: string, pattern: RegExp, handler: Handler][] = [
   ['GET', /^\/v1\/shuls\/([^/]+)\/notices$/, notices],
   ['GET', /^\/v1\/shuls\/([^/]+)\/upcoming$/, upcoming],
   ['GET', /^\/v1\/shuls\/([^/]+)\/cholim$/, cholim],
+  ['GET', /^\/v1\/shuls\/([^/]+)\/el-maleh$/, elMaleh],
   [
     'GET',
     /^\/v1\/shuls\/([^/]+)\/changes$/,

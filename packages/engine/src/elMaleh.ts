@@ -3,7 +3,12 @@ import { HDate, HebrewCalendar } from '@hebcal/core'
 import { addDays, hostDate, weekdayOf } from './dates'
 import { dayInfo, displayHolidays, parshaFor } from './day'
 import type { DateString, Localized, ShulSettings, Yahrzeit } from './types'
-import { yahrzeitsBetween } from './yahrzeits'
+import {
+  gregorianToHebrew,
+  hebrewToGregorian,
+  isRealHebrewDate,
+  yahrzeitsBetween,
+} from './yahrzeits'
 
 /** How far past the last Shabbos to look for yahrzeits whose own Shabbos says no tzidkascha, so they move back to it. */
 const LOOKAHEAD_DAYS = 120
@@ -25,6 +30,18 @@ export interface ElMalehShabbos {
 /** The first Shabbos on or after `date`. */
 export function shabbosOnOrAfter(date: DateString): DateString {
   return addDays(date, (6 - weekdayOf(date) + 7) % 7)
+}
+
+/** The day before `date`'s Hebrew date comes round again next year, so a range from `date` holds every Hebrew day once. */
+export function hebrewYearEnd(date: DateString): DateString {
+  const { day, month, year } = gregorianToHebrew(date)
+  for (let d = day; d >= 1; d--) {
+    for (const m of month === 13 ? [13, 12] : month === 12 ? [12, 13] : [month]) {
+      const h = { day: d, month: m, year: year + 1 }
+      if (isRealHebrewDate(h)) return addDays(hebrewToGregorian(h), -1)
+    }
+  }
+  return addDays(date, 364)
 }
 
 /** The next Shabbos, today included, that says tzidkascha (a skipped stretch such as Nisan is passed over). */

@@ -67,7 +67,7 @@ export {
   type ResolvedOccasion,
   type UpcomingOccasion,
 } from './occasions'
-export { elMalehFor, elMalehNames, nextElMalehShabbos, shabbosimNamed, type ElMalehTarget, saysTzidkascha, shabbosOnOrAfter, type ElMalehName, type ElMalehShabbos } from './elMaleh'
+export { elMalehFor, hebrewYearEnd, elMalehNames, nextElMalehShabbos, shabbosimNamed, type ElMalehTarget, saysTzidkascha, shabbosOnOrAfter, type ElMalehName, type ElMalehShabbos } from './elMaleh'
 export {
   gregorianToHebrew,
   hebrewDateText,

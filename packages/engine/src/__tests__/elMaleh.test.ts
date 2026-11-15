@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { elMalehFor, elMalehNames, saysTzidkascha, shabbosimNamed } from '../elMaleh'
+import { elMalehFor, elMalehNames, saysTzidkascha, shabbosimNamed, hebrewYearEnd } from '../elMaleh'
 import { gregorianToHebrew } from '../yahrzeits'
 import { sampleSchedule } from '../sample'
 import type { Yahrzeit } from '../types'
@@ -41,5 +41,12 @@ describe('El Maleh Rachamim at Shabbos Mincha', () => {
   it('finds a Shabbos by parsha', () => {
     expect(shabbosimNamed('eikev', '2027-07-01', settings)).toEqual(['2027-08-21'])
     expect(shabbosimNamed('Matot', '2027-07-01', settings)[0]).toBe('2027-07-31')
+  })
+  it('a year runs a full Hebrew year, so a late-Cheshvan yahrzeit is on it', () => {
+    const end = hebrewYearEnd('2026-11-14')
+    expect(end > '2027-11-30').toBe(true)
+    const y: Yahrzeit = { id: 'c', hebrewName: 'c', hebrew: { day: 25, month: 8 } }
+    expect(elMalehNames([y], '2026-11-14', end, settings)).toHaveLength(1)
+    expect(elMalehNames([y], '2026-11-14', '2027-11-13', settings)).toHaveLength(0)
   })
 })

@@ -1,5 +1,11 @@
 import { Button, Card, SemanticColor, Stack, Text } from '@beezyworks/design'
-import { addDays, elMalehNames, nextElMalehShabbos, type DateString } from '@beitecha/engine'
+import {
+  addDays,
+  elMalehNames,
+  hebrewYearEnd,
+  nextElMalehShabbos,
+  type DateString,
+} from '@beitecha/engine'
 import React, { useState } from 'react'
 
 import { renderElMalehHtml } from './elMalehHtml'
@@ -10,7 +16,7 @@ const RANGES = [
   { key: 'week', label: 'Next Shabbos', days: 0 },
   { key: 'month', label: 'Month', days: 28 },
   { key: 'two', label: '2 months', days: 56 },
-  { key: 'year', label: 'Year', days: 364 },
+  { key: 'year', label: 'Year', days: 0 },
 ]
 
 /** A sheet of the names for El Maleh Rachamim at Shabbos Mincha, under each Shabbos's parsha. */
@@ -24,7 +30,7 @@ export function ElMalehCard({ today }: { today: DateString }) {
   const shabbosim = elMalehNames(
     schedule.yahrzeits,
     first,
-    addDays(first, choice.days),
+    choice.key === 'year' ? hebrewYearEnd(first) : addDays(first, choice.days),
     schedule.settings,
   )
   const count = shabbosim.reduce((n, s) => n + s.names.length, 0)

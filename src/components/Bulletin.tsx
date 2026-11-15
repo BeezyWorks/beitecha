@@ -68,16 +68,36 @@ export function BulletinRoot({
     document.body.appendChild(host)
     return () => host.remove()
   }, [host])
+  // On a screen narrower than the paper (a phone), the sheets shrink to its width; a transform, so the sheets'
+  // own fit-to-page measurements don't see it, and print undoes it. A transform keeps its full height in the
+  // layout, so a negative margin takes back what it shrank.
+  const [fit, setFit] = useState(1)
+  const [height, setHeight] = useState(0)
+  const sheets = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const update = () => setFit(Math.min(1, (host.clientWidth - 32) / SHEET_PX[paper].width))
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [host, paper])
+  useEffect(() => {
+    const el = sheets.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setHeight(el.offsetHeight))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
   const css = `
     @page { size: ${PAPER[paper].size} portrait; margin: 0 }
     .bt-bulletin { position: fixed; inset: 0; z-index: 10; overflow: auto; background: ${resolve(SemanticColor.SurfaceBackground)} }
     .bt-bulletin-sheets { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 16px 48px }
+    ${fit < 1 ? `.bt-bulletin-sheets { transform: scale(${fit}); transform-origin: top center; margin-bottom: ${-(1 - fit) * height}px }` : ''}
     ${sheetCss(resolve)}
     @media print {
       body > :not(.bt-bulletin), .bt-bulletin-toolbar { display: none !important }
       html, body { height: auto !important; overflow: visible !important; background: none !important }
       .bt-bulletin { position: static; overflow: visible; background: none }
-      .bt-bulletin-sheets { display: block; padding: 0 }
+      .bt-bulletin-sheets { display: block; padding: 0; transform: none; margin: 0 }
       .bt-sheet { box-shadow: none; break-after: page }
       .bt-sheet:last-child { break-after: auto }
       .bt-sheet-probe { display: none !important }
@@ -88,7 +108,9 @@ export function BulletinRoot({
     <>
       <style>{css}</style>
       <div className="bt-bulletin-toolbar">{toolbar}</div>
-      <div className="bt-bulletin-sheets">{children}</div>
+      <div ref={sheets} className="bt-bulletin-sheets">
+        {children}
+      </div>
     </>,
     host,
   )

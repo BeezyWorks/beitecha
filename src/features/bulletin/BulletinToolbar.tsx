@@ -36,6 +36,8 @@ export function BulletinToolbar({
   canEditDates?: boolean
 }) {
   const [editing, setEditing] = React.useState(false)
+  const [cantPrint, setCantPrint] = React.useState(false)
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share
   const isUsual = range.from === usual.from && range.to === usual.to
   return (
     <Stack
@@ -98,7 +100,34 @@ export function BulletinToolbar({
           {note}
         </Text>
       )}
-      <Button size="sm" title="Print" icon="print" onPress={() => window.print()} />
+      <Button
+        size="sm"
+        title="Print"
+        icon="print"
+        onPress={() => printOr(() => setCantPrint(true))}
+      />
+      {cantPrint && (
+        <Stack direction="row" align="center" gap="md" wrap width="100%">
+          <Stack grow>
+            <Text variant="caption" color={SemanticColor.TextSecondary}>
+              This browser won’t print from here (an app’s built-in browser, or Chrome on an
+              iPhone). Open the page in Safari or Chrome
+              {canShare ? ', or share it to an app that prints' : ''}.
+            </Text>
+          </Stack>
+          {canShare && (
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Share"
+              icon="share"
+              onPress={() =>
+                navigator.share({ title: document.title, url: location.href }).catch(() => {})
+              }
+            />
+          )}
+        </Stack>
+      )}
       {canEditDates && editing && (
         <Stack direction="row" gap="md" wrap width="100%">
           <Stack grow>
@@ -130,4 +159,24 @@ function fit(range: DateRange, move: 'from' | 'to'): DateRange {
   return move === 'to'
     ? { ...range, to: addDays(range.from, MAX_SPAN - 1) }
     : { ...range, from: addDays(range.to, 1 - MAX_SPAN) }
+}
+
+/**
+ * `window.print()`, and `fallback` when no print dialog opened: in-app browsers (WhatsApp, Gmail, an app's webview)
+ * and Chrome on iOS ignore the call without a word.
+ */
+function printOr(fallback: () => void) {
+  let opened = false
+  const mark = () => {
+    opened = true
+  }
+  const media = window.matchMedia?.('print')
+  window.addEventListener('beforeprint', mark)
+  media?.addEventListener?.('change', mark)
+  window.print()
+  setTimeout(() => {
+    window.removeEventListener('beforeprint', mark)
+    media?.removeEventListener?.('change', mark)
+    if (!opened) fallback()
+  }, 1500)
 }

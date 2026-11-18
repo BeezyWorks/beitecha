@@ -18,7 +18,7 @@ export function CollapsibleCard({
     <Card gap="md">
       <Touchable onPress={toggle} accessibilityRole="button" accessibilityLabel={title}>
         <Stack direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="sectionHeader">{title}</Text>
           </Stack>
           <Icon

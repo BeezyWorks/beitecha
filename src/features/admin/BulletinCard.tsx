@@ -187,7 +187,7 @@ export function BulletinCard({
     <>
       <CollapsibleCard id="bulletin-card-pages" title="Page Layout">
         <Stack direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">Choose what goes on each page</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               Off: the times go on the front and the announcements behind.
@@ -209,7 +209,7 @@ export function BulletinCard({
             <DragList onMove={move}>
               {layout.map((row, i) => (
                 <Stack key={row.section} direction="row" align="center" gap="md">
-                  <Stack grow>
+                  <Stack grow width={0}>
                     <Text variant="body">{sectionName(row.section, names)}</Text>
                   </Stack>
                   <Select
@@ -230,7 +230,7 @@ export function BulletinCard({
         </Text>
         {SHOWN.map(({ key, label, help }) => (
           <Stack key={key} direction="row" align="center" gap="md">
-            <Stack grow>
+            <Stack grow width={0}>
               <Text variant="body">{label}</Text>
               <Text variant="caption" color={SemanticColor.TextSecondary}>
                 {help}

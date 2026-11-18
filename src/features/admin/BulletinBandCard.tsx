@@ -145,7 +145,7 @@ export function BulletinBandCard({
           {kind === 'footer' && (
             <>
               <Stack direction="row" align="center" gap="md">
-                <Stack grow>
+                <Stack grow width={0}>
                   <Text variant="body">QR code</Text>
                   <Text variant="caption" color={SemanticColor.TextSecondary}>
                     {kind === 'footer'

@@ -314,7 +314,7 @@ export function CustomZmanimCard({
                     their own first (by an angle or minutes from sunrise and sunset).
                   </Text>
                   <Stack direction="row" gap="sm">
-                    <Stack grow>
+                    <Stack grow width={0}>
                       <Select
                         value={pointKey(draft.zmani.start)}
                         options={[
@@ -333,7 +333,7 @@ export function CustomZmanimCard({
                         accessibilityLabel="The day starts at"
                       />
                     </Stack>
-                    <Stack grow>
+                    <Stack grow width={0}>
                       <Select
                         value={pointKey(draft.zmani.end)}
                         options={[

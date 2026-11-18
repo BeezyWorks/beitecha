@@ -142,7 +142,7 @@ export function NewShulScreen() {
           />
         </Stack>
         <Stack direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">Mincha and Maariv are one minyan</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               Listed as “Mincha/Maariv” on weekdays. You can change this later.
@@ -167,7 +167,7 @@ export function NewShulScreen() {
           onPress={locate}
         />
         <Stack direction="row" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Field
               label="Latitude"
               value={lat}
@@ -176,7 +176,7 @@ export function NewShulScreen() {
               placeholder="40.0821"
             />
           </Stack>
-          <Stack grow>
+          <Stack grow width={0}>
             <Field
               label="Longitude"
               value={lng}
@@ -195,7 +195,7 @@ export function NewShulScreen() {
         />
         <Stack direction="row" align="center" gap="md">
           <Text variant="body">In Eretz Yisrael (one day Yom Tov)</Text>
-          <Stack grow />
+          <Stack grow width={0} />
           <ToggleSwitch
             value={israel}
             onValueChange={setIsrael}

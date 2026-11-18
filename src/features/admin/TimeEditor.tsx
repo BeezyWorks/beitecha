@@ -275,7 +275,7 @@ export function TimeEditor({
             variant="ghost"
             size="sm"
             icon="sliders"
-            title="More: round it, same all week, earliest of two…"
+            title="More options"
             onPress={() => setMore(true)}
           />
         </Stack>
@@ -287,7 +287,7 @@ export function TimeEditor({
               variant="ghost"
               size="sm"
               icon="add"
-              title="Or another time (earliest/latest)"
+              title="Or another time"
               onPress={() =>
                 update({ sources: [...form.sources, { type: 'clock', clock: '19:15' }] })
               }

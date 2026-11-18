@@ -38,7 +38,7 @@ function Row({
 }) {
   return (
     <Stack direction="row" align="center" gap="md">
-      <Stack grow gap="xs">
+      <Stack grow width={0} gap="xs">
         <Text variant="body">{label}</Text>
         {!!help && (
           <Text variant="caption" color={SemanticColor.TextSecondary}>
@@ -86,7 +86,7 @@ function ZmanList({
       </Text>
       {ids.map((id) => (
         <Stack key={id} direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">{zmanLabel(id, custom)}</Text>
           </Stack>
           <Button

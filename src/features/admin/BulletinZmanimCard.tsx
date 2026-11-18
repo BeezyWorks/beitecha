@@ -41,7 +41,7 @@ export function BulletinZmanimCard({
         </Text>
         {ids.map((id) => (
           <Stack key={id} direction="row" align="center" gap="md">
-            <Stack grow>
+            <Stack grow width={0}>
               <Text variant="body">{zmanLabel(id, custom)}</Text>
             </Stack>
             <Button

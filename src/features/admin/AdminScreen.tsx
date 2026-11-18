@@ -1,16 +1,16 @@
 import { Button, SemanticColor, Stack, Text, useIsWideLayout } from '@beezyworks/design'
 import { router, useLocalSearchParams } from 'expo-router'
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Linking, Platform, useWindowDimensions } from 'react-native'
 
 import { Centered } from '@/components/Centered'
 import { Page } from '@/components/Page'
 import { usePageTitle } from '@/components/PageTitle'
-import { Select } from '@/components/Select'
 import { SignIn } from '@/features/account/SignIn'
 import { useAccount } from '@/features/account/store'
 import { useShulClock } from '@/features/luach/useShulClock'
 import { siddurShulUrl } from '@/lib/config'
+import { useIsCompact } from '@/lib/useIsCompact'
 import { CalendarTab } from './CalendarTab'
 import { ConnectSection } from './ConnectSection'
 import { PendingSection } from './PendingSection'
@@ -26,7 +26,7 @@ import { BulletinSection } from './BulletinSection'
 import { CalendarSection } from './CalendarSection'
 import { isSection, SECTIONS, type SectionKey } from './sections'
 import { ShulTab } from './ShulTab'
-import { Sidebar } from './Sidebar'
+import { MenuDrawer, Sidebar } from './Sidebar'
 import { useAdmin } from './store'
 import { TeamTab } from './TeamTab'
 import { ThisWeekSection } from './ThisWeekSection'
@@ -51,6 +51,8 @@ export function AdminScreen({ slug }: { slug: string }) {
   const params = useLocalSearchParams<{ s?: string }>()
   const section: SectionKey = isSection(params.s) ? params.s : 'week'
   const wide = useIsWideLayout()
+  const compact = useIsCompact()
+  const [menuOpen, setMenuOpen] = useState(false)
   const { height } = useWindowDimensions()
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
   usePageTitle(profile ? `${profile.name.en} · Manage · Beitecha` : 'Manage · Beitecha')
@@ -114,6 +116,15 @@ export function AdminScreen({ slug }: { slug: string }) {
           ? 'Saved · displays update within 5 minutes'
           : 'All saved'
 
+  const sectionLabel = SECTIONS.find((s) => s.key === section)?.label
+  const menu = {
+    shulName: profile.name.en,
+    status: statusText,
+    section,
+    onSection: go,
+    onSiddur: () => Linking.openURL(siddurShulUrl(slug)),
+  }
+
   const body = (
     <>
       {section === 'week' && <ThisWeekSection today={today} onSection={go} />}
@@ -147,36 +158,31 @@ export function AdminScreen({ slug }: { slug: string }) {
       background={SemanticColor.SurfaceBackground}
     >
       {wide ? (
-        <Sidebar
-          shulName={profile.name.en}
-          status={statusText}
-          section={section}
-          onSection={go}
-          onSiddur={() => Linking.openURL(siddurShulUrl(slug))}
-        />
+        <Sidebar {...menu} />
       ) : (
         <Stack
           direction="row"
           align="center"
           gap="md"
-          padding="md"
+          paddingHorizontal="md"
+          paddingVertical="sm"
           background={SemanticColor.SurfaceSelected}
+          borderBottomWidth="hairline"
+          borderColor={SemanticColor.BorderDefault}
         >
-          <Stack grow gap="none">
+          <Stack grow width={0} gap="none">
             <Text variant="headline" numberOfLines={1}>
               {profile.name.en}
             </Text>
-            <Text variant="caption" color={SemanticColor.TextSecondary}>
-              {statusText}
+            <Text variant="caption" color={SemanticColor.TextSecondary} numberOfLines={1}>
+              {sectionLabel} · {save === 'saved' ? 'Saved' : statusText}
             </Text>
           </Stack>
-          <Select
-            value={section}
-            options={SECTIONS.map((s) => ({
-              value: s.key,
-              label: s.key === 'pending' && pending ? `Pending (${pending})` : s.label,
-            }))}
-            onChange={(s) => go(s as SectionKey)}
+          <Button
+            variant="secondary"
+            size="sm"
+            title={pending ? `Menu (${pending})` : 'Menu'}
+            onPress={() => setMenuOpen(true)}
           />
         </Stack>
       )}
@@ -224,14 +230,16 @@ export function AdminScreen({ slug }: { slug: string }) {
             direction="row"
             align="center"
             gap="md"
-            paddingHorizontal="xl"
+            paddingHorizontal={compact ? 'md' : 'xl'}
             paddingVertical="md"
             borderTopWidth="hairline"
             borderColor={SemanticColor.BorderDefault}
             background={SemanticColor.SurfaceCard}
           >
-            <Stack grow>
-              <Text variant="body">You have unsaved changes.</Text>
+            <Stack grow width={0}>
+              <Text variant="body">
+                {compact ? 'Unsaved changes' : 'You have unsaved changes.'}
+              </Text>
             </Stack>
             <Button variant="secondary" title="Cancel" onPress={discard} />
             <Button
@@ -243,6 +251,7 @@ export function AdminScreen({ slug }: { slug: string }) {
           </Stack>
         )}
       </Stack>
+      {!wide && menuOpen && <MenuDrawer {...menu} onClose={() => setMenuOpen(false)} />}
     </Stack>
   )
 }

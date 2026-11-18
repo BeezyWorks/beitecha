@@ -158,7 +158,7 @@ export function Preview({
                                     : clock(o.minutes)}
                             </Text>
                           </Stack>
-                          <Stack grow>
+                          <Stack grow width={0}>
                             <Text
                               variant={mine ? 'bodyStrong' : 'body'}
                               color={mine ? SemanticColor.TextAccent : undefined}

@@ -22,6 +22,7 @@ import {
 } from '@/components/Bulletin'
 import { SITE_URL } from '@/lib/config'
 import { useCollapsed } from '@/lib/useCollapsed'
+import { useIsCompact } from '@/lib/useIsCompact'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { ThemeRoot } from '@/components/ThemeRoot'
@@ -37,6 +38,7 @@ import { BulletinDaysCard } from './BulletinDaysCard'
 import { BulletinZmanimCard } from './BulletinZmanimCard'
 import { CopyLinkButton } from './CopyLinkButton'
 import { CollapsibleCard } from './CollapsibleCard'
+import { SectionHeader } from './SectionPage'
 import { useAdmin } from './store'
 
 const RAIL = 360
@@ -52,6 +54,7 @@ const SIZES = [
 export function BulletinSection({ slug }: { slug: string }) {
   const { profile, schedule, setSchedule } = useAdmin()
   const wide = useIsWideLayout()
+  const compact = useIsCompact()
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
   const [paper, setPaper] = React.useState<Paper | null>(null)
   const [full, setFull] = React.useState(false)
@@ -67,22 +70,20 @@ export function BulletinSection({ slug }: { slug: string }) {
     setSchedule({ ...schedule, settings: { ...schedule.settings, print: { ...print, ...patch } } })
 
   const controls = (
-    <ScrollStack padding="xl" gap="lg">
+    <ScrollStack padding={compact ? 'md' : 'xl'} gap="lg">
       <Stack maxWidth={880} gap="lg">
-        <Stack direction="row" align="center" gap="md" wrap>
-          <Stack grow gap="xs">
-            <Text variant="largeTitle">Bulletin</Text>
-            <Text variant="body" color={SemanticColor.TextSecondary}>
-              The week on paper, for the board or the bimah.
-            </Text>
-          </Stack>
-          <Button
-            variant="secondary"
-            title="Full screen"
-            icon="external-link"
-            onPress={() => setFull(true)}
-          />
-        </Stack>
+        <SectionHeader
+          title="Bulletin"
+          intro="The week on paper, for the board or the bimah."
+          actions={
+            <Button
+              variant="secondary"
+              title="Full screen"
+              icon="external-link"
+              onPress={() => setFull(true)}
+            />
+          }
+        />
         <CollapsibleCard id="bulletin-card-layout" title="Layout">
           <Stack gap="xs">
             <Text variant="label" color={SemanticColor.TextSecondary}>
@@ -132,7 +133,7 @@ export function BulletinSection({ slug }: { slug: string }) {
             </Text>
             <Card>
               <Stack direction="row" align="center" gap="sm">
-                <Stack grow>
+                <Stack grow width={0}>
                   <Text variant="body" selectable>
                     {SITE_URL}/{slug}/bulletin
                   </Text>
@@ -150,7 +151,7 @@ export function BulletinSection({ slug }: { slug: string }) {
               ] as const
             ).map(([key, label]) => (
               <Stack key={key} direction="row" align="center" gap="md">
-                <Stack grow>
+                <Stack grow width={0}>
                   <Text variant="body">{label}</Text>
                 </Stack>
                 <ToggleSwitch
@@ -253,7 +254,7 @@ export function BulletinSection({ slug }: { slug: string }) {
   const preview = (
     <ScrollStack padding="md" gap="md">
       <Stack direction="row" align="center" gap="sm">
-        <Stack grow>
+        <Stack grow width={0}>
           <Text variant="label" color={SemanticColor.TextSecondary}>
             This week’s sheet
           </Text>

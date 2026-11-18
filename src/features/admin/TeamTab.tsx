@@ -40,7 +40,7 @@ export function TeamTab() {
         <Text variant="sectionHeader">Gabbaim</Text>
         {loaded.members.map((m) => (
           <Stack key={m.userId} direction="row" align="center" gap="sm">
-            <Stack grow gap="none">
+            <Stack grow width={0} gap="none">
               <Text variant="bodyStrong">{m.name ?? m.email ?? m.userId}</Text>
               {!!m.email && (
                 <Text variant="caption" color={SemanticColor.TextSecondary}>
@@ -119,7 +119,7 @@ export function TeamTab() {
             return (
               <Stack key={d.id} direction="row" align="center" gap="sm">
                 <Text variant="body">{d.label ?? `Display ${d.id.slice(0, 6)}`}</Text>
-                <Stack grow />
+                <Stack grow width={0} />
                 <Badge
                   label={live ? 'On' : `Last seen ${ago(d.lastSeen)}`}
                   tone={live ? 'success' : 'neutral'}
@@ -145,7 +145,7 @@ export function TeamTab() {
         {loaded.history.map((h) => (
           <Stack key={h.revision} direction="row" gap="sm">
             <Text variant="body">{h.name ?? 'Someone'}</Text>
-            <Stack grow />
+            <Stack grow width={0} />
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               {new Date(h.at).toLocaleString()}
             </Text>

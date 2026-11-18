@@ -414,7 +414,7 @@ export function RuleEditor({
               variant="ghost"
               size="sm"
               icon="calendar-today"
-              title="Only between certain dates (winter hours, summer…)"
+              title="Only between certain dates"
               onPress={() => setDates(true)}
             />
           </Stack>

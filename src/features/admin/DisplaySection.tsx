@@ -219,7 +219,7 @@ function SetupCard({
         </Text>
         {DISPLAY_BLOCKS.map((block) => (
           <Stack key={block} direction="row" align="center" gap="md">
-            <Stack grow>
+            <Stack grow width={0}>
               <Text variant="body">{BLOCKS[block].label}</Text>
               <Text variant="caption" color={SemanticColor.TextSecondary}>
                 {BLOCKS[block].help}

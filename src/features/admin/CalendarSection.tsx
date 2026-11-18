@@ -26,6 +26,7 @@ import React from 'react'
 import { Segments } from '@/components/Segments'
 import { Select } from '@/components/Select'
 import { useShulClock } from '@/features/luach/useShulClock'
+import { useIsCompact } from '@/lib/useIsCompact'
 import {
   CALENDAR_PAPERS,
   type CalendarPaper,
@@ -53,6 +54,7 @@ import {
   CalendarTimesCard,
 } from './CalendarContentCards'
 import { CalendarPicturesCard } from './CalendarPicturesCard'
+import { SectionHeader } from './SectionPage'
 import { useAdmin } from './store'
 
 /** How many months ahead can be chosen. */
@@ -67,6 +69,9 @@ export function CalendarSection({ slug }: { slug: string }) {
   const cropsRef = React.useRef(pics.settings.frames)
   cropsRef.current = pics.settings.frames
   const wide = useIsWideLayout()
+  const compact = useIsCompact()
+  /** Without room for both side by side, one at a time. */
+  const [narrowPane, setNarrowPane] = React.useState<'options' | 'preview'>('options')
   const { today } = useShulClock(schedule?.settings.location.timeZone, 60_000)
   // The chosen months, as first days; absent = the next twelve.
   const [range, setRange] = React.useState<{ from: string; to: string } | null>(null)
@@ -235,21 +240,19 @@ export function CalendarSection({ slug }: { slug: string }) {
   }
 
   const controls = (
-    <ScrollStack padding="xl" gap="lg">
+    <ScrollStack padding={compact ? 'md' : 'xl'} gap="lg">
       <Stack maxWidth={880} gap="lg">
-        <Stack direction="row" align="center" gap="md" wrap>
-          <Stack grow gap="xs">
-            <Text variant="largeTitle">Wall calendar</Text>
-            <Text variant="body" color={SemanticColor.TextSecondary}>
-              A month to a sheet, with holidays, zmanim, your events and your people, to print for
-              the year. Choices save as you go; “Save draft” also makes a file with the pictures, to
-              keep or open in another browser.
-            </Text>
-          </Stack>
-          <Button variant="ghost" title="Open draft" onPress={() => void openDraft()} />
-          <Button variant="ghost" title="Save draft" onPress={saveDraft} />
-          <Button variant="primary" title="Print" icon="print" onPress={print} />
-        </Stack>
+        <SectionHeader
+          title="Wall calendar"
+          intro="A month to a sheet, with holidays, zmanim, your events and your people, to print for the year. Choices save as you go; “Save draft” also makes a file with the pictures, to keep or open in another browser."
+          actions={
+            <>
+              <Button variant="ghost" title="Open draft" onPress={() => void openDraft()} />
+              <Button variant="ghost" title="Save draft" onPress={saveDraft} />
+              <Button variant="primary" title="Print" icon="print" onPress={print} />
+            </>
+          }
+        />
         <Card gap="md">
           <Text variant="sectionHeader">Layout</Text>
           <Stack gap="xs">
@@ -329,7 +332,7 @@ export function CalendarSection({ slug }: { slug: string }) {
             />
           </Stack>
           <Stack direction="row" align="center" gap="md">
-            <Stack grow gap="xs">
+            <Stack grow width={0} gap="xs">
               <Text variant="body">English for everything</Text>
               <Text variant="caption" color={SemanticColor.TextSecondary}>
                 Months, holidays, parsha and times in English, whatever the shul’s language. The
@@ -385,8 +388,20 @@ export function CalendarSection({ slug }: { slug: string }) {
     </Stack>
   ) : (
     <Stack grow height={0}>
-      {controls}
-      <Stack height={420}>{preview}</Stack>
+      <Stack padding="sm">
+        <Segments
+          accessibilityLabel="Options or preview"
+          options={[
+            { key: 'options', label: 'Options' },
+            { key: 'preview', label: 'Preview' },
+          ]}
+          value={narrowPane}
+          onChange={setNarrowPane}
+        />
+      </Stack>
+      <Stack grow height={0}>
+        {narrowPane === 'options' ? controls : preview}
+      </Stack>
     </Stack>
   )
 }

@@ -123,7 +123,7 @@ export function BulletinToggle<T extends Remembered>({
 }) {
   return (
     <Stack direction="row" align="center" gap="md">
-      <Stack grow>
+      <Stack grow width={0}>
         <Text variant="body">Show on the bulletin</Text>
         <Text variant="caption" color={SemanticColor.TextSecondary}>
           Turn off to leave this one off the printed bulletin. It still shows on the display and in
@@ -402,7 +402,7 @@ export function RememberedTab<T extends Remembered, S extends RememberedSettings
               accessibilityLabel={`${g.name}, ${g.people.length}`}
             >
               <Stack direction="row" align="center" gap="sm">
-                <Stack grow gap="none">
+                <Stack grow width={0} gap="none">
                   <Text variant="headline">{g.name}</Text>
                   <Text variant="caption" color={SemanticColor.TextSecondary}>
                     {g.people.length}

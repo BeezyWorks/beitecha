@@ -53,6 +53,9 @@ Baderech apps (Halacha/Mikros BaDerech, the Siddur): those are for individuals o
     system or here, import it by name as usual **and add it to `lucide-subset.js`** (`Name: require('lucide-react-native/icons/<kebab-file>').default`;
     an alias like `Home` points at its real file, `house`: look for `as <Name>` in `node_modules/lucide-react-native/dist/esm/lucide-react-native.mjs`).
     `src/lib/__tests__/lucideSubset.test.ts` fails if one is missing. Never import the barrel's icons any other way.
+  - Small screens: below 980px the admin's sidebar is a drawer behind "Menu"; below 600px (`useIsCompact`) pages tighten and
+    `Segments` span the width, turning into a drop-down when their labels don't fit. In a row, text beside other things
+    goes in `<Stack grow width={0}>`: plain `grow` doesn't shrink, so it runs off the screen.
   - Shul pages theme themselves with the shul's `brandColor` (`ThemeRoot`).
   - Headers are in Cardo, whose bold Hebrew is mostly regular weight; `lib/hebrewHeaders.ts` gives Cardo Bold's Hebrew
     range to Frank Ruhl Libre Bold (a `unicode-range` `@font-face`), so set Hebrew headings in the header variants as usual.

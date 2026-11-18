@@ -37,7 +37,7 @@ export function DateField({
       </Text>
       {value ? (
         <Stack direction="row" gap="sm" align="center">
-          <Stack grow>
+          <Stack grow width={0}>
             <GregorianDateField value={toDate(value)} onChange={(d) => onChange(fromDate(d))} />
           </Stack>
           {unsetLabel && (

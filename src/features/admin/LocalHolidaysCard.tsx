@@ -135,7 +135,7 @@ export function LocalHolidaysCard({
       />
       {builtIn.map((h) => (
         <Stack key={h.id} direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">{h.name.en}</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               {describeLocalDate(h.date)}
@@ -155,7 +155,7 @@ export function LocalHolidaysCard({
       )}
       {holidays.map((h) => (
         <Stack key={h.id} direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="bodyStrong">{h.name.en}</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               {describeLocalDate(h.date)}
@@ -216,7 +216,7 @@ export function LocalHolidaysCard({
           )}
           {shape === 'weekday' && (
             <Stack direction="row" gap="sm">
-              <Stack grow>
+              <Stack grow width={0}>
                 <Select
                   value={String(nth)}
                   options={Object.entries(NTH).map(([value, label]) => ({ value, label }))}
@@ -224,7 +224,7 @@ export function LocalHolidaysCard({
                   accessibilityLabel="Which one"
                 />
               </Stack>
-              <Stack grow>
+              <Stack grow width={0}>
                 <Select
                   value={String(weekday)}
                   options={WEEKDAYS.map((w, i) => ({ value: String(i), label: w.en }))}

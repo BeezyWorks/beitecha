@@ -43,14 +43,14 @@ export function ZmanimSection() {
       <Card gap="md">
         <Text variant="sectionHeader">Location</Text>
         <Stack direction="row" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <NumberField
               label="Latitude"
               value={location.latitude}
               onChange={(latitude) => latitude !== undefined && setLocation({ latitude })}
             />
           </Stack>
-          <Stack grow>
+          <Stack grow width={0}>
             <NumberField
               label="Longitude"
               value={location.longitude}
@@ -67,7 +67,7 @@ export function ZmanimSection() {
         />
         <Stack direction="row" align="center" gap="md">
           <Text variant="body">In Eretz Yisrael (one day Yom Tov)</Text>
-          <Stack grow />
+          <Stack grow width={0} />
           <ToggleSwitch
             value={location.israel}
             onValueChange={(israel) => setLocation({ israel })}
@@ -161,7 +161,7 @@ export function ZmanimSection() {
           )}
         </Stack>
         <Stack direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">Use elevation</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               Sunrise and sunset as seen from the shul’s height, not sea level.
@@ -187,7 +187,7 @@ export function ZmanimSection() {
           </Text>
           {[...ZMAN_IDS, ...(zmanim.custom ?? []).map((c) => c.id)].map((id: ZmanKey) => (
             <Stack key={id} direction="row" align="center" gap="md">
-              <Stack grow>
+              <Stack grow width={0}>
                 <Text variant="body">{zmanLabel(id, zmanim.custom)}</Text>
               </Stack>
               <ToggleSwitch

@@ -253,7 +253,7 @@ export function CalendarTab({ today }: { today: DateString }) {
               <Text variant="body" numberOfLines={1}>
                 {x.date} · {x.event.name.en}
               </Text>
-              <Stack grow />
+              <Stack grow width={0} />
               <Button
                 variant="ghost"
                 size="sm"

@@ -37,7 +37,7 @@ export function HomeScreen() {
         <Stack gap="md">
           <Stack direction="row" align="center">
             <Text variant="sectionHeader">Your shuls</Text>
-            <Stack grow />
+            <Stack grow width={0} />
             <Button variant="ghost" size="sm" title={`Sign out ${user.name}`} onPress={signOut} />
           </Stack>
           <MyShuls />

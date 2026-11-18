@@ -2,6 +2,7 @@ import {
   Badge,
   Icon,
   IconButton,
+  Scrim,
   ScrollStack,
   SemanticColor,
   Stack,
@@ -53,7 +54,7 @@ function NavRow({
         radius="md"
         background={selected ? SemanticColor.AccentTint : undefined}
       >
-        <Stack grow>
+        <Stack grow width={0}>
           <Text
             variant={selected ? 'bodyStrong' : 'body'}
             color={selected ? SemanticColor.TextAccent : undefined}
@@ -68,23 +69,17 @@ function NavRow({
   )
 }
 
-/** The admin's left column: the shul, its sections, where it shows, and light or dark. */
-export function Sidebar({
-  shulName,
-  status,
-  section,
-  onSection,
-  onSiddur,
-}: {
+interface MenuProps {
   shulName: string
   /** "Saved", "Saving…", "Couldn't save". */
   status: string
   section: SectionKey
   onSection: (s: SectionKey) => void
   onSiddur: () => void
-}) {
-  const { appearance, setAppearance } = useAppearance()
-  const pending = useConnect((s) => pendingCountOf(s.changes))
+}
+
+/** The admin's left column on a wide screen, foldable out of the way. */
+export function Sidebar(props: MenuProps) {
   const [folded, toggle] = useCollapsed('admin-sidebar')
   if (folded)
     return (
@@ -109,99 +104,136 @@ export function Sidebar({
       background={SemanticColor.SurfaceSelected}
       borderColor={SemanticColor.BorderDefault}
     >
-      <ScrollStack padding="md" gap="xs">
-        <Stack direction="row" justify="end">
-          <IconButton
-            name="chevrons-left"
-            size={18}
-            onPress={toggle}
-            accessibilityLabel="Hide menu"
-          />
-        </Stack>
-        <Stack gap="none" paddingHorizontal="md" paddingBottom="sm">
-          <Text variant="title" numberOfLines={2}>
-            {shulName}
-          </Text>
-          <Text variant="caption" color={SemanticColor.TextSecondary}>
-            {status}
-          </Text>
-        </Stack>
-        {SECTION_GROUPS.map((g, i) => (
-          <Stack key={i} gap="none" paddingTop={g.title ? 'md' : 'xs'}>
-            {!!g.title && (
-              <Stack paddingHorizontal="md" paddingBottom="xs">
-                <Text variant="label" color={SemanticColor.TextSecondary}>
-                  {g.title}
-                </Text>
-              </Stack>
-            )}
-            {g.sections.map((s) => (
-              <NavRow
-                key={s.key}
-                label={s.label}
-                selected={s.key === section}
-                onPress={() => onSection(s.key)}
-              />
-            ))}
-          </Stack>
-        ))}
-        <Stack gap="none" paddingTop="md">
-          <Stack paddingHorizontal="md" paddingBottom="xs">
-            <Text variant="label" color={SemanticColor.TextSecondary}>
-              See it
-            </Text>
-          </Stack>
-          {SEE_IT_SECTIONS.map((s) => (
-            <NavRow
-              key={s.key}
-              label={s.label}
-              icon={s.key === 'bulletin' ? 'print' : undefined}
-              selected={s.key === section}
-              onPress={() => onSection(s.key)}
-            />
-          ))}
-          <NavRow label="Siddur page" icon="external-link" onPress={onSiddur} />
-        </Stack>
-        <Stack gap="none" paddingTop="md">
-          <Stack paddingHorizontal="md" paddingBottom="xs">
-            <Text variant="label" color={SemanticColor.TextSecondary}>
-              Connect
-            </Text>
-          </Stack>
-          {CONNECT_SECTIONS.map((s) => (
-            <NavRow
-              key={s.key}
-              label={s.label}
-              badge={s.key === 'pending' ? pending : undefined}
-              selected={s.key === section}
-              onPress={() => onSection(s.key)}
-            />
-          ))}
-        </Stack>
-        <Stack gap="none" paddingTop="md">
-          <Stack paddingHorizontal="md" paddingBottom="xs">
-            <Text variant="label" color={SemanticColor.TextSecondary}>
-              Settings
-            </Text>
-          </Stack>
-          {SETTINGS_SECTIONS.map((s) => (
-            <NavRow
-              key={s.key}
-              label={s.label}
-              selected={s.key === section}
-              onPress={() => onSection(s.key)}
-            />
-          ))}
-        </Stack>
-        <Stack paddingHorizontal="sm" paddingTop="lg">
-          <Segments
-            options={APPEARANCES}
-            value={appearance}
-            onChange={setAppearance}
-            accessibilityLabel="Appearance"
-          />
-        </Stack>
-      </ScrollStack>
+      <AdminMenu {...props} closeIcon="chevrons-left" closeLabel="Hide menu" onClose={toggle} />
     </Stack>
+  )
+}
+
+/** The same menu as a drawer over the page, for screens without room for the column. */
+export function MenuDrawer(props: MenuProps & { onClose: () => void }) {
+  return (
+    <Stack position="absoluteFill" direction="row" zIndex={10}>
+      <Scrim onPress={props.onClose} />
+      <Stack width="85%" maxWidth={320} height="100%" background={SemanticColor.SurfaceSelected}>
+        <AdminMenu
+          {...props}
+          closeIcon="close"
+          closeLabel="Close menu"
+          onSection={(s) => {
+            props.onSection(s)
+            props.onClose()
+          }}
+        />
+      </Stack>
+    </Stack>
+  )
+}
+
+/** The shul, its sections, where it shows, and light or dark. */
+function AdminMenu({
+  shulName,
+  status,
+  section,
+  onSection,
+  onSiddur,
+  closeIcon,
+  closeLabel,
+  onClose,
+}: MenuProps & {
+  closeIcon: 'chevrons-left' | 'close'
+  closeLabel: string
+  onClose: () => void
+}) {
+  const { appearance, setAppearance } = useAppearance()
+  const pending = useConnect((s) => pendingCountOf(s.changes))
+  return (
+    <ScrollStack padding="md" gap="xs">
+      <Stack direction="row" justify="end">
+        <IconButton name={closeIcon} size={18} onPress={onClose} accessibilityLabel={closeLabel} />
+      </Stack>
+      <Stack gap="none" paddingHorizontal="md" paddingBottom="sm">
+        <Text variant="title" numberOfLines={2}>
+          {shulName}
+        </Text>
+        <Text variant="caption" color={SemanticColor.TextSecondary}>
+          {status}
+        </Text>
+      </Stack>
+      {SECTION_GROUPS.map((g, i) => (
+        <Stack key={i} gap="none" paddingTop={g.title ? 'md' : 'xs'}>
+          {!!g.title && (
+            <Stack paddingHorizontal="md" paddingBottom="xs">
+              <Text variant="label" color={SemanticColor.TextSecondary}>
+                {g.title}
+              </Text>
+            </Stack>
+          )}
+          {g.sections.map((s) => (
+            <NavRow
+              key={s.key}
+              label={s.label}
+              selected={s.key === section}
+              onPress={() => onSection(s.key)}
+            />
+          ))}
+        </Stack>
+      ))}
+      <Stack gap="none" paddingTop="md">
+        <Stack paddingHorizontal="md" paddingBottom="xs">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            See it
+          </Text>
+        </Stack>
+        {SEE_IT_SECTIONS.map((s) => (
+          <NavRow
+            key={s.key}
+            label={s.label}
+            icon={s.key === 'bulletin' ? 'print' : undefined}
+            selected={s.key === section}
+            onPress={() => onSection(s.key)}
+          />
+        ))}
+        <NavRow label="Siddur page" icon="external-link" onPress={onSiddur} />
+      </Stack>
+      <Stack gap="none" paddingTop="md">
+        <Stack paddingHorizontal="md" paddingBottom="xs">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            Connect
+          </Text>
+        </Stack>
+        {CONNECT_SECTIONS.map((s) => (
+          <NavRow
+            key={s.key}
+            label={s.label}
+            badge={s.key === 'pending' ? pending : undefined}
+            selected={s.key === section}
+            onPress={() => onSection(s.key)}
+          />
+        ))}
+      </Stack>
+      <Stack gap="none" paddingTop="md">
+        <Stack paddingHorizontal="md" paddingBottom="xs">
+          <Text variant="label" color={SemanticColor.TextSecondary}>
+            Settings
+          </Text>
+        </Stack>
+        {SETTINGS_SECTIONS.map((s) => (
+          <NavRow
+            key={s.key}
+            label={s.label}
+            selected={s.key === section}
+            onPress={() => onSection(s.key)}
+          />
+        ))}
+      </Stack>
+      <Stack paddingHorizontal="sm" paddingTop="lg">
+        <Segments
+          options={APPEARANCES}
+          value={appearance}
+          onChange={setAppearance}
+          accessibilityLabel="Appearance"
+        />
+      </Stack>
+    </ScrollStack>
   )
 }

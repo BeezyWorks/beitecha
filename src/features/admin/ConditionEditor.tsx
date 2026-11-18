@@ -123,7 +123,7 @@ function AtomPicker({ atoms, onChange }: { atoms: Atom[]; onChange: (atoms: Atom
       </Stack>
       {more && (
         <Stack direction="row" gap="sm" align="center">
-          <Stack grow>
+          <Stack grow width={0}>
             <TextField
               variant="boxed"
               placeholder="A holiday by name, e.g. Tish'a B'Av, Erev Pesach, Lag BaOmer"
@@ -190,7 +190,7 @@ export function ConditionEditor({
           <Button
             variant="ghost"
             size="sm"
-            title="Add an exception (“except on…”)"
+            title="Add an exception"
             onPress={() => setShowExcept(true)}
           />
         </Stack>

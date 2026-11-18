@@ -73,7 +73,7 @@ export function CalendarPicturesCard({ pictures }: { pictures: ReturnType<typeof
       )}
       {s.placement === 'above' && (
         <Stack direction="row" align="center" gap="md">
-          <Stack grow gap="xs">
+          <Stack grow width={0} gap="xs">
             <Text variant="body">Month’s name over the picture</Text>
             <Text variant="caption" color={SemanticColor.TextSecondary}>
               The picture reaches the top of the page.
@@ -98,7 +98,7 @@ export function CalendarPicturesCard({ pictures }: { pictures: ReturnType<typeof
           Covers
         </Text>
         <Stack direction="row" align="center" gap="md">
-          <Stack grow gap="xs">
+          <Stack grow width={0} gap="xs">
             <Text variant="body">Front cover</Text>
             {opposite && (
               <Text variant="caption" color={SemanticColor.TextSecondary}>
@@ -130,7 +130,7 @@ export function CalendarPicturesCard({ pictures }: { pictures: ReturnType<typeof
           </>
         )}
         <Stack direction="row" align="center" gap="md">
-          <Stack grow>
+          <Stack grow width={0}>
             <Text variant="body">Back cover</Text>
           </Stack>
           <ToggleSwitch

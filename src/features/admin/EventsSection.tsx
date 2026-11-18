@@ -25,10 +25,11 @@ import {
   type TefilaType,
 } from '@beitecha/engine'
 import React, { useEffect, useMemo, useState } from 'react'
-import { Platform } from 'react-native'
+import { Platform, useWindowDimensions } from 'react-native'
 
 import { DragList } from '@/components/DragList'
 import { Field } from '@/components/Field'
+import { useIsCompact } from '@/lib/useIsCompact'
 import { AiAssist } from './AiAssist'
 import { eventPrompt, parseEvents, parseRule, rulePrompt } from './aiItems'
 import { zmanIds } from './aiSetup'
@@ -329,7 +330,7 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
   )
   const hidden = (
     <Stack direction="row" align="center" gap="md">
-      <Stack grow>
+      <Stack grow width={0}>
         <Text variant="body">Hidden</Text>
         <Text variant="caption" color={SemanticColor.TextSecondary}>
           Not shown anywhere; other events can still be timed from it.
@@ -455,10 +456,9 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
             const unused = firstCatchAll >= 0 && i > firstCatchAll
             return (
               <Stack key={`${event.rules.length}:${i}`} gap="xs">
-                {/* On a phone the buttons go under the text: a row child doesn't shrink, so long text would push them off screen. */}
                 <Stack
-                  direction={wide ? 'row' : 'column'}
-                  align={wide ? 'center' : 'stretch'}
+                  direction="row"
+                  align="center"
                   gap="xs"
                   padding="sm"
                   radius="md"
@@ -466,7 +466,7 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
                   borderWidth={1}
                   borderColor={SemanticColor.BorderDefault}
                 >
-                  <Stack grow width={wide ? 0 : undefined}>
+                  <Stack grow width={0}>
                     <Touchable
                       onPress={() => setOpenRule(open ? null : i)}
                       accessibilityLabel={`Edit line ${i + 1}`}
@@ -502,7 +502,7 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
                       </Stack>
                     </Touchable>
                   </Stack>
-                  <Stack direction="row" align="center" gap="xs" justify={wide ? undefined : 'end'}>
+                  <Stack direction="row" align="center" gap="xs">
                     <IconButton
                       name={open ? 'chevron-down' : 'edit'}
                       size={18}
@@ -619,7 +619,7 @@ function EventEditor({ event, today }: { event: EventDef; today: DateString }) {
         <Card gap="md">
           <Touchable onPress={() => setMore((m) => !m)} accessibilityLabel="More about it">
             <Stack direction="row" align="center" gap="sm">
-              <Stack grow gap="none">
+              <Stack grow width={0} gap="none">
                 <Text variant="headline">More about it</Text>
                 <Text variant="caption" color={SemanticColor.TextSecondary}>
                   {[
@@ -680,21 +680,26 @@ function Footer({ name }: { name: string }) {
   const cancelEditing = useAdmin((s) => s.cancelEditing)
   const saveEditing = useAdmin((s) => s.saveEditing)
   const { changed, isNew } = editing
+  const compact = useIsCompact()
   const status = save === 'saving' ? 'Saving…' : changed ? 'Unsaved changes' : 'No changes'
   return (
     <Stack
       direction="row"
       align="center"
       gap="md"
-      paddingHorizontal="lg"
-      paddingVertical="md"
+      paddingHorizontal={compact ? 'md' : 'lg'}
+      paddingVertical={compact ? 'sm' : 'md'}
       borderTopWidth="hairline"
       borderColor={SemanticColor.BorderDefault}
       background={SemanticColor.SurfaceCard}
-      wrap
+      wrap={!compact}
     >
-      <Stack grow>
-        <Text variant="body" color={changed ? undefined : SemanticColor.TextSecondary}>
+      <Stack grow width={compact ? 0 : undefined}>
+        <Text
+          variant="body"
+          numberOfLines={compact ? 1 : undefined}
+          color={changed ? undefined : SemanticColor.TextSecondary}
+        >
           {status}
         </Text>
       </Stack>
@@ -705,7 +710,7 @@ function Footer({ name }: { name: string }) {
         onPress={cancelEditing}
       />
       <Button
-        title={`Save ${name}`}
+        title={compact ? 'Save' : `Save ${name}`}
         disabled={!changed || save === 'saving'}
         onPress={() => void saveEditing()}
       />
@@ -735,12 +740,17 @@ function useEditorKeys(active: boolean) {
 }
 
 /** Minyanim, shiurim or programs: the list, the one open to edit, and what it comes to on the display. */
+/** Sidebar, list, editor and preview all fit from here up. */
+const PREVIEW_BESIDE_WIDTH = 1360
+
 export function EventsSection({ kind, today }: { kind: EventKind; today: DateString }) {
   const schedule = useAdmin((s) => s.schedule)
   const profile = useAdmin((s) => s.profile)
   const editing = useAdmin((s) => s.editing)
   const commitSchedule = useAdmin((s) => s.commitSchedule)
   const wide = useIsWideLayout()
+  // Room for the preview beside the list and the editor; otherwise it goes under the editor.
+  const roomy = useWindowDimensions().width >= PREVIEW_BESIDE_WIDTH
   const events = schedule?.events ?? NO_EVENTS
   const list = useMemo(() => events.filter((e) => e.kind === kind), [events, kind])
   const [ai, setAi] = useState(false)
@@ -875,6 +885,7 @@ export function EventsSection({ kind, today }: { kind: EventKind; today: DateStr
             <ScrollStack padding="xl" gap="lg">
               {aiPanel}
               <EventEditor key={open.id} event={open} today={today} />
+              {!roomy && preview}
             </ScrollStack>
             <Footer name={adminLabel(open) || 'this'} />
           </>
@@ -885,9 +896,11 @@ export function EventsSection({ kind, today }: { kind: EventKind; today: DateStr
           </ScrollStack>
         )}
       </Stack>
-      <Stack width={400} background={SemanticColor.SurfaceCard}>
-        {preview}
-      </Stack>
+      {roomy && (
+        <Stack width={400} background={SemanticColor.SurfaceCard}>
+          {preview}
+        </Stack>
+      )}
     </Stack>
   )
 }

@@ -64,7 +64,7 @@ export function AiAssist<T>({
       borderColor={SemanticColor.BorderDefault}
     >
       <Stack direction="row" align="center" gap="sm">
-        <Stack grow gap="none">
+        <Stack grow width={0} gap="none">
           <Text variant="bodyStrong">{title}</Text>
           <Text variant="caption" color={SemanticColor.TextSecondary}>
             With ChatGPT, Claude or Gemini: say what you want, copy it over, paste the answer back.

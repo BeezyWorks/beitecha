@@ -115,7 +115,7 @@ function DatesEditor({
               onChange={(d) => setHebrew({ ...hebrew, day: +d })}
             />
           </Stack>
-          <Stack width={230}>
+          <Stack grow width={150} maxWidth={230}>
             <Select
               accessibilityLabel="Hebrew month"
               value={String(hebrew.month)}
@@ -123,7 +123,7 @@ function DatesEditor({
               onChange={(m) => setHebrew({ ...hebrew, month: +m })}
             />
           </Stack>
-          <Stack width={130}>
+          <Stack grow width={90} maxWidth={130}>
             <Field
               label=""
               accessibilityLabel="Hebrew year (optional)"

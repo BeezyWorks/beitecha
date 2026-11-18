@@ -50,7 +50,7 @@ export function BulletinDaysCard({
         return (
           <Stack key={group} gap="sm">
             <Stack direction="row" align="center" gap="md">
-              <Stack grow>
+              <Stack grow width={0}>
                 <Text variant="body">{CALENDAR_GROUP_LABELS[group]}</Text>
               </Stack>
               <ToggleSwitch

@@ -25,6 +25,7 @@ import {
 import React, { useMemo, useState } from 'react'
 
 import { makeT } from '@/features/luach/language'
+import { useIsCompact } from '@/lib/useIsCompact'
 import { adminLabel } from './forms'
 import { KIND, NoticeForm, NoticesAi, useNewNotice } from './NoticesTab'
 import { AddOneOff, exceptionFor, OccurrenceRow } from './OccurrenceRow'
@@ -231,6 +232,7 @@ export function ThisWeekSection({
   onSection: (s: SectionKey) => void
 }) {
   const wide = useIsWideLayout()
+  const compact = useIsCompact()
   const schedule = useAdmin((s) => s.schedule)
   const [offset, setOffset] = useState(0)
   const [editing, setEditing] = useState<Notice | null>(null)
@@ -271,8 +273,8 @@ export function ThisWeekSection({
     <Stack maxWidth={820} gap="xl">
       <Stack direction="row" align="center" gap="sm">
         <Button variant="ghost" size="sm" title="‹" onPress={() => setOffset(offset - 1)} />
-        <Stack grow gap="none">
-          <Text variant="largeTitle">{title}</Text>
+        <Stack grow width={0} gap="none">
+          <Text variant={compact ? 'title' : 'largeTitle'}>{title}</Text>
           <Stack direction="row" gap="sm" wrap>
             <Text variant="body" color={SemanticColor.TextSecondary}>
               {civilDateShort(weekStart)} – {civilDateShort(weekEnd)}
